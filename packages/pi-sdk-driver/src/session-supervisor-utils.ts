@@ -384,7 +384,11 @@ function transcriptFromSources(
   return transcript;
 }
 
-/** One thinking item per non-blank thinking part, in part order. */
+/**
+ * One thinking item per non-blank thinking part, in part order. The last one carries how long the
+ * model thought: from the request to the saved reply, but only when the reply holds no text, since
+ * streaming a written answer would count as thinking.
+ */
 function thinkingItems(
   message: Record<string, unknown>,
   id: string,
@@ -392,13 +396,21 @@ function thinkingItems(
 ): SessionTranscriptThinking[] {
   const { content } = message;
   if (!Array.isArray(content)) return [];
-  return content.flatMap((part, partIndex) => {
+  const items = content.flatMap((part, partIndex) => {
     if (!isRecord(part) || part.type !== "thinking" || typeof part.thinking !== "string") return [];
     const text = part.thinking.trim();
     return text
       ? [{ kind: "thinking" as const, id: `${id}:thinking:${partIndex}`, createdAt, text }]
       : [];
   });
+  const last = items.at(-1);
+  const durationMs =
+    typeof message.savedAt === "string" ? Date.parse(message.savedAt) - Date.parse(createdAt) : NaN;
+  const wroteText = content.some(
+    (part) => isRecord(part) && part.type === "text" && typeof part.text === "string" && part.text.trim(),
+  );
+  if (!last || wroteText || !(durationMs >= 0)) return items;
+  return [...items.slice(0, -1), { ...last, durationMs }];
 }
 
 /**
@@ -456,7 +468,8 @@ function displaySourcesFromSession(
     if (entry.type === "compaction" && index > 0) return [];
     return sessionEntryToContextMessages(entry).map((message) => ({
       kind: "message",
-      message: { ...message, id: entry.id },
+      // The entry's time is when the reply was saved; the message's own is when it was requested.
+      message: { ...message, id: entry.id, savedAt: entry.timestamp },
     }));
   });
 }

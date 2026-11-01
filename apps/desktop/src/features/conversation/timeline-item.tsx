@@ -13,7 +13,7 @@ import type {
   TimelineTurnMarker,
 } from "../../../contracts/timeline-types";
 import type { ScheduledTaskOrigin } from "../../../contracts/scheduled-tasks";
-import { extensionToolRowLabel } from "../../../contracts/tool-labels";
+import { extensionToolRowLabel, humanToolName } from "../../../contracts/tool-labels";
 import { useExtensionToolLabel } from "../extensions/extension-tool-labels";
 import {
   AnnotationMarkers,
@@ -105,7 +105,7 @@ export function TimelineItem({
     case "card":
       return <ExtensionCardItem card={item.card} onAction={onExtensionAction} />;
     case "thinking":
-      return <TimelineThinking text={item.text} />;
+      return <TimelineThinking item={item} />;
     default:
       return unhandledTimelineItem(item);
   }
@@ -116,8 +116,12 @@ function unhandledTimelineItem(item: never): null {
   return null;
 }
 
-/** The model's reasoning: one quiet "Thinking" line, collapsed until the reader opens it. */
-function TimelineThinking({ text }: { readonly text: string }) {
+/** The model's reasoning: one quiet "Thought for 19s" line, collapsed until the reader opens it. */
+function TimelineThinking({
+  item,
+}: {
+  readonly item: Extract<DisplayTimelineItem, { kind: "thinking" }>;
+}) {
   const [expanded, setExpanded] = useState(false);
   return (
     <article className="timeline-thinking" data-testid="timeline-thinking">
@@ -132,11 +136,17 @@ function TimelineThinking({ text }: { readonly text: string }) {
         >
           <ChevronRightIcon />
         </span>
-        <span className="timeline-thinking__label">Thinking</span>
+        <span className="timeline-thinking__label">
+          {item.open
+            ? "Thinking…"
+            : item.durationMs !== undefined
+              ? `Thought for ${formatWorkedDuration(item.durationMs)}`
+              : "Thought"}
+        </span>
       </button>
       {expanded ? (
         <p className="timeline-thinking__body" data-testid="timeline-thinking-body">
-          {text}
+          {item.text}
         </p>
       ) : null}
     </article>
@@ -347,7 +357,7 @@ function TimelineToolCallItem({
   const diffStats = diffText ? countDiffStats(diffText) : undefined;
   const compactLabel =
     extensionLabel === undefined
-      ? buildCompactLabel(item, diffStats)
+      ? item.label
       : extensionToolRowLabel(extensionLabel, item.input);
   const filePath = writeTool ? extractFilename(item.input) || undefined : undefined;
   const diffLanguage = diffText && filePath ? extensionToLanguage(filePath) : undefined;
@@ -397,9 +407,10 @@ function TimelineToolCallItem({
               <span className="timeline-tool__stat-del">−{diffStats.removed}</span>
             </span>
           ) : null}
-          <span className="timeline-tool__meta-inline">
+          {/* The exact tool id stays on hover for anyone tracing which tool ran. */}
+          <span className="timeline-tool__meta-inline" title={item.toolName}>
             <span className="timeline-tool__status-pip" aria-hidden="true" />
-            {`${item.toolName} \u00b7 ${statusLabel(item.status)}`}
+            {`${humanToolName(item.toolName)} \u00b7 ${statusLabel(item.status)}`}
           </span>
         </button>
         {filePath && onViewFileInDiff ? (
@@ -424,7 +435,7 @@ function TimelineToolCallItem({
             <ImageAttachmentThumb
               className="timeline-tool__image"
               key={`${item.callId}:${index}`}
-              name={`${item.toolName} image ${index + 1}`}
+              name={`${humanToolName(item.toolName)} image ${index + 1}`}
               src={toolOutputImageSrc(image)}
             />
           ))}
@@ -501,19 +512,6 @@ function toolGlyph(toolName: string) {
   return <SparkIcon />;
 }
 
-function buildCompactLabel(
-  item: TimelineToolCall,
-  diffStats: { added: number; removed: number } | undefined,
-): string {
-  if (isWriteTool(item.toolName)) {
-    const filename = extractFilename(item.input);
-    if (filename) {
-      return `Edited ${shortenPath(filename)}`;
-    }
-  }
-  return item.label;
-}
-
 function extractFilename(input: unknown): string {
   if (typeof input === "object" && input !== null) {
     const record = input as Record<string, unknown>;
@@ -523,15 +521,6 @@ function extractFilename(input: unknown): string {
     }
   }
   return "";
-}
-
-function shortenPath(filePath: string): string {
-  // Show last 2-3 path segments for readability
-  const parts = filePath.split("/");
-  if (parts.length <= 3) {
-    return filePath;
-  }
-  return parts.slice(-3).join("/");
 }
 
 function countDiffStats(diff: string): { added: number; removed: number } {

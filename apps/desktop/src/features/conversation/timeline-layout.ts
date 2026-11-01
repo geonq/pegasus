@@ -77,7 +77,12 @@ export function sameRowContent(a: DisplayTimelineItem, b: DisplayTimelineItem): 
     case "activity":
       return b.kind === a.kind && a.label === b.label && a.detail === b.detail;
     case "thinking":
-      return b.kind === a.kind && a.text === b.text;
+      return (
+        b.kind === a.kind &&
+        a.text === b.text &&
+        a.durationMs === b.durationMs &&
+        a.open === b.open
+      );
     case "custom":
       return b.kind === a.kind && a.customType === b.customType && a.text === b.text;
     case "card":

@@ -6,7 +6,9 @@ import type { SessionDriverEvent, SessionQueuedMessage, SessionRef } from "@pi-g
 import type { TranscriptMessage } from "../../contracts/desktop-state";
 import { promptTitle } from "./thread-title-constants";
 import {
+  builtInToolLabel,
   extensionToolRowLabel,
+  humanToolName,
   toolInputSummary,
   truncate,
   type ExtensionToolLabels,
@@ -516,16 +518,19 @@ function toolLabel(toolName: string, input: unknown): string {
   if (toolName === sendMessageToThreadToolName) {
     return detail ? `Sent message to thread: ${detail}` : "Sent message to thread";
   }
+  const builtIn = builtInToolLabel(toolName, input);
+  if (builtIn) {
+    return builtIn;
+  }
+  // Never the raw id: an unknown tool reads by its name in words, after any MCP server prefix.
+  const name = humanToolName(toolName);
   if (looksLikeSearch(toolName, input)) {
-    return detail ? `Searched ${detail}` : `Searched with ${toolName}`;
+    return detail ? `Searched ${detail}` : `Searched with ${name}`;
   }
   if (looksLikeFileExplore(toolName, input)) {
-    if (toolName.toLowerCase() === "read") {
-      return detail ? `Read ${detail}` : "Read a file";
-    }
-    return detail ? `Explored ${detail}` : `Explored files with ${toolName}`;
+    return detail ? `Explored ${detail}` : `Explored files with ${name}`;
   }
-  return detail ? `Ran ${toolName}: ${detail}` : `Ran ${toolName}`;
+  return detail ? `${name}: ${detail}` : name;
 }
 
 function progressLabel(progress: number | undefined): string | undefined {

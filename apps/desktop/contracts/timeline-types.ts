@@ -53,7 +53,8 @@ export interface TimelineSummary {
 export type TranscriptMessage =
   | SessionTranscriptMessage
   | SessionTranscriptCustomMessage
-  | SessionTranscriptThinking
+  // `open` marks the thinking still streaming in a running turn; the timeline sets it for display.
+  | (SessionTranscriptThinking & { readonly open?: boolean })
   | SessionTranscriptCard
   | SessionTranscriptPin
   | TimelineActivity

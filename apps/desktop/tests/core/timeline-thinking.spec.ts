@@ -77,7 +77,7 @@ test("shows model thinking as quiet collapsed rows between tool calls and expand
 
     const rows = window.getByTestId("timeline-thinking");
     await expect(rows).toHaveCount(2);
-    await expect(rows.first()).toContainText("Thinking");
+    await expect(rows.first()).toContainText("Thought");
     await expect(rows.first().getByTestId("timeline-thinking-body")).toHaveCount(0);
     await expect(rows.first().getByRole("button")).toHaveAttribute("aria-expanded", "false");
     await expect(window.getByText("Plan: read the config.")).toHaveCount(0);

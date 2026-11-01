@@ -126,6 +126,8 @@ export interface SessionTranscriptThinking {
   readonly id: string;
   readonly createdAt: string;
   readonly text: string;
+  /** How long the model thought, when the saved session shows it. */
+  readonly durationMs?: number;
 }
 
 export type SessionTranscriptItem =

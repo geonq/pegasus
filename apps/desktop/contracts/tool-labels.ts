@@ -94,3 +94,116 @@ export function truncate(value: string, limit = 160): string {
   }
   return `${normalized.slice(0, limit - 1)}…`;
 }
+
+const IMAGE_FILE = /\.(png|jpe?g|gif|webp|bmp|heic)$/i;
+
+/**
+ * The tool's own name without the wrappers that say nothing to a reader: an MCP server prefix
+ * (`mcp__github__get_issue`) and pi-ecosystem's `project_` aliases of pi's tools.
+ */
+export function baseToolName(toolName: string): string {
+  return toolName.replace(/^mcp__.+?__/, "").replace(/^project_/, "");
+}
+
+/** "get_issue" → "Get issue": a name a person can read when no verb fits the tool. */
+export function humanToolName(toolName: string): string {
+  const words = baseToolName(toolName).replace(/[_-]+/g, " ").trim();
+  return words ? `${words[0]!.toUpperCase()}${words.slice(1)}` : toolName;
+}
+
+/**
+ * A plain sentence for the tools pi and its wrappers run: "Ran git status", "Read src/app.ts",
+ * "Looked at image shot.png". Undefined for a tool this table does not know.
+ */
+export function builtInToolLabel(toolName: string, input: unknown): string | undefined {
+  const args = typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
+  const text = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = args[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return undefined;
+  };
+  const path = text("path", "file_path", "filePath");
+  const shown = path ? shortPath(path) : undefined;
+  switch (baseToolName(toolName).toLowerCase()) {
+    case "bash":
+    case "shell":
+    case "powershell":
+    case "exec":
+    case "mac_exec": {
+      // A command can say what it is for, like Claude Code's Bash tool; that reads best.
+      const description = text("description");
+      if (description) return truncate(description, 80);
+      const command = text("command");
+      return command ? `Ran ${truncate(command.split("\n")[0]!, 80)}` : "Ran a command";
+    }
+    case "read":
+    case "read_file":
+    case "view":
+      if (!path) return "Read a file";
+      return IMAGE_FILE.test(path)
+        ? `Looked at image ${path.split(/[\\/]/).at(-1)}`
+        : `Read ${shown}`;
+    case "ls":
+    case "list":
+    case "list_dir":
+    case "glob": {
+      const target = text("pattern") ?? shown;
+      return target ? `Listed ${truncate(target, 80)}` : "Listed files";
+    }
+    case "grep":
+    case "find":
+    case "rg": {
+      const query = text("pattern", "query");
+      return query ? `Searched for ${truncate(query, 80)}` : "Searched files";
+    }
+    case "edit":
+    case "multi_edit":
+    case "apply_patch":
+    case "mac_edit":
+      return shown ? `Edited ${shown}` : "Edited a file";
+    case "write":
+    case "create_file":
+    case "mac_create_file":
+      return shown ? `Wrote ${shown}` : "Wrote a file";
+    case "web_fetch":
+    case "fetch": {
+      const url = text("url");
+      return url ? `Opened ${urlHost(url)}` : "Opened a web page";
+    }
+    case "web_search": {
+      const query = text("query", "q");
+      return query ? `Searched the web for ${truncate(query, 80)}` : "Searched the web";
+    }
+    case "screen_record":
+      return shown ? `Recorded screen to ${shown}` : "Recorded screen";
+    case "screenshot":
+    case "take_screenshot":
+      return "Took screenshot";
+    case "read_skill": {
+      const id = text("id", "name");
+      return id ? `Loaded skill ${truncate(id, 80)}` : "Loaded a skill";
+    }
+    case "find_skills": {
+      const query = text("query");
+      return query ? `Searched skills for ${truncate(query, 80)}` : "Searched skills";
+    }
+    default:
+      return undefined;
+  }
+}
+
+/** The last three parts of a path, either separator, so a long path still names its file. */
+function shortPath(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  return truncate(parts.length <= 3 ? path : parts.slice(-3).join("/"), 80);
+}
+
+function urlHost(url: string): string {
+  try {
+    return new URL(url).host || truncate(url, 80);
+  } catch {
+    return truncate(url, 80);
+  }
+}

@@ -78,8 +78,10 @@ async function expectLabelledRow(window: Page) {
   const row = window.getByTestId("transcript").locator(".timeline-tool");
   await expect(row).toHaveCount(1);
   await expect(row.locator(".timeline-tool__label")).toHaveText("Look up ticket: T-42");
-  // The raw tool name stays visible beside the status.
-  await expect(row.locator(".timeline-tool__meta-inline")).toContainText("ticket_read");
+  // The tool's name reads as words beside the status; its exact id stays on hover.
+  const meta = row.locator(".timeline-tool__meta-inline");
+  await expect(meta).toContainText("Ticket read");
+  await expect(meta).toHaveAttribute("title", "ticket_read");
 }
 
 test("an extension tool's row shows the label it registered, live and after restart", async () => {

@@ -36,7 +36,7 @@ export function buildDisplayTimelineItems(
     readonly subagentsWorking?: readonly string[];
   } = {},
 ): readonly DisplayTimelineItem[] {
-  const transcript = withSubagentsWorking(withWorkingLast(source), options);
+  const transcript = withSubagentsWorking(withThoughtDurations(withWorkingLast(source), options.lastTurnRunning === true), options);
   // Marker to emit immediately before the transcript item at that index.
   // Index `transcript.length` means "after the last item".
   const markersBefore = new Map<number, TimelineTurnMarker>();
@@ -122,6 +122,33 @@ function withWorkingLast(
   const index = transcript.findIndex((item) => item.kind === "activity" && item.tone === "working");
   if (index < 0 || index === transcript.length - 1) return transcript;
   return [...transcript.slice(0, index), ...transcript.slice(index + 1), transcript[index]!];
+}
+
+/**
+ * A live thinking row ends where the next row starts, so it reads "Thought for Ns" once the model
+ * moves on, and the newest one in a running turn is still open. Rows from history already carry their duration; a gap under a second means the two
+ * rows share one saved timestamp, which says nothing about how long the thinking took.
+ */
+function withThoughtDurations(
+  transcript: readonly TimelineTranscriptItem[],
+  running: boolean,
+): readonly TimelineTranscriptItem[] {
+  let changed = false;
+  const result = transcript.map((item, index) => {
+    if (item.kind !== "thinking" || item.durationMs !== undefined) return item;
+    const next = transcript
+      .slice(index + 1)
+      .find((later) => !(later.kind === "activity" && later.tone === "working"));
+    if (!next && running) {
+      changed = true;
+      return { ...item, open: true };
+    }
+    const durationMs = next ? Date.parse(next.createdAt) - Date.parse(item.createdAt) : NaN;
+    if (!(durationMs >= MIN_WORKED_DURATION_MS)) return item;
+    changed = true;
+    return { ...item, durationMs };
+  });
+  return changed ? result : transcript;
 }
 
 /** A chat whose own turn ended still shows that its subagents are working. */

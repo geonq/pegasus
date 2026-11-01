@@ -156,3 +156,42 @@ test("a finished turn shows its subagents still working", () => {
   expect(last).not.toHaveProperty("detail");
   expect(buildDisplayTimelineItems(transcript, { subagentsWorking: [] }).at(-1)?.id).toBe("a1");
 });
+
+test("thinking reads Thought for Ns once the next row starts, and stays open while it streams", () => {
+  const thinking = (id: string, seconds: number, durationMs?: number): TranscriptMessage => ({
+    kind: "thinking",
+    id,
+    text: id,
+    createdAt: at(seconds),
+    ...(durationMs !== undefined ? { durationMs } : {}),
+  });
+  const working: TranscriptMessage = {
+    kind: "activity",
+    id: "working",
+    label: "Thinking…",
+    tone: "working",
+    createdAt: at(1),
+  };
+  const view = (transcript: readonly TranscriptMessage[], running: boolean) =>
+    buildDisplayTimelineItems(transcript, { lastTurnRunning: running }).flatMap((item) =>
+      item.kind === "thinking" ? [[item.id, item.durationMs, item.open === true]] : [],
+    );
+  const transcript = [
+    message("u1", "user", 0),
+    thinking("live", 2),
+    tool("t1", 21),
+    // Saved rows share their reply's timestamp, so only a duration from history counts.
+    thinking("saved", 25, 8_000),
+    thinking("same-time", 30),
+    message("a1", "assistant", 30),
+    thinking("streaming", 31),
+    working,
+  ];
+  expect(view(transcript, true)).toEqual([
+    ["live", 19_000, false],
+    ["saved", 8_000, false],
+    ["same-time", undefined, false],
+    ["streaming", undefined, true],
+  ]);
+  expect(view(transcript, false).at(-1)).toEqual(["streaming", undefined, false]);
+});

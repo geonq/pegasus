@@ -255,7 +255,7 @@ test("keeps long tool metadata and user rows inside the transcript at wide and n
     await expect(userRow).toBeVisible({ timeout: 15_000 });
     await seedLongToolCall(harness, sessionRef);
 
-    const toolHeader = window.locator(".timeline-tool__header", { hasText: LONG_TOOL_NAME });
+    const toolHeader = window.locator(".timeline-tool__header", { hasText: `Inspect ${"metadata".repeat(32)}` });
     await expect(toolHeader).toBeVisible();
     await expect(toolHeader).toHaveAttribute("aria-expanded", "false");
 
