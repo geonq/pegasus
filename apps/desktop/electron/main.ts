@@ -47,6 +47,7 @@ import { performExtensionViewHostAction } from "./extensions/extension-view-acti
 import { extensionFrameDocument } from "./extensions/extension-frame-document";
 import { ReviewOwner } from "./workbench/review-owner";
 import { promptTitle } from "./conversation/thread-title-constants";
+import { assertComposerAttachmentPixels } from "./ipc/composer-attachment-pixels";
 import { mainFrameHandler } from "./ipc/main-frame-ipc";
 import { registerDesktopIpc } from "./ipc/register-desktop-ipc";
 import {
@@ -1926,8 +1927,10 @@ app
             preloadPath: path.join(__dirname, "..", "preload", "remote-broker-preload.js"),
             pageUrl,
             windows: windowOwner,
-            sendText: ({ sessionRef, text, deliverAs }) =>
-              store.deliverRemoteInstruction(sessionRef, text, deliverAs),
+            sendText: ({ sessionRef, text, deliverAs, attachments = [] }) => {
+              assertComposerAttachmentPixels(attachments);
+              return store.deliverRemoteInstruction(sessionRef, text, deliverAs, attachments);
+            },
           });
           brokers.set(client.id, broker);
           remoteDesktopBrokers.add(broker);

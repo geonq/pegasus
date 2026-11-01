@@ -193,6 +193,7 @@ export interface ConversationOwner {
     sessionRef: SessionRef,
     text: string,
     deliverAs?: "steer",
+    attachments?: readonly ComposerAttachment[],
   ): Promise<string | undefined>;
 }
 
@@ -229,8 +230,8 @@ export function createConversationOwner(store: ConversationOwnerHost): Conversat
     cancelCurrentRun: (sessionRef) => cancelCurrentRun(store, sessionRef),
     sendMessageToSession: (sessionRef, text, attachments, options) =>
       sendMessageToSession(store, sessionRef, text, attachments, options),
-    deliverBackgroundInstruction: (sessionRef, text, deliverAs) =>
-      deliverBackgroundInstruction(store, sessionRef, text, deliverAs),
+    deliverBackgroundInstruction: (sessionRef, text, deliverAs, attachments) =>
+      deliverBackgroundInstruction(store, sessionRef, text, deliverAs, attachments),
   };
 }
 
@@ -748,9 +749,10 @@ async function deliverBackgroundInstruction(
   sessionRef: SessionRef,
   text: string,
   deliverAs?: "steer",
+  attachments: readonly ComposerAttachment[] = [],
 ): Promise<string | undefined> {
   const instruction = text.trim();
-  if (!instruction) {
+  if (!instruction && attachments.length === 0) {
     throw new Error("Scheduled task instruction is empty.");
   }
   await store.ensureSessionReady(sessionRef);
@@ -767,7 +769,7 @@ async function deliverBackgroundInstruction(
   if (session.status === "running") {
     const nextMessage = buildQueuedComposerMessage({
       text: instruction,
-      attachments: [],
+      attachments,
       mode: deliverAs ?? "followUp",
     });
     const nextQueuedMessages = [...store.getQueuedComposerMessages(sessionRef), nextMessage];
@@ -794,13 +796,14 @@ async function deliverBackgroundInstruction(
     store.conversationState.transcriptCache,
     sessionRef,
     instruction,
+    toTranscriptAttachments(attachments),
   );
   store.publishSelectedTranscriptFor(sessionRef);
   clearActiveAssistantMessage(store.conversationState.activeAssistantMessageBySession, sessionRef);
   store.conversationState.sessionErrorsBySession.delete(key);
   await store.driver.sendUserMessage(sessionRef, {
     text: instruction,
-    attachments: [],
+    attachments: toSessionAttachments(attachments),
   });
   return optimisticMessageId;
 }

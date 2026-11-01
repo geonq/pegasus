@@ -7,6 +7,8 @@ const sessionRef: SessionRef = { workspaceId: "ws", sessionId: "sess" };
 function deliveryHost(status: "idle" | "running") {
   const stamps: SessionRef[] = [];
   const sent: string[] = [];
+  const sentAttachments: unknown[] = [];
+  const queuedAttachments: unknown[] = [];
   const queued: string[] = [];
   const transcriptCache = new Map<string, readonly unknown[]>();
   const host = {
@@ -16,11 +18,19 @@ function deliveryHost(status: "idle" | "running") {
       sessionErrorsBySession: new Map<string, string>(),
     },
     driver: {
-      sendUserMessage: async (_ref: SessionRef, message: { text: string }) => {
+      sendUserMessage: async (
+        _ref: SessionRef,
+        message: { text: string; attachments: readonly unknown[] },
+      ) => {
         sent.push(message.text);
+        sentAttachments.push(...message.attachments);
       },
-      replaceQueuedMessages: async (_ref: SessionRef, messages: readonly { text: string }[]) => {
+      replaceQueuedMessages: async (
+        _ref: SessionRef,
+        messages: readonly { text: string; attachments?: readonly unknown[] }[],
+      ) => {
         queued.push(...messages.map((message) => message.text));
+        queuedAttachments.push(...messages.flatMap((message) => message.attachments ?? []));
       },
     },
     ensureSessionReady: async () => undefined,
@@ -37,7 +47,7 @@ function deliveryHost(status: "idle" | "running") {
     publishSelectedTranscriptFor: () => undefined,
     refreshState: async () => ({}) as never,
   };
-  return { host, stamps, sent, queued, transcriptCache };
+  return { host, stamps, sent, queued, transcriptCache, sentAttachments, queuedAttachments };
 }
 
 test("a scheduled-task user message stamps recency", async () => {
@@ -69,4 +79,27 @@ test("an empty scheduled-task instruction does not stamp recency", async () => {
   await expect(owner.deliverBackgroundInstruction(sessionRef, "   ")).rejects.toThrow(/empty/);
   expect(stamps).toEqual([]);
   expect(sent).toEqual([]);
+});
+
+test("a remote image reaches the prompt, alone or queued behind a running turn", async () => {
+  const image = { id: "i1", kind: "image" as const, name: "shot.png", mimeType: "image/png", data: "iVBORw0KGgo=" };
+  const idle = deliveryHost("idle");
+  await createConversationOwner(idle.host as never).deliverBackgroundInstruction(
+    sessionRef,
+    "",
+    undefined,
+    [image],
+  );
+  expect(idle.sent).toEqual([""]);
+  expect(idle.sentAttachments).toMatchObject([{ kind: "image", mimeType: "image/png", data: image.data }]);
+
+  const running = deliveryHost("running");
+  await createConversationOwner(running.host as never).deliverBackgroundInstruction(
+    sessionRef,
+    "look",
+    undefined,
+    [image],
+  );
+  expect(running.queued).toEqual(["look"]);
+  expect(running.queuedAttachments.length).toBe(1);
 });
