@@ -195,3 +195,50 @@ test("thinking reads Thought for Ns once the next row starts, and stays open whi
   ]);
   expect(view(transcript, false).at(-1)).toEqual(["streaming", undefined, false]);
 });
+
+test("finished reads and searches in a row fold into one Explored row; others stay in sight", () => {
+  const call = (
+    id: string,
+    toolName: string,
+    input: unknown,
+    status: "running" | "success" | "error" = "success",
+  ): TranscriptMessage => ({
+    kind: "tool",
+    id,
+    callId: id,
+    toolName,
+    status,
+    label: id,
+    input,
+    createdAt: at(1),
+  });
+  const view = (transcript: readonly TranscriptMessage[]) =>
+    buildDisplayTimelineItems(transcript, { lastTurnRunning: true }).map((item) =>
+      item.kind === "tool-group" ? `${item.label} [${item.tools.map((t) => t.id)}]` : item.id,
+    );
+  expect(
+    view([
+      message("u1", "user", 0),
+      call("r1", "project_read", { path: "a.ts" }),
+      call("r2", "project_ls", { path: "src" }),
+      call("g1", "grep", { pattern: "x" }),
+      call("s1", "project_shell", { command: "ls" }),
+      call("r3", "read", { path: "b.ts" }),
+      call("img", "project_read", { path: "shot.png" }),
+      call("r4", "read", { path: "c.ts" }),
+      call("r5", "read", { path: "d.ts" }, "error"),
+      call("r6", "read", { path: "e.ts" }),
+      call("r7", "read", { path: "f.ts" }, "running"),
+    ]),
+  ).toEqual([
+    "u1",
+    "Explored 2 files, 1 search [r1,r2,g1]",
+    "s1",
+    "r3",
+    "img",
+    "r4",
+    "r5",
+    "r6",
+    "r7",
+  ]);
+});

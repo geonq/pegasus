@@ -1254,6 +1254,13 @@
   line-height: 1.45;
 }
 
+.timeline-tool-group__calls {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 0 20px;
+  min-width: 0;
+}
+
 .timeline-thinking__body {
   margin: 0 0 0 20px;
   color: var(--muted-strong);

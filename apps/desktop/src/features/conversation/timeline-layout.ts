@@ -31,6 +31,8 @@ export function estimateRowHeight(item: DisplayTimelineItem, width: number): num
     }
     case "tool":
       return 52;
+    case "tool-group":
+      return 28;
     // Collapsed by default; an opened row is measured like any other.
     case "thinking":
       return 28;
@@ -76,6 +78,13 @@ export function sameRowContent(a: DisplayTimelineItem, b: DisplayTimelineItem): 
       return b.kind === a.kind && a.label === b.label && a.presentation === b.presentation;
     case "activity":
       return b.kind === a.kind && a.label === b.label && a.detail === b.detail;
+    case "tool-group":
+      return (
+        b.kind === a.kind &&
+        a.label === b.label &&
+        a.tools.length === b.tools.length &&
+        a.tools.every((tool, index) => sameRowContent(tool, b.tools[index]!))
+      );
     case "thinking":
       return (
         b.kind === a.kind &&

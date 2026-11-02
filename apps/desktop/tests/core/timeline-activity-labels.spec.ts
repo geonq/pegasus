@@ -81,6 +81,29 @@ test("a turn's rows read as sentences and its thinking says how long it took", a
     }
     await expect(timeline).not.toContainText("project_");
     await expect(timeline).not.toContainText("mcp__");
+
+    // Finished reads and searches in a row fold into one row that opens to the calls.
+    const done = (callId: string): SessionDriverEvent => ({
+      type: "toolFinished",
+      sessionRef,
+      timestamp: now(),
+      callId,
+      success: true,
+    });
+    await emitTestSessionEvents(harness, [
+      tool("c5", "project_read", { path: "README.md" }),
+      done("c5"),
+      tool("c6", "grep", { pattern: "render_ui" }),
+      done("c6"),
+      tool("c7", "project_read", { path: "AGENTS.md" }),
+      done("c7"),
+    ]);
+    const group = window.getByTestId("timeline-tool-group");
+    await expect(group).toHaveText("Explored 2 files, 1 search");
+    await expect(timeline.getByText("Read README.md", { exact: true })).toHaveCount(0);
+    await group.getByRole("button").click();
+    await expect(group.getByText("Read README.md", { exact: true })).toBeVisible();
+    await expect(group.getByText("Searched for render_ui", { exact: true })).toBeVisible();
     await window.screenshot({ path: test.info().outputPath("activity-labels.png") });
   } finally {
     await harness.close();

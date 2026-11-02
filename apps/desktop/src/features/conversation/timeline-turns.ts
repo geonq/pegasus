@@ -1,9 +1,11 @@
 import type { TurnChangeSummary } from "../../../contracts/review";
 import type {
   DisplayTimelineItem,
+  TimelineToolCall,
   TimelineTranscriptItem,
   TimelineTurnMarker,
 } from "../../../contracts/timeline-types";
+import { exploreKind } from "../../../contracts/tool-labels";
 
 const MIN_WORKED_DURATION_MS = 1_000;
 
@@ -95,7 +97,7 @@ export function buildDisplayTimelineItems(
 
   const cardsAfter = turnChangeCardPositions(transcript, options.turnChanges ?? []);
   if (markersBefore.size === 0 && cardsAfter.size === 0) {
-    return transcript;
+    return withExploreGroups(transcript);
   }
 
   const result: DisplayTimelineItem[] = [];
@@ -112,7 +114,52 @@ export function buildDisplayTimelineItems(
       result.push({ kind: "turn-changes", id: `turn-changes:${turn.checkpointId}`, turn });
     }
   }
-  return result;
+  return withExploreGroups(result);
+}
+
+/**
+ * Two or more finished reads and searches in a row fold into one "Explored 3 files, 2 searches"
+ * row that opens to the calls, the way Codex shows looking around. A running or failed call, or
+ * any other row, ends the run, so work in progress and errors stay in plain sight.
+ */
+function withExploreGroups(items: readonly DisplayTimelineItem[]): readonly DisplayTimelineItem[] {
+  const result: DisplayTimelineItem[] = [];
+  let run: TimelineToolCall[] = [];
+  const flush = () => {
+    if (run.length >= 2) {
+      const searches = run.filter((tool) => exploreKind(tool.toolName, tool.input) === "search");
+      const files = run.length - searches.length;
+      const parts = [
+        ...(files ? [`${files} file${files === 1 ? "" : "s"}`] : []),
+        ...(searches.length
+          ? [`${searches.length} search${searches.length === 1 ? "" : "es"}`]
+          : []),
+      ];
+      result.push({
+        kind: "tool-group",
+        id: `tool-group:${run[0]!.id}`,
+        label: `Explored ${parts.join(", ")}`,
+        tools: run,
+      });
+    } else {
+      result.push(...run);
+    }
+    run = [];
+  };
+  for (const item of items) {
+    if (
+      item.kind === "tool" &&
+      item.status === "success" &&
+      exploreKind(item.toolName, item.input) !== undefined
+    ) {
+      run.push(item);
+      continue;
+    }
+    flush();
+    result.push(item);
+  }
+  flush();
+  return result.length === items.length ? items : result;
 }
 
 /** The live "Thinking…" pill is the run's leading edge, so it always renders after the latest row. */

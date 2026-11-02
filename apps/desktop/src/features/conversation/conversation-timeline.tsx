@@ -421,7 +421,10 @@ function isSameDisplayItem(a: DisplayTimelineItem, b: DisplayTimelineItem): bool
     // A card's id is its checkpoint, and a captured turn's files never change.
     return true;
   }
-  if ((a.kind === "card" || a.kind === "custom" || a.kind === "thinking") && a.kind === b.kind) {
+  if (
+    (a.kind === "card" || a.kind === "custom" || a.kind === "thinking" || a.kind === "tool-group") &&
+    a.kind === b.kind
+  ) {
     return sameRowContent(a, b);
   }
   return false;

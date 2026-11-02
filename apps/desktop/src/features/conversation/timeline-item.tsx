@@ -106,6 +106,15 @@ export function TimelineItem({
       return <ExtensionCardItem card={item.card} onAction={onExtensionAction} />;
     case "thinking":
       return <TimelineThinking item={item} />;
+    case "tool-group":
+      return (
+        <TimelineToolGroupItem
+          item={item}
+          expandedToolCallIds={expandedToolCallIds}
+          onToggleToolCall={onToggleToolCall}
+          onViewFileInDiff={onViewFileInDiff}
+        />
+      );
     default:
       return unhandledTimelineItem(item);
   }
@@ -114,6 +123,51 @@ export function TimelineItem({
 function unhandledTimelineItem(item: never): null {
   console.warn("[timeline] unhandled item kind", item);
   return null;
+}
+
+/** A run of reads and searches as one quiet line that opens to the calls themselves. */
+function TimelineToolGroupItem({
+  item,
+  expandedToolCallIds,
+  onToggleToolCall,
+  onViewFileInDiff,
+}: {
+  readonly item: Extract<DisplayTimelineItem, { kind: "tool-group" }>;
+  readonly expandedToolCallIds?: ReadonlySet<string>;
+  readonly onToggleToolCall?: (callId: string) => void;
+  readonly onViewFileInDiff?: (path: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <article className="timeline-thinking timeline-tool-group" data-testid="timeline-tool-group">
+      <button
+        className="timeline-thinking__header"
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((open) => !open)}
+      >
+        <span
+          className={`timeline-thinking__chevron ${expanded ? "timeline-thinking__chevron--expanded" : ""}`}
+        >
+          <ChevronRightIcon />
+        </span>
+        <span className="timeline-thinking__label">{item.label}</span>
+      </button>
+      {expanded ? (
+        <div className="timeline-tool-group__calls">
+          {item.tools.map((tool) => (
+            <TimelineToolCallItem
+              key={tool.id}
+              item={tool}
+              expanded={expandedToolCallIds?.has(tool.callId) ?? false}
+              onToggle={onToggleToolCall}
+              onViewFileInDiff={onViewFileInDiff}
+            />
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
 }
 
 /** The model's reasoning: one quiet "Thought for 19s" line, collapsed until the reader opens it. */

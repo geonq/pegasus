@@ -207,3 +207,19 @@ function urlHost(url: string): string {
     return truncate(url, 80);
   }
 }
+
+const SEARCH_TOOLS = new Set(["grep", "find", "rg", "glob", "find_skills", "web_search"]);
+const LOOK_TOOLS = new Set(["read", "read_file", "view", "ls", "list", "list_dir", "read_skill"]);
+
+/**
+ * "search" or "file" for a call that only looks around, so a run of them can fold into one row.
+ * An image read is not folded: its row shows the picture.
+ */
+export function exploreKind(toolName: string, input: unknown): "search" | "file" | undefined {
+  const name = baseToolName(toolName).toLowerCase();
+  if (SEARCH_TOOLS.has(name)) return "search";
+  if (!LOOK_TOOLS.has(name)) return undefined;
+  const path =
+    typeof input === "object" && input !== null ? (input as Record<string, unknown>).path : undefined;
+  return typeof path === "string" && IMAGE_FILE.test(path) ? undefined : "file";
+}
