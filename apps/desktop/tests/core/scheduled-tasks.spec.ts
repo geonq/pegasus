@@ -32,6 +32,11 @@ test("manual create, tabs, pause, and restart keep scheduled tasks", async () =>
     await window.getByTestId("scheduled-task-instruction").fill("Ask for yesterday's work");
     await window.getByTestId("scheduled-task-frequency").selectOption("interval");
     await window.getByTestId("scheduled-task-interval").fill("10");
+    if (process.env.PI_APP_SHOT_DIR) {
+      await window.getByTestId("scheduled-task-editor").screenshot({
+        path: join(process.env.PI_APP_SHOT_DIR, "scheduled-editor.png"),
+      });
+    }
     await window.getByTestId("scheduled-task-save").click();
     await expect(window.getByTestId("scheduled-task-editor")).toHaveCount(0);
     await expect(window.getByTestId("scheduled-task-row")).toContainText("Standup ping");

@@ -309,9 +309,19 @@
 }
 
 .generative-ui__graph-tools {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
   display: flex;
   gap: 4px;
-  justify-content: flex-end;
+  opacity: 0.6;
+  transition: opacity 120ms ease;
+}
+
+.generative-ui__graph:hover .generative-ui__graph-tools,
+.generative-ui__graph-tools:focus-within {
+  opacity: 1;
 }
 
 .generative-ui__graph-tools button,
@@ -328,6 +338,9 @@
 
 .generative-ui__graph-canvas {
   width: 100%;
+  /* The app's icon rule sizes every svg to 16px; the inline aspect-ratio sets this one. */
+  height: auto;
+  max-height: 480px;
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
   background: var(--surface-muted);

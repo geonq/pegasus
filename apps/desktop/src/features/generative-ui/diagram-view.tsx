@@ -55,8 +55,6 @@ function GraphDiagram({
   const width = layout.width + 24;
   const height = layout.height + 24;
   const shown = selected ? layout.nodes.find((entry) => entry.id === selected) : undefined;
-  // The picture fits the transcript width; zoom and pan move inside that frame.
-  const frameHeight = Math.min(480, Math.max(140, height));
 
   const zoomBy = (factor: number) =>
     setView((current) => ({
@@ -103,8 +101,9 @@ function GraphDiagram({
         className="generative-ui__graph-canvas"
         role="img"
         aria-label={`Diagram with ${layout.nodes.length} parts`}
-        viewBox={`${view.x} ${view.y} ${width / view.zoom} ${frameHeight / view.zoom}`}
-        style={{ height: frameHeight }}
+        viewBox={`${view.x} ${view.y} ${width / view.zoom} ${height / view.zoom}`}
+        // The frame takes the drawing's own shape, so a short diagram leaves no empty band.
+        style={{ aspectRatio: `${width} / ${height}` }}
         preserveAspectRatio="xMinYMin meet"
         onWheel={onWheel}
         onPointerDown={onPointerDown}

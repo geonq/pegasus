@@ -456,7 +456,7 @@ export async function createGitReview(
           ? issue(
               "unavailable",
               "not-a-repository",
-              "This folder is not a Git repository. Run git init in it to review its changes.",
+              "This folder isn't in a Git repository, so there are no changes to review here. Work this chat did in other repositories shows up when you open those folders.",
             )
           : issue(
               "unavailable",

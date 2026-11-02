@@ -97,6 +97,13 @@ test("an agent's diagram draws as a floorplan you can click, and Mermaid draws i
     const panel = window.getByTestId("diagram-panel");
     await expect(panel.locator(".generative-ui__graph-node")).toHaveCount(4);
     await expect(panel.getByRole("button", { name: "Open in side panel" })).toHaveCount(0);
+    // The frame takes the drawing's own shape in both places: no empty band, never squeezed flat.
+    const [inChat, inPanel] = await Promise.all(
+      [diagram, panel].map((scope) => scope.locator("svg.generative-ui__graph-canvas").boundingBox()),
+    );
+    expect(inChat!.height).toBeGreaterThan(120);
+    expect(inChat!.height / inChat!.width).toBeCloseTo(inPanel!.height / inPanel!.width, 1);
+    await diagram.screenshot({ path: test.info().outputPath("graph-card.png") });
 
     // Mermaid draws as SVG, both inside the card and inside a reply.
     const mermaid = window.getByTestId("transcript").getByTestId("generative-ui-mermaid");
