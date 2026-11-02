@@ -1,5 +1,6 @@
 import type {
   AppView,
+  ComposerImageAttachment,
   DesktopAppState,
   SelectedTranscriptRecord,
   StartThreadInput,
@@ -7,17 +8,29 @@ import type {
 import type { WorkspaceFolderDevice } from "../../contracts/workspace-folders";
 import { isSessionPermission, type SessionPermission } from "../../contracts/session-permission";
 import { sessionKey, type HostUiResponse } from "@pi-gui/session-driver";
-import { expectExtensionFlags, expectHostUiResponse } from "../ipc/request-validation";
+import {
+  expectComposerAttachments,
+  expectExtensionFlags,
+  expectHostUiResponse,
+} from "../ipc/request-validation";
+import { SUPPORTED_COMPOSER_IMAGE_TYPES } from "../../contracts/composer-attachments";
 import type { RemoteDesktopMethod, RemoteDesktopPiMethod } from "./remote-desktop-protocol";
 import { isRemoteDesktopPiMethod } from "./remote-desktop-protocol";
 
 const MAX_TEXT_BYTES = 128 * 1024;
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const MAX_REMOTE_ATTACHMENTS = 16;
+const IMAGE_MIME_TYPES = new Set<string>(SUPPORTED_COMPOSER_IMAGE_TYPES.map((type) => type.mimeType));
+
+export interface RemoteSendTextOptions {
+  readonly deliverAs?: "steer";
+  readonly attachments?: readonly ComposerImageAttachment[];
+}
 
 export type RemoteDesktopInvocation =
   | {
       readonly method: "sendText";
-      readonly args: readonly [string] | readonly [string, { readonly deliverAs: "steer" }];
+      readonly args: readonly [string] | readonly [string, RemoteSendTextOptions];
     }
   | {
       readonly method: "removeQueuedComposerMessage" | "steerQueuedComposerMessage";
@@ -173,13 +186,28 @@ export function validateRemoteDesktopInvocation(
       if (args.length !== 1 && args.length !== 2) {
         throw new TypeError("sendText expects the text and an optional delivery.");
       }
-      const text = expectString(args[0], "text", MAX_TEXT_BYTES);
-      if (!text.trim()) throw new TypeError("Message text cannot be empty.");
-      if (args.length === 1) return { method: allowedMethod, args: [text] };
+      if (typeof args[0] !== "string" || Buffer.byteLength(args[0], "utf8") > MAX_TEXT_BYTES) {
+        throw new TypeError(`text must be a string of at most ${MAX_TEXT_BYTES} bytes.`);
+      }
+      const text = args[0];
+      const options = args.length === 1 ? {} : expectRecord(args[1], ["deliverAs", "attachments"]);
       // Steering reaches a running chat's next turn; anything else stays a follow-up.
-      const options = expectRecord(args[1], ["deliverAs"]);
-      if (options.deliverAs !== "steer") throw new TypeError("Delivery must be steer.");
-      return { method: allowedMethod, args: [text, { deliverAs: "steer" }] };
+      if (options.deliverAs !== undefined && options.deliverAs !== "steer") {
+        throw new TypeError("Delivery must be steer.");
+      }
+      const attachments =
+        options.attachments === undefined ? [] : expectRemoteImages(options.attachments);
+      if (!text.trim() && attachments.length === 0) {
+        throw new TypeError("Message text cannot be empty.");
+      }
+      const safeOptions: RemoteSendTextOptions = {
+        ...(options.deliverAs === "steer" ? { deliverAs: "steer" as const } : {}),
+        ...(attachments.length > 0 ? { attachments } : {}),
+      };
+      return {
+        method: allowedMethod,
+        args: Object.keys(safeOptions).length === 0 ? [text] : [text, safeOptions],
+      };
     }
     case "removeQueuedComposerMessage":
     case "steerQueuedComposerMessage": {
@@ -304,14 +332,8 @@ export function validateRemoteDesktopInvocation(
       if (input.environment !== "local" && input.environment !== "worktree") {
         throw new TypeError("Thread environment is invalid.");
       }
-      // The composer always sends its attachment list. A remote client's files live on its own
-      // disk, so only the empty list is accepted, as sendText takes text alone.
-      if (
-        input.attachments !== undefined &&
-        (!Array.isArray(input.attachments) || input.attachments.length > 0)
-      ) {
-        throw new TypeError("Attachments cannot be sent from a remote client yet.");
-      }
+      const attachments =
+        input.attachments === undefined ? [] : expectRemoteImages(input.attachments);
       const extensionFlags =
         input.extensionFlags === undefined
           ? undefined
@@ -338,6 +360,7 @@ export function validateRemoteDesktopInvocation(
         ...(modelId === undefined ? {} : { modelId }),
         ...(thinkingLevel === undefined ? {} : { thinkingLevel }),
         ...(extensionFlags === undefined ? {} : { extensionFlags }),
+        ...(attachments.length > 0 ? { attachments } : {}),
       };
       return { method: allowedMethod, args: [safeInput] };
     }
@@ -636,6 +659,35 @@ function expectAuthorizedWorkspaceSessionTarget(
     workspaceId: expectAuthorizedWorkspace(target.workspaceId, workspaceIds),
     sessionId: expectString(target.sessionId, "sessionId", 256),
   };
+}
+
+/** A client's files live on its own disk, so only images travel, as bytes, never as paths. */
+function expectRemoteImages(value: unknown): readonly ComposerImageAttachment[] {
+  if (Array.isArray(value) && value.length > MAX_REMOTE_ATTACHMENTS) {
+    throw new TypeError(`At most ${MAX_REMOTE_ATTACHMENTS} attachments can be sent at once.`);
+  }
+  // Also enforces the per-image and total byte limits.
+  return expectComposerAttachments(value).map((attachment) => {
+    if (attachment.kind !== "image") {
+      throw new TypeError("Only images can be sent from a remote client.");
+    }
+    if (!IMAGE_MIME_TYPES.has(attachment.mimeType)) {
+      throw new TypeError("Image type is not supported.");
+    }
+    if (!/^[A-Za-z0-9+/]+={0,2}$/u.test(attachment.data)) {
+      throw new TypeError("Image data must be base64.");
+    }
+    if (attachment.id.length > 256 || attachment.name.length > 512) {
+      throw new TypeError("Image name is too long.");
+    }
+    return {
+      id: attachment.id,
+      kind: "image",
+      name: attachment.name,
+      mimeType: attachment.mimeType,
+      data: attachment.data,
+    };
+  });
 }
 
 function expectString(value: unknown, name: string, maxLength: number): string {

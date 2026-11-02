@@ -1145,6 +1145,7 @@ export class DesktopAppStore {
     sessionRef: SessionRef,
     text: string,
     deliverAs?: "steer",
+    attachments: readonly ComposerAttachment[] = [],
   ): Promise<void> {
     await this.initialize();
     const wasRunning = this.sessionFromState(sessionRef)?.status === "running";
@@ -1152,6 +1153,7 @@ export class DesktopAppStore {
       sessionRef,
       text,
       deliverAs,
+      attachments,
     );
     if (wasRunning) {
       await sending;

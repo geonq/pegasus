@@ -388,7 +388,7 @@ test("loopback host enforces origin, bearer token, and JSON body cap before brok
     const tooLarge = await sendRequest(port, {
       pathname: "/v1/invoke",
       token,
-      body: Buffer.alloc(256 * 1024 + 1),
+      body: Buffer.alloc(48 * 1024 * 1024 + 1),
     });
     expect(tooLarge.status).toBe(413);
 
