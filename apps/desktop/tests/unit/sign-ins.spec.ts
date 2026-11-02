@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import type { AccountLimits, AccountStatus, SignInStatus } from "../../contracts/usage";
-import { startSignInMonitor } from "../../electron/usage/sign-ins";
+import { keepKnownStates, startSignInMonitor } from "../../electron/usage/sign-ins";
 import { providerStatuses } from "../../src/features/usage/account-state";
 
 const NOW = Date.parse("2026-10-21T12:00:00Z");
@@ -96,4 +96,29 @@ test("one notification per new problem, also across restarts; none again once it
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("a check that could not finish keeps the last answer and is retried, not shown as unverified", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pi-signins-"));
+  const paths = { stateDir: dir, memoryFile: join(dir, "notices.json") };
+  const ok: SignInStatus = { id: "claude-code-account-1", name: "Claude · work", state: "ok" };
+  const timedOut: SignInStatus = { ...ok, state: "unknown" };
+  let world: SignInStatus[] = [ok];
+  const monitor = startSignInMonitor(paths, () => undefined, async () => world);
+  try {
+    await monitor.checkNow();
+    world = [timedOut];
+    await monitor.checkNow();
+    expect(monitor.current()).toEqual([ok]);
+  } finally {
+    monitor.stop();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("a sign-in never answered stays unknown until a check finishes", () => {
+  const timedOut: SignInStatus = { id: "claude-code-account-2", name: "Claude", state: "unknown" };
+  expect(keepKnownStates([], [timedOut])).toEqual([timedOut]);
+  const signedOut: SignInStatus = { ...timedOut, state: "signed-out" };
+  expect(keepKnownStates([{ ...timedOut, state: "ok" }], [signedOut])).toEqual([signedOut]);
 });

@@ -21,6 +21,31 @@ api.onStateChanged((state) => bridge.publish({ type: "stateChanged", state }));
 api.onSelectedTranscriptChanged((transcript) =>
   bridge.publish({ type: "selectedTranscriptChanged", transcript }),
 );
+// The shell writes many tiny chunks; one frame per chunk would overrun the event stream's queue
+// on a slow link, so output is gathered per terminal for one frame's time and sent together.
+const pendingOutput = new Map<string, string>();
+let outputTimer: ReturnType<typeof setTimeout> | undefined;
+const flushOutput = () => {
+  if (outputTimer) clearTimeout(outputTimer);
+  outputTimer = undefined;
+  for (const [terminalId, data] of pendingOutput) {
+    bridge.publish({ type: "terminalData", event: { terminalId, data } });
+  }
+  pendingOutput.clear();
+};
+api.onTerminalData((event) => {
+  pendingOutput.set(event.terminalId, (pendingOutput.get(event.terminalId) ?? "") + event.data);
+  outputTimer ??= setTimeout(flushOutput, 16);
+});
+// Exit and error follow the output that came before them.
+api.onTerminalExit((event) => {
+  flushOutput();
+  bridge.publish({ type: "terminalExit", event });
+});
+api.onTerminalError((event) => {
+  flushOutput();
+  bridge.publish({ type: "terminalError", event });
+});
 
 bridge.onRequest((request) => {
   void executeRequest(api, bridge, request).catch(() => undefined);

@@ -395,3 +395,43 @@ test("remote workspace runtime loads and thread grouping validate exact scoped a
     validateRemoteDesktopInvocation("setThreadGrouping", ["invalid"], workspaceScope),
   ).toThrow("Thread grouping is invalid");
 });
+
+test("remote review and terminal calls stay inside authorized workspaces", () => {
+  const target = { workspaceId: allowedWorkspaceId, sessionId: "thread-a" };
+  expect(
+    validateRemoteDesktopInvocation(
+      "getReview",
+      [{ target, checkoutId: "c", scope: { kind: "uncommitted" } }],
+      workspaceScope,
+    ).args,
+  ).toEqual([{ target, checkoutId: "c", scope: { kind: "uncommitted" } }]);
+  expect(() =>
+    validateRemoteDesktopInvocation(
+      "getReview",
+      [
+        {
+          target: { workspaceId: deniedWorkspaceId, sessionId: "x" },
+          checkoutId: "c",
+          scope: { kind: "uncommitted" },
+        },
+      ],
+      workspaceScope,
+    ),
+  ).toThrow("not authorized");
+  expect(
+    validateRemoteDesktopInvocation(
+      "ensureTerminalPanel",
+      [allowedWorkspaceId, "scope", { cols: 80, rows: 24 }],
+      workspaceScope,
+    ).args,
+  ).toEqual([allowedWorkspaceId, "scope", { cols: 80, rows: 24 }]);
+  expect(() =>
+    validateRemoteDesktopInvocation("ensureTerminalPanel", [deniedWorkspaceId, "scope"], workspaceScope),
+  ).toThrow("not authorized");
+  expect(() =>
+    validateRemoteDesktopInvocation("resizeTerminal", ["t1", { cols: 80 }], workspaceScope),
+  ).toThrow("rows");
+  expect(() =>
+    validateRemoteDesktopInvocation("setTerminalFocused", [true], workspaceScope),
+  ).toThrow("not allowed");
+});

@@ -1,4 +1,9 @@
 import type { DesktopAppState, SelectedTranscriptRecord } from "../../contracts/desktop-state";
+import type {
+  TerminalDataEvent,
+  TerminalErrorEvent,
+  TerminalExitEvent,
+} from "../../contracts/ipc";
 
 /** Methods with safe, view-scoped public IPC handlers. Provider-secret methods stay excluded. */
 export const REMOTE_DESKTOP_PI_METHODS = [
@@ -33,11 +38,32 @@ export const REMOTE_DESKTOP_PI_METHODS = [
   "readWorkspaceFile",
   "removeQueuedComposerMessage",
   "steerQueuedComposerMessage",
+  // Review reads and stages the host checkout; reviewId calls are scoped by the broker.
+  "getTurnChanges",
+  "getReview",
+  "getReviewFile",
+  "setReviewFileReviewed",
+  "changeReviewFileStage",
+  // Terminals run on the host, owned by this device's hidden view, so one device only reaches its own.
+  "ensureTerminalPanel",
+  "createTerminalSession",
+  "setActiveTerminalSession",
+  "writeTerminal",
+  "resizeTerminal",
+  "restartTerminalSession",
+  "closeTerminalSession",
+  "setTerminalTitle",
 ] as const;
 
 export type RemoteDesktopPiMethod = (typeof REMOTE_DESKTOP_PI_METHODS)[number];
 
-export const REMOTE_DESKTOP_EVENTS = ["stateChanged", "selectedTranscriptChanged"] as const;
+export const REMOTE_DESKTOP_EVENTS = [
+  "stateChanged",
+  "selectedTranscriptChanged",
+  "terminalData",
+  "terminalExit",
+  "terminalError",
+] as const;
 export type RemoteDesktopEventName = (typeof REMOTE_DESKTOP_EVENTS)[number];
 
 export type RemoteDesktopEvent =
@@ -45,7 +71,10 @@ export type RemoteDesktopEvent =
   | {
       readonly type: "selectedTranscriptChanged";
       readonly transcript: SelectedTranscriptRecord | null;
-    };
+    }
+  | { readonly type: "terminalData"; readonly event: TerminalDataEvent }
+  | { readonly type: "terminalExit"; readonly event: TerminalExitEvent }
+  | { readonly type: "terminalError"; readonly event: TerminalErrorEvent };
 
 export interface RemoteBrokerRequest {
   readonly requestId: string;
@@ -75,6 +104,7 @@ export const remoteClientIpc = {
   invoke: "pi-gui:remote-client:invoke",
   stateChanged: "pi-gui:remote-client:state-changed",
   selectedTranscriptChanged: "pi-gui:remote-client:selected-transcript-changed",
+  terminalEvent: "pi-gui:remote-client:terminal-event",
   getLocalPreferences: "pi-gui:remote-client:get-local-preferences",
   setLocalPreferences: "pi-gui:remote-client:set-local-preferences",
 } as const;
@@ -108,6 +138,9 @@ export function isRemoteDesktopEvent(value: unknown): value is RemoteDesktopEven
   if (value.type === "selectedTranscriptChanged") {
     return value.transcript === null || isSelectedTranscriptRecord(value.transcript);
   }
+  if (value.type === "terminalData" || value.type === "terminalExit" || value.type === "terminalError") {
+    return isTerminalEvent(value.type, value.event);
+  }
   return false;
 }
 
@@ -124,6 +157,18 @@ export function isRemoteBrokerResponse(value: unknown): value is RemoteBrokerRes
 
 export function isRemoteBrokerReady(value: unknown): value is { readonly ready: true } {
   return isRecord(value) && value.ready === true;
+}
+
+function isTerminalEvent(type: string, event: unknown): boolean {
+  if (!isRecord(event) || typeof event.terminalId !== "string" || event.terminalId.length === 0) {
+    return false;
+  }
+  if (type === "terminalData") return typeof event.data === "string";
+  if (type === "terminalError") return typeof event.message === "string";
+  return (
+    (event.exitCode === undefined || typeof event.exitCode === "number") &&
+    (event.signal === undefined || typeof event.signal === "number")
+  );
 }
 
 function isSelectedTranscriptRecord(value: unknown): value is SelectedTranscriptRecord {

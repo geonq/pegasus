@@ -63,6 +63,7 @@ import { getChangedFiles, getFileDiff, stageFile } from "./platform/files/app-st
 import { listWorkspaceFiles, readWorkspaceFile } from "./platform/files/app-store-files";
 import { readAccountLimits } from "./usage/account-limits";
 import { readAccountStates } from "./usage/account-states";
+import { limitResumeAt } from "./usage/limit-resume";
 import { startSignInMonitor } from "./usage/sign-ins";
 import { loadWindowState, trackWindowState } from "./platform/window-state";
 import { collectUsage } from "./usage/collect-usage";
@@ -1429,6 +1430,20 @@ app
         process.env.PI_APP_GENERATE_THREAD_TITLES === "0"
           ? promptTitle(options.prompt)
           : generateThreadTitleOverride?.(workspace, options),
+      // A turn stopped by the Claude limit continues once an account resets (see limit-resume.ts).
+      ...(remoteDesktopClientMode || process.env.PI_APP_TEST_MODE
+        ? {}
+        : {
+            limitResumeAt: async () => {
+              const [states, limits] = await Promise.all([
+                readAccountStates(),
+                readAccountLimits(path.join(path.dirname(resolveAgentDir()), "claude")).catch(
+                  () => [],
+                ),
+              ]);
+              return limitResumeAt(states, limits, Date.now());
+            },
+          }),
     });
     windowOwner = new WindowOwner(store, {
       onActiveWindowChanged: (window) => {
@@ -1851,8 +1866,10 @@ app
               ...event.state,
               ...remoteDesktopClientPreferences,
             });
-          } else {
+          } else if (event.type === "selectedTranscriptChanged") {
             window.webContents.send(remoteClientIpc.selectedTranscriptChanged, event.transcript);
+          } else {
+            window.webContents.send(remoteClientIpc.terminalEvent, event);
           }
         }
       });

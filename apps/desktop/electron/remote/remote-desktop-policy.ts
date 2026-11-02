@@ -10,6 +10,19 @@ import { sessionKey, type HostUiResponse } from "@pi-gui/session-driver";
 import { expectExtensionFlags, expectHostUiResponse } from "../ipc/request-validation";
 import type { RemoteDesktopMethod, RemoteDesktopPiMethod } from "./remote-desktop-protocol";
 import { isRemoteDesktopPiMethod } from "./remote-desktop-protocol";
+import type { TerminalSize } from "../../contracts/ipc";
+import {
+  decodeChangeReviewFileStageInput,
+  decodeGetReviewInput,
+  decodeReviewFileInput,
+  decodeSetReviewFileReviewedInput,
+  decodeTurnChangesInput,
+  type ChangeReviewFileStageInput,
+  type GetReviewInput,
+  type ReviewFileInput,
+  type SetReviewFileReviewedInput,
+  type TurnChangesInput,
+} from "../../contracts/review";
 
 const MAX_TEXT_BYTES = 128 * 1024;
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
@@ -97,7 +110,24 @@ export type RemoteDesktopInvocation =
       readonly method: "listWorkspaceFiles";
       readonly args: readonly [string] | readonly [string, { readonly force?: boolean }];
     }
-  | { readonly method: "readWorkspaceFile"; readonly args: readonly [string, string] };
+  | { readonly method: "readWorkspaceFile"; readonly args: readonly [string, string] }
+  | { readonly method: "getTurnChanges"; readonly args: readonly [TurnChangesInput] }
+  | { readonly method: "getReview"; readonly args: readonly [GetReviewInput] }
+  | { readonly method: "getReviewFile"; readonly args: readonly [ReviewFileInput] }
+  | { readonly method: "setReviewFileReviewed"; readonly args: readonly [SetReviewFileReviewedInput] }
+  | { readonly method: "changeReviewFileStage"; readonly args: readonly [ChangeReviewFileStageInput] }
+  | {
+      readonly method: "ensureTerminalPanel" | "createTerminalSession";
+      readonly args: readonly [string, string] | readonly [string, string, Partial<TerminalSize>];
+    }
+  | { readonly method: "setActiveTerminalSession"; readonly args: readonly [string, string, string] }
+  | { readonly method: "writeTerminal" | "setTerminalTitle"; readonly args: readonly [string, string] }
+  | { readonly method: "resizeTerminal"; readonly args: readonly [string, TerminalSize] }
+  | {
+      readonly method: "restartTerminalSession";
+      readonly args: readonly [string] | readonly [string, Partial<TerminalSize>];
+    }
+  | { readonly method: "closeTerminalSession"; readonly args: readonly [string] };
 
 /** Validate and normalize the external method envelope before it reaches preload IPC. */
 export function validateRemoteDesktopInvocation(
@@ -412,7 +442,110 @@ export function validateRemoteDesktopInvocation(
         ],
       };
     }
+    case "getTurnChanges": {
+      expectArgs(args, 1);
+      const input = decodeTurnChangesInput(args[0]);
+      expectAuthorizedWorkspace(input.target.workspaceId, workspaceIds);
+      return { method: allowedMethod, args: [input] };
+    }
+    case "getReview": {
+      expectArgs(args, 1);
+      const input = decodeGetReviewInput(args[0]);
+      expectAuthorizedWorkspace(input.target.workspaceId, workspaceIds);
+      return { method: allowedMethod, args: [input] };
+    }
+    case "getReviewFile": {
+      expectArgs(args, 1);
+      return { method: allowedMethod, args: [decodeReviewFileInput(args[0])] };
+    }
+    case "setReviewFileReviewed": {
+      expectArgs(args, 1);
+      return { method: allowedMethod, args: [decodeSetReviewFileReviewedInput(args[0])] };
+    }
+    case "changeReviewFileStage": {
+      expectArgs(args, 1);
+      return { method: allowedMethod, args: [decodeChangeReviewFileStageInput(args[0])] };
+    }
+    case "ensureTerminalPanel":
+    case "createTerminalSession": {
+      if (args.length !== 2 && args.length !== 3) {
+        throw new TypeError(`${allowedMethod} expects two or three arguments.`);
+      }
+      const workspaceId = expectAuthorizedWorkspace(args[0], workspaceIds);
+      const scopeId = expectString(args[1], "terminalScopeId", 512);
+      return {
+        method: allowedMethod,
+        args:
+          args[2] === undefined
+            ? [workspaceId, scopeId]
+            : [workspaceId, scopeId, expectTerminalSize(args[2], false)],
+      };
+    }
+    case "setActiveTerminalSession": {
+      expectArgs(args, 3);
+      return {
+        method: allowedMethod,
+        args: [
+          expectAuthorizedWorkspace(args[0], workspaceIds),
+          expectString(args[1], "terminalScopeId", 512),
+          expectString(args[2], "terminalId", 256),
+        ],
+      };
+    }
+    case "writeTerminal": {
+      expectArgs(args, 2);
+      if (typeof args[1] !== "string" || Buffer.byteLength(args[1], "utf8") > MAX_TEXT_BYTES) {
+        throw new TypeError("Terminal input is invalid.");
+      }
+      return { method: allowedMethod, args: [expectString(args[0], "terminalId", 256), args[1]] };
+    }
+    case "setTerminalTitle": {
+      expectArgs(args, 2);
+      if (typeof args[1] !== "string" || args[1].length > 512) {
+        throw new TypeError("Terminal title is invalid.");
+      }
+      return { method: allowedMethod, args: [expectString(args[0], "terminalId", 256), args[1]] };
+    }
+    case "resizeTerminal": {
+      expectArgs(args, 2);
+      return {
+        method: allowedMethod,
+        args: [
+          expectString(args[0], "terminalId", 256),
+          expectTerminalSize(args[1], true) as TerminalSize,
+        ],
+      };
+    }
+    case "restartTerminalSession": {
+      if (args.length !== 1 && args.length !== 2) {
+        throw new TypeError("restartTerminalSession expects one or two arguments.");
+      }
+      const terminalId = expectString(args[0], "terminalId", 256);
+      return {
+        method: allowedMethod,
+        args:
+          args[1] === undefined ? [terminalId] : [terminalId, expectTerminalSize(args[1], false)],
+      };
+    }
+    case "closeTerminalSession": {
+      expectArgs(args, 1);
+      return { method: allowedMethod, args: [expectString(args[0], "terminalId", 256)] };
+    }
   }
+}
+
+function expectTerminalSize(value: unknown, complete: boolean): Partial<TerminalSize> {
+  const size = expectRecord(value, ["cols", "rows"]);
+  const result: { cols?: number; rows?: number } = {};
+  for (const key of ["cols", "rows"] as const) {
+    const dimension = size[key];
+    if (dimension === undefined && !complete) continue;
+    if (!Number.isInteger(dimension) || (dimension as number) < 1 || (dimension as number) > 1_000) {
+      throw new TypeError(`Terminal ${key} is invalid.`);
+    }
+    result[key] = dimension as number;
+  }
+  return result;
 }
 
 export function filterRemoteState(

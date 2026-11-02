@@ -32,6 +32,8 @@ const MAX_BRIDGE_BYTES = 24 * 1024 * 1024;
 const MAX_TEXT_BYTES = 128 * 1024;
 const REQUEST_TIMEOUT_MS = 60_000;
 const RENDERER_READY_TIMEOUT_MS = 15_000;
+/** Reviews this device opened; older ones fall out so the set stays small. */
+const MAX_KNOWN_REVIEWS = 256;
 
 export interface RemoteDesktopBrokerOptions {
   /** Stable identifier from the authenticated device configuration; never a credential. */
@@ -91,6 +93,7 @@ export class RemoteDesktopBroker {
   private readonly workspaceStateProjector: RemoteWorkspaceStateProjector;
   private readonly pending = new Map<string, PendingRequest>();
   private readonly listeners = new Set<RemoteDesktopEventListener>();
+  private readonly reviewIds = new Set<string>();
   private readonly readyPromise: Promise<void>;
   private resolveReady!: () => void;
   private disposed = false;
@@ -255,6 +258,16 @@ export class RemoteDesktopBroker {
       return { accepted: true };
     }
 
+    if (
+      (invocation.method === "getReviewFile" ||
+        invocation.method === "setReviewFileReviewed" ||
+        invocation.method === "changeReviewFileStage") &&
+      !this.reviewIds.has(invocation.args[0].reviewId)
+    ) {
+      // Review IDs are host-wide; a device may only reach reviews of its own authorized workspaces.
+      throw new Error("This review is not available to this device.");
+    }
+
     await this.waitUntilReady();
     if (this.disposed || this.window.isDestroyed() || this.window.webContents.isDestroyed()) {
       throw new Error("Remote broker is closed.");
@@ -406,13 +419,27 @@ export class RemoteDesktopBroker {
       return;
     }
     try {
-      const result = isDesktopAppState(value.value)
-        ? await this.workspaceStateProjector.projectResponse(value.value)
-        : projectRemoteResult(pending.method, value.value, this.workspaceIds);
+      // Calls with no result (terminal writes, resizes) come back undefined, which is not JSON.
+      const raw = value.value === undefined ? null : value.value;
+      const result = isDesktopAppState(raw)
+        ? await this.workspaceStateProjector.projectResponse(raw)
+        : projectRemoteResult(pending.method, raw, this.workspaceIds);
       assertRemoteJsonSize(result, MAX_BRIDGE_BYTES, "Remote broker result");
+      if (pending.method === "getReview") this.rememberReview(result);
       pending.resolve(result);
     } catch (error) {
       pending.reject(error instanceof Error ? error : new Error("Invalid remote broker result."));
+    }
+  }
+
+  private rememberReview(result: unknown): void {
+    if (typeof result !== "object" || result === null) return;
+    const { state, reviewId } = result as { state?: unknown; reviewId?: unknown };
+    if (state !== "available" || typeof reviewId !== "string") return;
+    this.reviewIds.delete(reviewId);
+    this.reviewIds.add(reviewId);
+    if (this.reviewIds.size > MAX_KNOWN_REVIEWS) {
+      this.reviewIds.delete(this.reviewIds.values().next().value!);
     }
   }
 
@@ -425,6 +452,11 @@ export class RemoteDesktopBroker {
       } catch {
         // Invalid revisions and filesystem failures must not break the passive view event loop.
       }
+      return;
+    }
+    if (event.type !== "selectedTranscriptChanged") {
+      // The host sends terminal output only to the view that owns the terminal: this device's.
+      this.publishEvent(event);
       return;
     }
     const allowed = {

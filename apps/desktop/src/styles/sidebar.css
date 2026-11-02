@@ -131,6 +131,9 @@
      scroll) no longer narrows the list and rewraps the header. The lane replaces the old padding. */
   padding-right: max(0px, 8px - var(--scrollbar-size));
   scrollbar-gutter: stable;
+  /* Rows scrolled up under Settings fade out over the section's own top padding instead of being
+     cut in half against it. Unscrolled, the first row starts below the fade and stays fully shown. */
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12px);
 }
 
 .section__head {

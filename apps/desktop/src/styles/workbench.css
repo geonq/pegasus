@@ -318,3 +318,11 @@
   font-size: 13px;
   font-weight: var(--font-medium);
 }
+
+.workbench__loading {
+  margin: 0;
+  padding: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}

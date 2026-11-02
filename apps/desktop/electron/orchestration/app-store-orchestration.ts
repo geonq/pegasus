@@ -1066,8 +1066,28 @@ function projectOrchestrationChild(
   const transcript = toChildTranscript(rawTranscript, MAX_CHILD_TRANSCRIPT_MESSAGES);
   const latestTranscript = session?.preview || previewFromTranscript(rawTranscript) || child.goal;
   const updatedAt = latestSessionActivityAt(session?.updatedAt ?? child.updatedAt, rawTranscript);
+  // A failed run leaves no reply in the saved transcript, and a restart forgets the session's
+  // failed status, so the failure is kept with the child; without it the child read "queued" forever
+  // and its parent kept showing "N subagents working".
+  const runError = store.getSessionError(childRef);
+  const knownEvidence = runError
+    ? mergeEvidenceRecords(child.evidence, [
+        {
+          id: evidenceId("run-failed", child.childSessionId),
+          childThreadId: child.id,
+          kind: "blocker",
+          source: "blocker",
+          status: "failed",
+          title: "Child run failed",
+          detail: runError,
+          parentSessionId: child.parentSessionId,
+          childSessionId: child.childSessionId,
+          createdAt: updatedAt,
+        },
+      ])
+    : child.evidence;
   const status = session
-    ? toOrchestrationStatus(session.status, childRef, store, child.evidence)
+    ? toOrchestrationStatus(session.status, childRef, store, knownEvidence)
     : child.status;
 
   return {
@@ -1076,7 +1096,7 @@ function projectOrchestrationChild(
     status,
     latestTranscript,
     transcript,
-    evidence: mergeEvidenceRecords(child.evidence, [
+    evidence: mergeEvidenceRecords(knownEvidence, [
       ...evidenceFromChildTranscript(child, rawTranscript),
       ...parentEvidence,
       ...blockerEvidenceFromChildStatus(child, status, updatedAt),
@@ -2058,10 +2078,25 @@ function toOrchestrationStatus(
   // An idle session that has never produced a run is queued, not complete. The
   // child record is inserted before its prompt is void-fired, so without this a
   // never-started child would read "complete" and trigger a false parent wake.
-  if (!hasStartedRun(store, sessionRef, evidence)) {
-    return "queued";
-  }
-  return "complete";
+  return idleChildStatus(evidence, () => store.transcriptFor(sessionRef));
+}
+
+/**
+ * An idle child is complete once it ran; failed when its runs failed before replying (a refused
+ * sign-in, say); and only otherwise still queued.
+ */
+export function idleChildStatus(
+  evidence: readonly Pick<OrchestrationEvidenceRecord, "source" | "status">[],
+  transcript: () => readonly TranscriptMessage[],
+): "complete" | "failed" | "queued" {
+  if (childHasRun(evidence, transcript)) return "complete";
+  // A blocker kept from an earlier failed status counts too: the failure itself is not saved.
+  return evidence.some(
+    (record) =>
+      record.source === "blocker" && (record.status === "failed" || record.status === "blocked"),
+  )
+    ? "failed"
+    : "queued";
 }
 
 /**
@@ -2070,14 +2105,6 @@ function toOrchestrationStatus(
  * parent kept showing "N subagents working". Evidence taken from the child's own transcript
  * (its replies and its commands) is saved with the child record and proves the run as well.
  */
-function hasStartedRun(
-  store: OrchestrationOwnerHost,
-  sessionRef: SessionRef,
-  evidence: readonly OrchestrationEvidenceRecord[],
-): boolean {
-  return childHasRun(evidence, () => store.transcriptFor(sessionRef));
-}
-
 export function childHasRun(
   evidence: readonly Pick<OrchestrationEvidenceRecord, "source">[],
   transcript: () => readonly TranscriptMessage[],

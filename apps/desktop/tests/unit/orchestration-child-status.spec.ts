@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { TranscriptMessage } from "../../contracts/desktop-state";
-import { childHasRun } from "../../electron/orchestration/app-store-orchestration";
+import { childHasRun, idleChildStatus } from "../../electron/orchestration/app-store-orchestration";
 
 const noTranscript = () => [] as readonly TranscriptMessage[];
 
@@ -40,4 +40,20 @@ test("a loaded transcript with the child's own reply also counts as run", () => 
   } as unknown as TranscriptMessage;
   expect(childHasRun([], () => [prompt, reply])).toBe(true);
   expect(childHasRun([], () => [prompt])).toBe(false);
+});
+
+test("an idle child whose runs all failed before replying reads failed, not queued", () => {
+  const noTranscript = () => [];
+  const runFailed = { source: "blocker" as const, status: "failed" as const };
+  expect(idleChildStatus([runFailed], noTranscript)).toBe("failed");
+  // The marker saved when it last read failed survives a restart that forgets the failed status.
+  expect(idleChildStatus([{ source: "blocker", status: "blocked" }], noTranscript)).toBe("failed");
+  expect(idleChildStatus([{ source: "orchestrator-observed", status: "failed" }], noTranscript)).toBe(
+    "queued",
+  );
+  expect(idleChildStatus([], noTranscript)).toBe("queued");
+  // A child that replied after a failure is complete.
+  expect(idleChildStatus([runFailed, { source: "worker-reported", status: "reported" }], noTranscript)).toBe(
+    "complete",
+  );
 });

@@ -203,7 +203,10 @@ function isReplaceRenameError(error: unknown): boolean {
     typeof error === "object" &&
     error !== null &&
     "code" in error &&
-    (error.code === "EEXIST" || error.code === "EPERM")
+    (error.code === "EEXIST" ||
+      error.code === "EPERM" ||
+      error.code === "EACCES" ||
+      error.code === "EBUSY")
   );
 }
 

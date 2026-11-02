@@ -154,6 +154,12 @@ import {
 } from "../scheduled-tasks/app-store-scheduled-tasks";
 import { earliestScheduledWakeAt } from "../scheduled-tasks/scheduled-task-schedule";
 import {
+  isClaudeLimitFailure,
+  LIMIT_CONTINUE_INSTRUCTION,
+  LIMIT_CONTINUE_TITLE_PREFIX,
+  MAX_LIMIT_CONTINUES,
+} from "../usage/limit-resume";
+import {
   readScheduledTasksFile,
   writeScheduledTasksFile,
 } from "../scheduled-tasks/scheduled-task-store";
@@ -188,6 +194,8 @@ export interface DesktopAppStoreOptions {
     | "openUrl"
     | "turnCaptureTimeoutMs"
   >;
+  /** When a turn stopped by the Claude usage limit should continue (epoch ms). Unset: never auto-continue. */
+  readonly limitResumeAt?: () => Promise<number>;
   readonly generateThreadTitleOverride?: (
     workspace: WorkspaceRef,
     options: GenerateThreadTitleOptions,
@@ -296,6 +304,9 @@ export class DesktopAppStore {
   private readonly workspaceOwner: WorkspaceOwner;
   private readonly orchestrationOwner: OrchestrationOwner;
   private readonly scheduledTaskOwner: ScheduledTaskOwner;
+  private readonly limitResumeAt: (() => Promise<number>) | undefined;
+  /** Auto-continues per thread since its last finished turn, so a thread cannot loop forever. */
+  private readonly limitContinues = new Map<string, number>();
   /** App-wide: built-in pi-gui extensions the user switched off in Settings. */
   private readonly disabledBuiltinExtensions = new Set<string>();
   /** Flag values last chosen in New thread, by root workspace: the next thread's defaults. */
@@ -328,6 +339,7 @@ export class DesktopAppStore {
     this.initialWorkspacePaths = options.initialWorkspacePaths;
     this.getWindow = options.getWindow ?? (() => null);
     this.shouldKeepSessionDialogs = options.shouldKeepSessionDialogs ?? (() => false);
+    this.limitResumeAt = options.limitResumeAt;
 
     this.conversationOwner = createConversationOwner({
       driver: this.driver,
@@ -1311,6 +1323,36 @@ export class DesktopAppStore {
     const state = await this.orchestrationOwner.setChildSupervisionLoopGate(input);
     this.scheduleOrchestrationSupervision();
     return state;
+  }
+
+  /**
+   * A turn every Claude account refused for its usage limit continues by itself once an account
+   * resets: a one-time scheduled task on the same thread, visible (and cancellable) under Scheduled.
+   */
+  private async continueAfterLimit(sessionRef: SessionRef, message: string): Promise<void> {
+    if (!this.limitResumeAt || !isClaudeLimitFailure(message)) return;
+    const key = sessionKey(sessionRef);
+    const count = this.limitContinues.get(key) ?? 0;
+    if (count >= MAX_LIMIT_CONTINUES) return;
+    const session = this.sessionFromState(sessionRef);
+    if (!session || session.archivedAt) return;
+    const bound = this.state.scheduledTasks.some(
+      (task) =>
+        task.status === "active" &&
+        task.target.kind === "existing-thread" &&
+        task.target.workspaceId === sessionRef.workspaceId &&
+        task.target.sessionId === sessionRef.sessionId,
+    );
+    if (bound) return;
+    const at = await this.limitResumeAt();
+    this.limitContinues.set(key, count + 1);
+    await this.createScheduledTask({
+      title: `${LIMIT_CONTINUE_TITLE_PREFIX}: ${session.title}`.slice(0, 120),
+      instruction: LIMIT_CONTINUE_INSTRUCTION,
+      schedule: { kind: "once", at: new Date(at).toISOString() },
+      target: { kind: "existing-thread", ...sessionRef },
+      originSessionId: sessionRef.sessionId,
+    });
   }
 
   async createScheduledTask(input: CreateScheduledTaskInput): Promise<DesktopAppState> {
@@ -3683,8 +3725,12 @@ export class DesktopAppStore {
 
       if (event.type === "runFailed") {
         this.sessionState.sessionErrorsBySession.set(key, event.error.message);
+        void this.continueAfterLimit(event.sessionRef, event.error.message).catch((error) =>
+          console.error(`[app-store] could not schedule a continue after the limit for ${key}`, error),
+        );
       } else if (event.type === "runCompleted" || event.type === "sessionClosed") {
         this.sessionState.sessionErrorsBySession.delete(key);
+        if (event.type === "runCompleted") this.limitContinues.delete(key);
       }
 
       applyTimelineEvent(this.sessionState.transcriptCache, event, {

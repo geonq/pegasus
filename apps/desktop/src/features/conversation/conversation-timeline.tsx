@@ -24,7 +24,7 @@ import { TimelineItem } from "./timeline-item";
 import { sameRowContent, type TimelineRow } from "./timeline-layout";
 import type { OpenTurnChange } from "./turn-changes-card";
 import type { WorkspaceFileLine } from "./workspace-file-line";
-import { SparkIcon } from "../../ui/icons";
+import { ChatIcon } from "../../ui/icons";
 
 interface ThreadSearchModel {
   readonly isOpen: boolean;
@@ -266,7 +266,7 @@ function TranscriptEmptyState() {
   return (
     <div className="transcript-empty" data-testid="transcript-empty">
       <span className="transcript-empty__glyph" aria-hidden="true">
-        <SparkIcon />
+        <ChatIcon />
       </span>
       <p className="transcript-empty__title">Start the conversation</p>
       <p className="transcript-empty__hint">Send a prompt below to begin this session.</p>

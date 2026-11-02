@@ -38,7 +38,7 @@ export async function writeFileAtomic(filePath: string, data: string | Uint8Arra
   }
 
   try {
-    await rename(tmpPath, filePath);
+    await renameReplace(tmpPath, filePath);
   } catch (error) {
     await rm(tmpPath, { force: true }).catch(() => {});
     throw error;
@@ -50,6 +50,26 @@ export async function writeFileAtomic(filePath: string, data: string | Uint8Arra
 /** Serialize `value` as pretty JSON with a trailing newline and write it atomically. */
 export async function writeJsonFileAtomic(filePath: string, value: unknown): Promise<void> {
   await writeFileAtomic(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+/**
+ * Windows refuses to replace a file another process has open (a reader, a virus scan) with EPERM,
+ * EACCES or EBUSY for a moment. Retry briefly instead of failing the save; the old file stays put.
+ */
+async function renameReplace(src: string, dest: string): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await rename(src, dest);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException | undefined)?.code;
+      const busy = code === "EPERM" || code === "EACCES" || code === "EBUSY" || code === "EEXIST";
+      if (process.platform !== "win32" || !busy || attempt >= 20) throw error;
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(5 * 2 ** attempt, 100) + (attempt % 7)),
+      );
+    }
+  }
 }
 
 async function syncDirectory(dir: string): Promise<void> {

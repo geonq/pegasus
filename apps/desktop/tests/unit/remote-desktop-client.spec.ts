@@ -3,6 +3,7 @@ import type { PiDesktopApi } from "../../contracts/ipc";
 import { createEmptyDesktopAppState } from "../../contracts/desktop-state";
 import type { RemoteDesktopClientPreferences } from "../../electron/remote/remote-desktop-client-preferences";
 import { createRemoteDesktopClientApi } from "../../electron/remote/remote-desktop-client-preload";
+import { initialWorkbenchView } from "../../src/features/workbench/workbench-state";
 import { validateRemoteDesktopInvocation } from "../../electron/remote/remote-desktop-policy";
 import {
   isRemoteDesktopMethod,
@@ -327,4 +328,101 @@ test("queued messages can be steered, removed and edited from the Mac, and a new
   expect(() =>
     validateRemoteDesktopInvocation("removeQueuedComposerMessage", [42], new Set()),
   ).toThrow();
+});
+
+test("the Mac keeps its own tool tabs, so the side panel restores instead of failing", async () => {
+  const invocations: RemoteDesktopMethod[] = [];
+  const preferences = { enableTransparency: false, themeMode: "light" as const, themePresetId: "default" as const };
+  const api = createRemoteDesktopClientApi(
+    {
+      getTaskWorkbenchTemplate: async () => {
+        throw new Error("Not available in remote desktop mode.");
+      },
+      saveTaskWorkbenchTemplate: async () => {
+        throw new Error("Not available in remote desktop mode.");
+      },
+    } as unknown as PiDesktopApi,
+    async (method) => {
+      invocations.push(method);
+      return createEmptyDesktopAppState();
+    },
+    () => () => undefined,
+    async () => preferences,
+    async () => preferences,
+  );
+  const target = { workspaceId: "workspace", sessionId: "thread" };
+  await expect(api.getTaskWorkbenchTemplate(target)).resolves.toBeNull();
+  const template = initialWorkbenchView("workspace");
+  const shown = { ...template, visibility: "visible" as const };
+  await api.saveTaskWorkbenchTemplate({ target, template: shown, sequence: 1 });
+  await expect(api.getTaskWorkbenchTemplate(target)).resolves.toEqual(shown);
+  await expect(
+    api.getTaskWorkbenchTemplate({ workspaceId: "workspace", sessionId: "other" }),
+  ).resolves.toBeNull();
+  await expect(
+    api.saveTaskWorkbenchTemplate({ target, template: { visibility: "sideways" } as never, sequence: 2 }),
+  ).rejects.toThrow();
+  expect(invocations).toEqual([]);
+});
+
+test("review and terminals on the Mac run against the Windows checkout and shell", async () => {
+  const invocations: Array<{ method: RemoteDesktopMethod; args: readonly unknown[] }> = [];
+  const listeners = new Set<(event: RemoteDesktopEvent) => void>();
+  const localFocus: boolean[] = [];
+  const api = createRemoteDesktopClientApi(
+    {
+      getReview: async () => {
+        throw new Error("review ran on the Mac");
+      },
+      ensureTerminalPanel: async () => {
+        throw new Error("terminal ran on the Mac");
+      },
+      writeTerminal: async () => undefined,
+      onTerminalData: () => () => undefined,
+      onTerminalExit: () => () => undefined,
+      setTerminalFocused: async (focused: boolean) => {
+        localFocus.push(focused);
+      },
+    } as unknown as PiDesktopApi,
+    async (method, args) => {
+      invocations.push({ method, args });
+      return method === "getReview" ? { state: "available", reviewId: "r1" } : { sessions: [] };
+    },
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    async () => ({ enableTransparency: false, themeMode: "light", themePresetId: "default" }),
+    async () => ({ enableTransparency: false, themeMode: "light", themePresetId: "default" }),
+  );
+  const target = { workspaceId: "w", sessionId: "s" };
+
+  await expect(
+    api.getReview({ target, checkoutId: "c", scope: { kind: "uncommitted" } }),
+  ).resolves.toMatchObject({ reviewId: "r1" });
+  await api.ensureTerminalPanel("w", "scope", undefined);
+  await api.writeTerminal("t1", "dir\r");
+  await api.setTerminalFocused(true);
+  expect(invocations).toEqual([
+    { method: "getReview", args: [{ target, checkoutId: "c", scope: { kind: "uncommitted" } }] },
+    // A trailing undefined is dropped, since JSON would send it as an invalid null.
+    { method: "ensureTerminalPanel", args: ["w", "scope"] },
+    { method: "writeTerminal", args: ["t1", "dir\r"] },
+  ]);
+  expect(localFocus).toEqual([true]);
+
+  const output: string[] = [];
+  const exits: Array<number | undefined> = [];
+  const stopData = api.onTerminalData((event) => output.push(event.data));
+  api.onTerminalExit((event) => exits.push(event.exitCode));
+  for (const listener of listeners) {
+    listener({ type: "terminalData", event: { terminalId: "t1", data: "C:\>" } });
+    listener({ type: "terminalExit", event: { terminalId: "t1", exitCode: 0 } });
+  }
+  stopData();
+  for (const listener of listeners) {
+    listener({ type: "terminalData", event: { terminalId: "t1", data: "ignored" } });
+  }
+  expect(output).toEqual(["C:\>"]);
+  expect(exits).toEqual([0]);
 });

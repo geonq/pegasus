@@ -13,6 +13,11 @@ import type {
   WorkspaceFolderRoot,
 } from "../../contracts/workspace-folders";
 import {
+  decodeTaskWorkbenchTemplate,
+  type SaveTaskWorkbenchTemplateInput,
+  type TaskWorkbenchTemplate,
+} from "../../contracts/workbench";
+import {
   isRemoteDesktopMethod,
   remoteClientIpc,
   type RemoteDesktopEvent,
@@ -59,6 +64,29 @@ const REMOTE_METHODS = new Set<PropertyKey>([
   "steerQueuedComposerMessage",
 ]);
 
+/** Review and terminals act on the host checkout and shell, so they pass straight through. */
+const PASS_THROUGH_METHODS = new Set<PropertyKey>([
+  "getTurnChanges",
+  "getReview",
+  "getReviewFile",
+  "setReviewFileReviewed",
+  "changeReviewFileStage",
+  "ensureTerminalPanel",
+  "createTerminalSession",
+  "setActiveTerminalSession",
+  "writeTerminal",
+  "resizeTerminal",
+  "restartTerminalSession",
+  "closeTerminalSession",
+  "setTerminalTitle",
+]);
+
+const TERMINAL_EVENTS = new Map<PropertyKey, RemoteDesktopEvent["type"]>([
+  ["onTerminalData", "terminalData"],
+  ["onTerminalExit", "terminalExit"],
+  ["onTerminalError", "terminalError"],
+]);
+
 const LOCAL_METHODS = new Set<PropertyKey>([
   "ping",
   "getThemeMode",
@@ -79,6 +107,9 @@ const LOCAL_METHODS = new Set<PropertyKey>([
   "onPendingComposerDraftFlush",
   "persistComposerDraft",
   "updateComposerDraft",
+  // Focus decides which window's keyboard shortcuts yield to the terminal: this window's.
+  "setTerminalFocused",
+  "setSidePanelFocused",
 ]);
 
 /** Reuse the existing typed PiDesktopApi surface while rejecting unimplemented cross-host calls. */
@@ -97,6 +128,36 @@ export function createRemoteDesktopClientApi(
   const setLocalDraft = (target: { readonly workspaceId: string; readonly sessionId: string }, draft: string) => {
     if (draft) localDrafts.set(draftKey(target), draft);
     else localDrafts.delete(draftKey(target));
+  };
+  const workbenchKey = (target: { readonly workspaceId: string; readonly sessionId: string }) =>
+    `pegasus.workbench:${draftKey(target)}`;
+  const localWorkbench = new Map<string, TaskWorkbenchTemplate>();
+  const readLocalWorkbench = (target: {
+    readonly workspaceId: string;
+    readonly sessionId: string;
+  }): TaskWorkbenchTemplate | null => {
+    const key = workbenchKey(target);
+    const kept = localWorkbench.get(key);
+    if (kept) return kept;
+    try {
+      const raw = globalThis.localStorage?.getItem(key);
+      return raw ? decodeTaskWorkbenchTemplate(JSON.parse(raw)) : null;
+    } catch {
+      // An unreadable saved layout starts fresh instead of blocking the panel.
+      return null;
+    }
+  };
+  const writeLocalWorkbench = (
+    target: { readonly workspaceId: string; readonly sessionId: string },
+    template: TaskWorkbenchTemplate,
+  ) => {
+    const key = workbenchKey(target);
+    localWorkbench.set(key, template);
+    try {
+      globalThis.localStorage?.setItem(key, JSON.stringify(template));
+    } catch {
+      // Storage full or unavailable: the layout still holds for this run.
+    }
   };
   const selectedTarget = (state: DesktopAppState) => ({
     workspaceId: state.selectedWorkspaceId,
@@ -160,6 +221,20 @@ export function createRemoteDesktopClientApi(
         return (listener: (record: SelectedTranscriptRecord | null) => void) =>
           subscribeRemote((event) => {
             if (event.type === "selectedTranscriptChanged") listener(event.transcript);
+          });
+      }
+      if (PASS_THROUGH_METHODS.has(property)) {
+        return (...args: unknown[]) => {
+          // JSON turns a trailing undefined into null, which the host rejects as an argument.
+          while (args.length > 0 && args[args.length - 1] === undefined) args.pop();
+          return invokeRemote(property as RemoteDesktopMethod, args);
+        };
+      }
+      const terminalEvent = TERMINAL_EVENTS.get(property);
+      if (terminalEvent) {
+        return (listener: (event: unknown) => void) =>
+          subscribeRemote((event) => {
+            if (event.type === terminalEvent) listener((event as { readonly event: unknown }).event);
           });
       }
       if (REMOTE_METHODS.has(property)) {
@@ -247,6 +322,17 @@ export function createRemoteDesktopClientApi(
             composerDraftSyncNonce: state.composerDraftSyncNonce + 1,
           });
           return lastState;
+        };
+      }
+      // Tool tabs are this window's layout, so this client keeps them itself, like drafts. Without
+      // this the side panel failed every restore on the Mac and stayed stuck on an error.
+      if (property === "getTaskWorkbenchTemplate") {
+        return async (target: { readonly workspaceId: string; readonly sessionId: string }) =>
+          readLocalWorkbench(target);
+      }
+      if (property === "saveTaskWorkbenchTemplate") {
+        return async (input: SaveTaskWorkbenchTemplateInput) => {
+          writeLocalWorkbench(input.target, decodeTaskWorkbenchTemplate(input.template));
         };
       }
       if (property === "cancelQueuedComposerEdit") {

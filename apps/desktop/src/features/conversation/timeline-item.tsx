@@ -35,7 +35,7 @@ import {
   DiffIcon,
   FileIcon,
   ForkIcon,
-  SparkIcon,
+  ExtensionIcon,
   TerminalIcon,
 } from "../../ui/icons";
 import { extensionToLanguage } from "../../ui/syntax-highlight";
@@ -367,10 +367,8 @@ function TimelineToolCallItem({
         <span className="timeline-tool__glyph" aria-hidden="true">
           {item.status === "running" ? (
             <StateOrb state={activityForTool(item.toolName).state} />
-          ) : extensionLabel === undefined || diffText ? (
-            toolGlyph(item.toolName)
           ) : (
-            <SparkIcon />
+            toolGlyph(item.toolName)
           )}
         </span>
         <button
@@ -397,9 +395,14 @@ function TimelineToolCallItem({
               <span className="timeline-tool__stat-del">−{diffStats.removed}</span>
             </span>
           ) : null}
+          {/* A finished row needs no badge; the orb shows a running one, a dot marks a failure. */}
           <span className="timeline-tool__meta-inline">
-            <span className="timeline-tool__status-pip" aria-hidden="true" />
-            {`${item.toolName} \u00b7 ${statusLabel(item.status)}`}
+            {item.status === "error" ? (
+              <span className="timeline-tool__status-pip" aria-hidden="true" />
+            ) : null}
+            {item.status === "success"
+              ? item.toolName
+              : `${item.toolName} \u00b7 ${statusLabel(item.status)}`}
           </span>
         </button>
         {filePath && onViewFileInDiff ? (
@@ -498,7 +501,7 @@ function toolGlyph(toolName: string) {
   if (/read|view|cat|open|file|glob|grep|search|ls/i.test(toolName)) {
     return <FileIcon />;
   }
-  return <SparkIcon />;
+  return <ExtensionIcon />;
 }
 
 function buildCompactLabel(

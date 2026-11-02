@@ -49,3 +49,33 @@ await test("concurrent writes never collide or leave a partial file; result is o
     assert.deepEqual(entries, ["catalog.json"]);
   });
 });
+
+await test(
+  "on Windows, waits out a reader that briefly holds the file without delete sharing",
+  { skip: process.platform !== "win32" },
+  async () => {
+    const { spawn } = await import("node:child_process");
+    const { writeFile } = await import("node:fs/promises");
+    await withTempDir(async (dir) => {
+      const target = join(dir, "catalogs.json");
+      await writeFile(target, "old");
+      // FileShare.Read only, like a virus scan: replacing the file is refused until it closes.
+      const script = `$f=[System.IO.File]::Open('${target}','Open','Read','Read'); [Console]::Out.WriteLine('held'); Start-Sleep -Milliseconds 400; $f.Close()`;
+      const holder = spawn("powershell.exe", ["-NoProfile", "-Command", script]);
+      const exited = new Promise((resolve) => holder.on("exit", resolve));
+      await new Promise<void>((resolve, reject) => {
+        holder.stdout.on("data", (chunk: Buffer) => {
+          if (chunk.toString().includes("held")) resolve();
+        });
+        holder.on("error", reject);
+      });
+      // While held, a plain replace is refused: the case this guards.
+      const { rename } = await import("node:fs/promises");
+      await writeFile(join(dir, "probe"), "x");
+      await assert.rejects(rename(join(dir, "probe"), target), { code: "EPERM" });
+      await writeFileAtomic(target, "new");
+      assert.equal(await readFile(target, "utf8"), "new");
+      await exited;
+    });
+  },
+);

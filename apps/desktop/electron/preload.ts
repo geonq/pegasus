@@ -48,7 +48,7 @@ import type {
 } from "../contracts/review";
 import type { SessionRef } from "@pi-gui/session-driver/types";
 import { createRemoteDesktopClientApi } from "./remote/remote-desktop-client-preload";
-import { remoteClientIpc } from "./remote/remote-desktop-protocol";
+import { remoteClientIpc, type RemoteDesktopEvent } from "./remote/remote-desktop-protocol";
 import type {
   RemoteDesktopClientPreferences,
   RemoteDesktopClientPreferencesPatch,
@@ -684,9 +684,13 @@ const piDesktopApi =
             _event: Electron.IpcRendererEvent,
             transcript: SelectedTranscriptRecord | null,
           ) => listener({ type: "selectedTranscriptChanged", transcript });
+          const terminalEvent = (_event: Electron.IpcRendererEvent, event: RemoteDesktopEvent) =>
+            listener(event);
           ipcRenderer.on(remoteClientIpc.stateChanged, stateChanged);
           ipcRenderer.on(remoteClientIpc.selectedTranscriptChanged, transcriptChanged);
+          ipcRenderer.on(remoteClientIpc.terminalEvent, terminalEvent);
           return () => {
+            ipcRenderer.removeListener(remoteClientIpc.terminalEvent, terminalEvent);
             ipcRenderer.removeListener(remoteClientIpc.stateChanged, stateChanged);
             ipcRenderer.removeListener(
               remoteClientIpc.selectedTranscriptChanged,

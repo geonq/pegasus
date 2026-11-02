@@ -217,7 +217,7 @@ export function ComposerPanel({
             onEnableMentionExtension={onEnableMentionExtension}
             textareaLabel="Composer"
             textareaTestId="composer"
-            textareaPlaceholder="Ask Pegasus to inspect the repo, run a fix, or continue the current thread…"
+            textareaPlaceholder="Message Pegasus"
             pinnedCards={pinnedCards}
             extensionDock={extensionDock}
             extensionDockExpanded={extensionDockExpanded}
