@@ -53,7 +53,7 @@ export default function provider(pi) {
       const resultText = result ? result.content.map((part) => part.text ?? "").join("") : "";
       const content = result
         ? [{ type: "text", text: "Agent received: " + resultText }]
-        : [{ type: "toolCall", id: "ask-" + Date.now(), name: "ask_user", arguments: { spec } }];
+        : [{ type: "toolCall", id: "ask-" + Date.now(), name: "ask_user", arguments: { ...spec } }];
       const message = {
         role: "assistant", content, api: model.api, provider: model.provider, model: model.id,
         usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2,

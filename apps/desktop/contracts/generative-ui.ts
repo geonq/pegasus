@@ -490,9 +490,10 @@ export function describeGenerativeUiAnswer(spec: GenerativeUiSpec, answer: Gener
 /** The spec an ask_user or show_ui call carries, or undefined when its input is not a valid spec. */
 export function specFromToolInput(input: unknown): GenerativeUiSpec | undefined {
   if (typeof input !== "object" || input === null) return undefined;
-  const { spec } = input as Record<string, unknown>;
+  // The call's own title and blocks, or an older {spec: {...}} wrapper.
+  const { spec, title, blocks } = input as Record<string, unknown>;
   try {
-    return parseGenerativeUi(spec);
+    return parseGenerativeUi(spec ?? { title, blocks });
   } catch {
     return undefined;
   }

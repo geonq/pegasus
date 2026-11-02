@@ -73,10 +73,15 @@ export class GenerativeUiQuestions {
   }
 }
 
-const SPEC_PARAMETER = {
-  type: "object",
-  description:
-    'The interface as JSON: {"title"?: string, "blocks": [block, ...]}. Blocks: ' +
+// The interface's fields sit at the top of the call: models wrote {title, blocks} directly even when
+// the schema asked for {spec: {...}}, so a wrapped spec is still read but no longer required.
+const SPEC_PROPERTIES = {
+  title: { type: "string", description: "Optional heading for the card." },
+  blocks: {
+    type: "array",
+    items: { type: "object" },
+    description:
+    'The interface, as a list of blocks. Blocks: ' +
     '{"type":"text","text"} · {"type":"card","title","subtitle"?,"text"?,"children"?:[block]} · ' +
     '{"type":"checklist","title"?,"items":[{"label","status":"pending|running|done|failed","note"?,"threadId"?}]} · ' +
     '{"type":"choice","id","label","options":[{"id","label","description"?}],"multiple"?,"allowOther"?} · ' +
@@ -86,7 +91,14 @@ const SPEC_PARAMETER = {
     '{"type":"diagram","title"?,"mermaid"?: string} or {"type":"diagram","title"?,"nodes":[{"id","label","kind"?,"group"?,"description"?,"path"?}],"edges":[{"from","to","label"?}]} · ' +
     '{"type":"agent_map","title"?,"agents":[{"id","label","status","threadId"?,"role"?,"note"?,"parent"?}]}. ' +
     "All values are plain text; no HTML or markdown.",
+  },
 };
+
+/** The spec a call carries: its own title and blocks, or an older {spec: {...}} wrapper. */
+function specOf(params: unknown): unknown {
+  const record = (params ?? {}) as Record<string, unknown>;
+  return record.spec ?? { title: record.title, blocks: record.blocks };
+}
 
 export interface GenerativeUiRuntimeOptions {
   readonly questions: () => GenerativeUiQuestions;
@@ -110,17 +122,17 @@ function showUiTool(): ToolDefinition<any, unknown> {
     parameters: {
       type: "object",
       properties: {
-        spec: SPEC_PARAMETER,
+        ...SPEC_PROPERTIES,
         key: {
           type: "string",
           description: "Optional id; a later show_ui with the same key replaces this element.",
         },
       },
-      required: ["spec"],
+      required: ["blocks"],
     },
     async execute(_toolCallId, params) {
       // An invalid spec throws, so the model gets the reason back as a tool error and can fix it.
-      const spec = parseGenerativeUi((params as Record<string, unknown>)?.spec);
+      const spec = parseGenerativeUi(specOf(params));
       return {
         content: [{ type: "text", text: `Shown${spec.title ? `: ${spec.title}` : ""}.` }],
         details: { shown: true },
@@ -145,11 +157,11 @@ function askUserTool(options: GenerativeUiRuntimeOptions): ToolDefinition<any, u
     ],
     parameters: {
       type: "object",
-      properties: { spec: SPEC_PARAMETER },
-      required: ["spec"],
+      properties: SPEC_PROPERTIES,
+      required: ["blocks"],
     },
     async execute(toolCallId, params, signal, _onUpdate, ctx) {
-      const spec = parseGenerativeUi((params as Record<string, unknown>)?.spec);
+      const spec = parseGenerativeUi(specOf(params));
       if (inputs(spec.blocks).length === 0) {
         throw new Error("ask_user needs at least one choice or form block; use show_ui to only show.");
       }

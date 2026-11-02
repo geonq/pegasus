@@ -3,6 +3,7 @@ import {
   describeGenerativeUiAnswer,
   parseGenerativeUi,
   parseGenerativeUiAnswer,
+  specFromToolInput,
 } from "../../contracts/generative-ui";
 import { GenerativeUiQuestions } from "../../electron/generative-ui/generative-ui-runtime";
 import { validateRemoteDesktopInvocation } from "../../electron/remote/remote-desktop-policy";
@@ -76,6 +77,13 @@ test("a spec keeps only the catalog, as plain text, within its limits", () => {
     ],
   }).blocks[0];
   expect(diagram).toEqual({ type: "diagram", nodes: [{ id: "a", label: "A" }], edges: [] });
+});
+
+test("a call may carry its title and blocks directly or wrapped in spec", () => {
+  // A real GPT-6 Luna call wrote {title, blocks} at the top even when the schema asked for spec.
+  expect(specFromToolInput({ ...question, key: "plan" })?.title).toBe("Pick");
+  expect(specFromToolInput({ spec: question })?.title).toBe("Pick");
+  expect(specFromToolInput({ title: "No blocks" })).toBeUndefined();
 });
 
 test("an answer must fit its question", () => {
