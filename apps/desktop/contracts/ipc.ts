@@ -758,7 +758,8 @@ export interface PiDesktopApi {
   updateScheduledTask(id: string, patch: UpdateScheduledTaskInput): Promise<DesktopAppState>;
   deleteScheduledTask(id: string): Promise<DesktopAppState>;
   beginScheduledTaskInterview(): Promise<DesktopAppState>;
-  cancelCurrentRun(): Promise<DesktopAppState>;
+  /** Stops the window's chat, or the named one (the Agents panel's Stop). */
+  cancelCurrentRun(target?: WorkspaceSessionTarget): Promise<DesktopAppState>;
   setActiveView(view: AppView): Promise<DesktopAppState>;
   setSidebarCollapsed(collapsed: boolean): Promise<DesktopAppState>;
   setThreadGrouping(grouping: ThreadGrouping): Promise<DesktopAppState>;

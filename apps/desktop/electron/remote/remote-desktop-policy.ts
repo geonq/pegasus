@@ -24,8 +24,12 @@ export type RemoteDesktopInvocation =
       readonly args: readonly [string];
     }
   | {
-      readonly method: "getState" | "getAppVersion" | "getSelectedTranscript" | "cancelCurrentRun";
+      readonly method: "getState" | "getAppVersion" | "getSelectedTranscript";
       readonly args: readonly [];
+    }
+  | {
+      readonly method: "cancelCurrentRun";
+      readonly args: readonly [] | readonly [{ readonly workspaceId: string; readonly sessionId: string }];
     }
   | {
       readonly method: "getSignIns" | "getAccountStates" | "getUsageReport";
@@ -124,10 +128,24 @@ export function validateRemoteDesktopInvocation(
   switch (allowedMethod) {
     case "getState":
     case "getAppVersion":
-    case "getSelectedTranscript":
-    case "cancelCurrentRun": {
+    case "getSelectedTranscript": {
       expectArgs(args, 0);
       return { method: allowedMethod, args: [] };
+    }
+    case "cancelCurrentRun": {
+      // No target stops the host window's chat; a target is one of the client's allowed chats.
+      if (args.length === 0) return { method: allowedMethod, args: [] };
+      expectArgs(args, 1);
+      const target = expectRecord(args[0], ["workspaceId", "sessionId"]);
+      return {
+        method: allowedMethod,
+        args: [
+          {
+            workspaceId: expectAuthorizedWorkspace(target.workspaceId, workspaceIds),
+            sessionId: expectString(target.sessionId, "sessionId", 256),
+          },
+        ],
+      };
     }
     case "getSignIns":
     case "getAccountStates":

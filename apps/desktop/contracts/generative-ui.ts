@@ -78,6 +78,8 @@ export type UiNode =
         readonly label: string;
         readonly status: ChecklistStatus;
         readonly note?: string;
+        /** A child thread doing this item; its live status overrides `status`. */
+        readonly threadId?: string;
       }[];
     }
   | {
@@ -220,10 +222,12 @@ function node(value: unknown, where: string, depth: number): UiNode | undefined 
       const items = list(raw.items, `${where}.items`, MAX_ROWS).map((entry, index) => {
         const item = record(entry, `${where}.items[${index}]`);
         const note = optionalText(item.note, `${where}.items[${index}].note`, 600);
+        const threadId = optionalText(item.threadId, `${where}.items[${index}].threadId`, 128);
         return {
           label: text(item.label, `${where}.items[${index}].label`, 600),
           status: oneOf(item.status, STATUSES, "pending"),
           ...(note ? { note } : {}),
+          ...(threadId ? { threadId } : {}),
         };
       });
       return { type: "checklist", ...(title ? { title } : {}), items };

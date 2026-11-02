@@ -4,6 +4,7 @@ import {
   inputs,
   parseGenerativeUiAnswer,
   type GenerativeUiAnswer,
+  type ChecklistStatus,
   type GenerativeUiSpec,
   type UiField,
   type UiNode,
@@ -16,6 +17,8 @@ export interface GenerativeUiHost {
   readonly answer: (callId: string, answer: GenerativeUiAnswer) => Promise<void>;
   readonly runAction?: (action: ExtensionAction) => void;
   readonly openThread?: (threadId: string) => void;
+  /** A child thread's live status, for checklist items and agent map entries linked to it. */
+  readonly threadStatus?: (threadId: string) => ChecklistStatus | undefined;
   /** Keeps a diagram in the side panel while the chat goes on. */
   readonly pinDiagram?: (node: Extract<UiNode, { type: "diagram" }>) => void;
 }
@@ -148,22 +151,7 @@ function Node({ node, context }: { readonly node: UiNode; readonly context: Node
         </section>
       );
     case "checklist":
-      return (
-        <div className="generative-ui__checklist">
-          {node.title ? <div className="generative-ui__label">{node.title}</div> : null}
-          <ul>
-            {node.items.map((item, index) => (
-              <li key={index} className={`generative-ui__check generative-ui__check--${item.status}`} data-status={item.status}>
-                <span className="generative-ui__check-mark" aria-label={item.status}>
-                  {CHECK_MARKS[item.status]}
-                </span>
-                <span className="generative-ui__check-label">{item.label}</span>
-                {item.note ? <span className="generative-ui__check-note">{item.note}</span> : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      );
+      return <Checklist node={node} />;
     case "choice":
       return <Choice node={node} context={context} />;
     case "form":
@@ -236,7 +224,30 @@ function Node({ node, context }: { readonly node: UiNode; readonly context: Node
   }
 }
 
-const CHECK_MARKS = { pending: "○", running: "◐", done: "✓", failed: "✕" } as const;
+export const CHECK_MARKS = { pending: "○", running: "◐", done: "✓", failed: "✕" } as const;
+
+function Checklist({ node }: { readonly node: Extract<UiNode, { type: "checklist" }> }) {
+  const host = useGenerativeUiHost();
+  return (
+    <div className="generative-ui__checklist">
+      {node.title ? <div className="generative-ui__label">{node.title}</div> : null}
+      <ul>
+        {node.items.map((item, index) => {
+          const status = (item.threadId && host?.threadStatus?.(item.threadId)) || item.status;
+          return (
+            <li key={index} className={`generative-ui__check generative-ui__check--${status}`} data-status={status}>
+              <span className="generative-ui__check-mark" aria-label={status}>
+                {CHECK_MARKS[status]}
+              </span>
+              <span className="generative-ui__check-label">{item.label}</span>
+              {item.note ? <span className="generative-ui__check-note">{item.note}</span> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 function Choice({
   node,

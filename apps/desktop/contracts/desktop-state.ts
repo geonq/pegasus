@@ -114,6 +114,10 @@ export interface SessionRecord {
   readonly runningSince?: string;
   readonly hasUnseenUpdate: boolean;
   readonly config?: SessionConfig;
+  /** The running tool's row label, while the session works. */
+  readonly currentStep?: string;
+  /** Files the session changed, newest first, for the Agents panel's map. */
+  readonly touchedFiles?: readonly string[];
 }
 
 export type OrchestrationChildThreadStatus =
@@ -192,6 +196,8 @@ export interface OrchestrationChildThread {
   readonly childSessionId: string;
   readonly title: string;
   readonly goal: string;
+  /** The role the child's prompt named; windows get this instead of the goal. */
+  readonly role?: string;
   readonly status: OrchestrationChildThreadStatus;
   readonly latestTranscript: string;
   readonly transcript: readonly OrchestrationChildTranscriptMessage[];

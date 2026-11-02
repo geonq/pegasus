@@ -138,6 +138,14 @@ import { DiagramView } from "../features/generative-ui/diagram-view";
 import type { UiNode } from "../../contracts/generative-ui";
 
 type PinnedDiagram = Extract<UiNode, { type: "diagram" }>;
+// A child thread's status as a checklist or agent map entry shows it.
+const CHILD_STATUS = {
+  queued: "pending",
+  running: "running",
+  waiting: "running",
+  complete: "done",
+  failed: "failed",
+} as const;
 
 import { ScheduledTasksView } from "../features/scheduled-tasks/scheduled-tasks-view";
 
@@ -756,9 +764,30 @@ export default function App() {
               );
             },
             runAction: runExtensionCardAction,
+            threadStatus: (threadId) => {
+              const child = snapshot?.orchestrationChildren.find(
+                (entry) => entry.childSessionId === threadId,
+              );
+              if (child) return CHILD_STATUS[child.status];
+              const session = snapshot?.workspaces
+                .flatMap((workspace) => workspace.sessions)
+                .find((entry) => entry.id === threadId);
+              return session?.status === "running"
+                ? "running"
+                : session?.status === "failed"
+                  ? "failed"
+                  : undefined;
+            },
           }
         : null,
-    [api, workbenchTarget, runExtensionCardAction, workbench.openTool],
+    [
+      api,
+      workbenchTarget,
+      runExtensionCardAction,
+      workbench.openTool,
+      snapshot?.orchestrationChildren,
+      snapshot?.workspaces,
+    ],
   );
 
   const dismissSchemaSkewNotice = useCallback((sessionKey: string) => {
@@ -2220,7 +2249,18 @@ export default function App() {
               />
             ) : activeTool && activeTool.kind !== "extension" ? (
               renderBuiltinToolPanel(activeTool.kind, {
-                agents: () => <AgentsPanel snapshot={snapshot} onSelect={handleSelectSession} />,
+                agents: () => (
+                  <AgentsPanel
+                    snapshot={snapshot}
+                    onSelect={handleSelectSession}
+                    // Stop ends that chat's run (and its own agents) without leaving this chat.
+                    onStop={
+                      api
+                        ? (target) => void api.cancelCurrentRun(target)
+                        : undefined
+                    }
+                  />
+                ),
 
                 diagram: () => {
                   const pinned = pinnedDiagrams.get(

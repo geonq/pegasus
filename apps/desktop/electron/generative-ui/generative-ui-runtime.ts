@@ -78,7 +78,7 @@ const SPEC_PARAMETER = {
   description:
     'The interface as JSON: {"title"?: string, "blocks": [block, ...]}. Blocks: ' +
     '{"type":"text","text"} · {"type":"card","title","subtitle"?,"text"?,"children"?:[block]} · ' +
-    '{"type":"checklist","title"?,"items":[{"label","status":"pending|running|done|failed","note"?}]} · ' +
+    '{"type":"checklist","title"?,"items":[{"label","status":"pending|running|done|failed","note"?,"threadId"?}]} · ' +
     '{"type":"choice","id","label","options":[{"id","label","description"?}],"multiple"?,"allowOther"?} · ' +
     '{"type":"form","fields":[{"kind":"text|select|toggle","id","label","options"?,"placeholder"?,"multiline"?,"required"?}]} · ' +
     '{"type":"table","columns":[string],"rows":[[string]]} · {"type":"progress","label","value":0..1} · ' +
@@ -105,6 +105,7 @@ function showUiTool(): ToolDefinition<any, unknown> {
       "Use show_ui for a plan or to-do list you will work through, a table of results, or an architecture diagram. Prefer plain text for short answers.",
       "Pass the same key again to update a shown element in place, such as ticking off checklist items as you finish them.",
       "For diagrams, prefer nodes and edges with a group per area and a path per file; use mermaid only for flows a graph cannot show.",
+      "When you hand work to subagents, show the plan as a checklist or agent_map and put each subagent's thread id in threadId; the items then tick themselves off as the subagents finish.",
     ],
     parameters: {
       type: "object",

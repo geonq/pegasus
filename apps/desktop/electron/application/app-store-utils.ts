@@ -5,6 +5,7 @@ import type {
   WorktreeCatalogEntry,
 } from "@pi-gui/catalogs";
 import { sessionKey } from "@pi-gui/session-driver";
+import { sessionAgentActivity } from "../../contracts/agent-activity";
 import type {
   SessionAttachment,
   SessionConfig,
@@ -189,6 +190,7 @@ function buildSessionRecord(
       transcript,
     ),
     config: sessionConfigBySession.get(key),
+    ...sessionAgentActivity(transcript, session.status),
   };
 }
 

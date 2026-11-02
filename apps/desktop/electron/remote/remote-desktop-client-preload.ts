@@ -190,7 +190,8 @@ export function createRemoteDesktopClientApi(
           case "unarchiveSession":
             return (target: unknown) => runState(property, [target]);
           case "cancelCurrentRun":
-            return () => runState("cancelCurrentRun", []);
+            return (target?: unknown) =>
+              runState("cancelCurrentRun", target === undefined ? [] : [target]);
           case "setSessionModel":
             return (...args: unknown[]) => runState("setSessionModel", args);
           case "setDefaultModel":

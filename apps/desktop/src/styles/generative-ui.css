@@ -455,3 +455,45 @@
   color: var(--muted-soft);
   font-size: 13px;
 }
+
+.generative-ui__agent {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  column-gap: 6px;
+  align-items: baseline;
+  padding: 2px 0;
+}
+
+.generative-ui__agent--running .generative-ui__check-mark {
+  color: var(--accent);
+}
+
+.generative-ui__agent--done .generative-ui__check-mark {
+  color: var(--success);
+}
+
+.generative-ui__agent--failed .generative-ui__check-mark {
+  color: var(--error);
+}
+
+.generative-ui__agent-text {
+  display: grid;
+  min-width: 0;
+}
+
+.generative-ui__agent-link {
+  font: inherit;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-strong);
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.generative-ui__agent-text .generative-ui__check-note {
+  grid-column: auto;
+}

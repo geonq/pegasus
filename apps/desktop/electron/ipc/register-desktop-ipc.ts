@@ -818,8 +818,12 @@ export function registerDesktopIpc({
     },
   );
 
-  ipcMain.handle(desktopIpc.cancelCurrentRun, (event) => {
-    const target = windows.targetForSender(event.sender);
+  ipcMain.handle(desktopIpc.cancelCurrentRun, (event, rawTarget?: unknown) => {
+    // Stop in the Agents panel names the chat; the stop button means the window's own chat.
+    const target =
+      rawTarget === undefined
+        ? windows.targetForSender(event.sender)
+        : expectSessionTarget(rawTarget);
     // A long slash command can still own the serialized action queue.
     // Stop must bypass that queue and cancel the captured target immediately.
     return immediate(event, () => owners.conversation.cancelCurrentRun(target));
