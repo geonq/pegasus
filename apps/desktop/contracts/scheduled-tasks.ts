@@ -385,10 +385,26 @@ export function formatScheduledTaskNextRun(nextRunAt: string, now = new Date()):
   return `Next run in ${diffDays} day${diffDays === 1 ? "" : "s"}`;
 }
 
+/**
+ * A once task that has fired but whose turn is still running. It only becomes "completed" when
+ * that turn ends, which can take an hour; until then it is not due.
+ */
+export function isOnceRunInFlight(task: ScheduledTaskRecord): boolean {
+  return (
+    task.status === "active" &&
+    task.schedule.kind === "once" &&
+    Boolean(task.lastRunAt && task.nextRunAt) &&
+    Date.parse(task.lastRunAt!) >= Date.parse(task.nextRunAt!)
+  );
+}
+
 export function formatScheduledTaskRowMeta(task: ScheduledTaskRecord, now = new Date()): string {
   const recurrence = formatScheduledTaskRecurrence(task.schedule);
   if (task.status === "completed") {
     return recurrence;
+  }
+  if (isOnceRunInFlight(task)) {
+    return `${recurrence} · Running`;
   }
   if (task.status === "paused") {
     return `${recurrence} · Paused`;
@@ -406,6 +422,7 @@ export function nonCompletedBindingForSession(
   return tasks.find(
     (task) =>
       task.status !== "completed" &&
+      !isOnceRunInFlight(task) &&
       task.target.kind === "existing-thread" &&
       task.target.sessionId === sessionId,
   );

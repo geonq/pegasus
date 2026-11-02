@@ -6,7 +6,9 @@ import {
 import {
   formatScheduledTaskRecurrence,
   formatScheduledTaskNextRun,
+  formatScheduledTaskRowMeta,
   isIanaTimeZone,
+  nonCompletedBindingForSession,
   onceActivationNeedsNewTime,
   scheduledOriginsByMessageId,
   scheduledTaskSchedulesEqual,
@@ -175,4 +177,27 @@ test("scheduledTaskSchedulesEqual ignores title-only identity and catches zone c
   };
   expect(scheduledTaskSchedulesEqual(daily, { ...daily })).toBe(true);
   expect(scheduledTaskSchedulesEqual(daily, { ...daily, timeZone: "UTC" })).toBe(false);
+});
+
+test("a once task whose turn is still running is not shown as due in its thread", () => {
+  const at = "2026-11-02T19:30:00.000Z";
+  const waiting: ScheduledTaskRecord = {
+    id: "task-1",
+    title: "Continue after limit",
+    instruction: "Continue",
+    status: "active",
+    schedule: { kind: "once", at },
+    target: { kind: "existing-thread", workspaceId: "ws", sessionId: "s1" },
+    nextRunAt: at,
+    createdAt: "2026-11-02T18:00:00.000Z",
+    updatedAt: "2026-11-02T18:00:00.000Z",
+    runs: [],
+  };
+  const later = new Date("2026-11-02T19:40:00.000Z");
+  expect(formatScheduledTaskRowMeta(waiting, later)).toContain("Due now");
+  expect(nonCompletedBindingForSession([waiting], "s1")).toBe(waiting);
+  // Claimed: it fired at 19:30 and its turn is running.
+  const running = { ...waiting, lastRunAt: "2026-11-02T19:30:01.000Z" };
+  expect(formatScheduledTaskRowMeta(running, later)).toMatch(/· Running$/);
+  expect(nonCompletedBindingForSession([running], "s1")).toBeUndefined();
 });
