@@ -6,6 +6,8 @@ import type { RemoteDesktopBroker } from "../../electron/remote/remote-desktop-b
 import { startRemoteDesktopHttpHost } from "../../electron/remote/remote-desktop-http-host";
 import { RemoteDesktopHttpClient } from "../../electron/remote/remote-desktop-http-client";
 import type { RemoteDesktopEvent } from "../../electron/remote/remote-desktop-protocol";
+import { validateRemoteDesktopInvocation } from "../../electron/remote/remote-desktop-policy";
+import { answerActiveRuns, type ActiveRun } from "../../electron/usage/active-runs";
 
 async function freeLoopbackPort(): Promise<number> {
   const server = createServer();
@@ -447,6 +449,66 @@ test("loopback host validates and dispatches active-view protocol requests", asy
     });
     expect(rejected.status).toBe(400);
     expect(calls).toHaveLength(1);
+  } finally {
+    await host.close();
+  }
+});
+
+test("getActiveRuns answers the seher-server client only, through the host and broker policy", async () => {
+  const port = await freeLoopbackPort();
+  const seherToken = randomBytes(32).toString("base64url");
+  const macToken = randomBytes(32).toString("base64url");
+  const runs: readonly ActiveRun[] = [
+    {
+      threadId: "t-1",
+      provider: "claude-code-account-2",
+      accountLabel: "Claude 2",
+      model: "claude-opus-5-5",
+      workspaceName: "Seher",
+      status: "tool",
+      startedAt: "2026-11-02T10:00:00.000Z",
+      lastEventAt: "2026-11-02T10:05:00.000Z",
+    },
+  ];
+  // The broker's own order: validate the envelope, then answer host methods in main.
+  const brokerFor = (clientId: string) =>
+    ({
+      subscribe: () => () => undefined,
+      invoke: async (method: unknown, args: unknown) => {
+        const invocation = validateRemoteDesktopInvocation(method, args, new Set(["workspace"]));
+        if (invocation.method !== "getActiveRuns") throw new Error("unexpected");
+        return answerActiveRuns(clientId, () => runs);
+      },
+    }) as unknown as RemoteDesktopBroker;
+  const host = await startRemoteDesktopHttpHost({
+    port,
+    allowedOrigins: ["file://"],
+    clients: [
+      { id: "seher-server", token: seherToken, workspaceIds: ["workspace"] },
+      { id: "mac-client", token: macToken, workspaceIds: ["workspace"] },
+    ],
+    brokers: new Map([
+      ["seher-server", brokerFor("seher-server")],
+      ["mac-client", brokerFor("mac-client")],
+    ]),
+  });
+  const body = Buffer.from(JSON.stringify({ method: "getActiveRuns", args: [] }));
+
+  try {
+    const accepted = await sendRequest(port, { pathname: "/v1/invoke", token: seherToken, body });
+    expect(accepted.status).toBe(200);
+    expect(JSON.parse(accepted.body.toString("utf8"))).toEqual({ version: 1, result: runs });
+
+    const otherDevice = await sendRequest(port, { pathname: "/v1/invoke", token: macToken, body });
+    expect(otherDevice.status).toBe(400);
+    expect(otherDevice.body.toString("utf8")).not.toContain("Seher");
+
+    const withArgs = await sendRequest(port, {
+      pathname: "/v1/invoke",
+      token: seherToken,
+      body: Buffer.from(JSON.stringify({ method: "getActiveRuns", args: ["all"] })),
+    });
+    expect(withArgs.status).toBe(400);
   } finally {
     await host.close();
   }

@@ -15,7 +15,7 @@ import {
 } from "../ipc/request-validation";
 import { SUPPORTED_COMPOSER_IMAGE_TYPES } from "../../contracts/composer-attachments";
 import type { RemoteDesktopMethod, RemoteDesktopPiMethod } from "./remote-desktop-protocol";
-import { isRemoteDesktopPiMethod } from "./remote-desktop-protocol";
+import { isRemoteDesktopMethod } from "./remote-desktop-protocol";
 import type { TerminalSize } from "../../contracts/ipc";
 import {
   decodeChangeReviewFileStageInput,
@@ -59,6 +59,11 @@ export type RemoteDesktopInvocation =
     }
   | {
       readonly method: "getSignIns" | "getAccountStates" | "getUsageReport";
+      readonly args: readonly [];
+    }
+  | {
+      /** Answered by the broker in main, never by the hidden view. */
+      readonly method: "getActiveRuns";
       readonly args: readonly [];
     }
   | {
@@ -160,7 +165,7 @@ export function validateRemoteDesktopInvocation(
     readonly mac: ReadonlySet<string>;
   }> = { windows: workspaceIds, mac: new Set() },
 ): RemoteDesktopInvocation {
-  if (typeof method !== "string" || (!isRemoteDesktopPiMethod(method) && method !== "sendText")) {
+  if (!isRemoteDesktopMethod(method)) {
     throw new TypeError("Remote method is not allowed.");
   }
   if (!Array.isArray(rawArgs) || rawArgs.length > 5) {
@@ -192,7 +197,9 @@ export function validateRemoteDesktopInvocation(
     }
     case "getSignIns":
     case "getAccountStates":
-    case "getUsageReport": {
+    case "getUsageReport":
+    // Read-only; the broker also limits it to the Seher server's client.
+    case "getActiveRuns": {
       expectArgs(args, 0);
       return { method: allowedMethod, args: [] };
     }

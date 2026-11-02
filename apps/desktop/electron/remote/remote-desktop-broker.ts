@@ -24,6 +24,7 @@ import {
   type RemoteDesktopInvocation,
 } from "./remote-desktop-policy";
 import type { WindowOwner } from "../windows/window-owner";
+import { answerActiveRuns, type ActiveRun } from "../usage/active-runs";
 import { createRemoteWorkspaceFolders } from "./remote-workspace-folders";
 import { RemoteWorkspaceStateProjector } from "./remote-workspace-state-projector";
 
@@ -68,6 +69,8 @@ export interface RemoteDesktopBrokerOptions {
     /** Images the client read on its own machine, already checked by the remote policy. */
     readonly attachments?: readonly ComposerImageAttachment[];
   }) => Promise<void>;
+  /** Running threads host-wide; answered only for the Seher server's client. */
+  readonly getActiveRuns?: () => readonly ActiveRun[];
 }
 
 interface PendingRequest {
@@ -241,6 +244,9 @@ export class RemoteDesktopBroker {
         const [device, rootId, parentRelativePath, name] = invocation.args;
         return this.createWorkspaceFolder(device, rootId, parentRelativePath, name);
       }
+    }
+    if (invocation.method === "getActiveRuns") {
+      return answerActiveRuns(this.options.clientId, this.options.getActiveRuns);
     }
     if (invocation.method === "sendText") {
       const view = this.options.windows.viewForWindow(this.window);

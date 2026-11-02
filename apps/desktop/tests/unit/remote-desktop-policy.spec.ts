@@ -18,6 +18,13 @@ test("remote method policy scopes workspaces and rejects unsafe public methods a
     method: "cancelCurrentRun",
     args: [],
   });
+  expect(validateRemoteDesktopInvocation("getActiveRuns", [], workspaceScope)).toEqual({
+    method: "getActiveRuns",
+    args: [],
+  });
+  expect(() =>
+    validateRemoteDesktopInvocation("getActiveRuns", [{ all: true }], workspaceScope),
+  ).toThrow();
   expect(
     validateRemoteDesktopInvocation(
       "selectSession",

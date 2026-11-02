@@ -69,6 +69,7 @@ import { limitResumeAt } from "./usage/limit-resume";
 import { startSignInMonitor } from "./usage/sign-ins";
 import { loadWindowState, trackWindowState } from "./platform/window-state";
 import { collectUsage } from "./usage/collect-usage";
+import { mapActiveRuns } from "./usage/active-runs";
 import { resolveExistingWorkspacePath } from "./platform/files/workspace-paths";
 import { MAIN_DEV_RELOAD_MARKER } from "./dev-reload-main-probe";
 import { NotificationManager } from "./platform/notification-manager";
@@ -1958,6 +1959,11 @@ app
               assertComposerAttachmentPixels(attachments);
               return store.deliverRemoteInstruction(sessionRef, text, deliverAs, attachments);
             },
+            getActiveRuns: () =>
+              mapActiveRuns(
+                store.readState(),
+                new Map((signIns?.current() ?? []).map((signIn) => [signIn.id, signIn.name])),
+              ),
           });
           brokers.set(client.id, broker);
           remoteDesktopBrokers.add(broker);

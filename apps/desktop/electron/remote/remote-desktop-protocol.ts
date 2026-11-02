@@ -110,7 +110,13 @@ export const remoteClientIpc = {
   setLocalPreferences: "pi-gui:remote-client:set-local-preferences",
 } as const;
 
-export const REMOTE_DESKTOP_METHODS = [...REMOTE_DESKTOP_PI_METHODS, "sendText"] as const;
+/** Methods the main process answers itself; they never reach the hidden view's PiDesktopApi. */
+export const REMOTE_DESKTOP_HOST_METHODS = ["sendText", "getActiveRuns"] as const;
+
+export const REMOTE_DESKTOP_METHODS = [
+  ...REMOTE_DESKTOP_PI_METHODS,
+  ...REMOTE_DESKTOP_HOST_METHODS,
+] as const;
 export type RemoteDesktopMethod = (typeof REMOTE_DESKTOP_METHODS)[number];
 
 const REMOTE_DESKTOP_PI_METHOD_SET = new Set<string>(REMOTE_DESKTOP_PI_METHODS);
