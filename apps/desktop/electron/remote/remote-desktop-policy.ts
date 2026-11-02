@@ -1,5 +1,6 @@
 import type {
   AppView,
+  ComposerImageAttachment,
   DesktopAppState,
   SelectedTranscriptRecord,
   StartThreadInput,
@@ -7,7 +8,12 @@ import type {
 import type { WorkspaceFolderDevice } from "../../contracts/workspace-folders";
 import { isSessionPermission, type SessionPermission } from "../../contracts/session-permission";
 import { sessionKey, type HostUiResponse } from "@pi-gui/session-driver";
-import { expectExtensionFlags, expectHostUiResponse } from "../ipc/request-validation";
+import {
+  expectComposerAttachments,
+  expectExtensionFlags,
+  expectHostUiResponse,
+} from "../ipc/request-validation";
+import { SUPPORTED_COMPOSER_IMAGE_TYPES } from "../../contracts/composer-attachments";
 import type { RemoteDesktopMethod, RemoteDesktopPiMethod } from "./remote-desktop-protocol";
 import { isRemoteDesktopPiMethod } from "./remote-desktop-protocol";
 import type { TerminalSize } from "../../contracts/ipc";
@@ -26,19 +32,30 @@ import {
 
 const MAX_TEXT_BYTES = 128 * 1024;
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const MAX_REMOTE_ATTACHMENTS = 16;
+const IMAGE_MIME_TYPES = new Set<string>(SUPPORTED_COMPOSER_IMAGE_TYPES.map((type) => type.mimeType));
+
+export interface RemoteSendTextOptions {
+  readonly deliverAs?: "steer";
+  readonly attachments?: readonly ComposerImageAttachment[];
+}
 
 export type RemoteDesktopInvocation =
   | {
       readonly method: "sendText";
-      readonly args: readonly [string] | readonly [string, { readonly deliverAs: "steer" }];
+      readonly args: readonly [string] | readonly [string, RemoteSendTextOptions];
     }
   | {
       readonly method: "removeQueuedComposerMessage" | "steerQueuedComposerMessage";
       readonly args: readonly [string];
     }
   | {
-      readonly method: "getState" | "getAppVersion" | "getSelectedTranscript" | "cancelCurrentRun";
+      readonly method: "getState" | "getAppVersion" | "getSelectedTranscript";
       readonly args: readonly [];
+    }
+  | {
+      readonly method: "cancelCurrentRun";
+      readonly args: readonly [] | readonly [{ readonly workspaceId: string; readonly sessionId: string }];
     }
   | {
       readonly method: "getSignIns" | "getAccountStates" | "getUsageReport";
@@ -103,6 +120,10 @@ export type RemoteDesktopInvocation =
       readonly args: readonly [string, string, HostUiResponse];
     }
   | {
+      readonly method: "answerGenerativeUi";
+      readonly args: readonly [string, string, string, Readonly<Record<string, string | readonly string[] | boolean>>];
+    }
+  | {
       readonly method: "setDefaultThinkingLevel";
       readonly args: readonly [string] | readonly [string, string];
     }
@@ -150,10 +171,24 @@ export function validateRemoteDesktopInvocation(
   switch (allowedMethod) {
     case "getState":
     case "getAppVersion":
-    case "getSelectedTranscript":
-    case "cancelCurrentRun": {
+    case "getSelectedTranscript": {
       expectArgs(args, 0);
       return { method: allowedMethod, args: [] };
+    }
+    case "cancelCurrentRun": {
+      // No target stops the host window's chat; a target is one of the client's allowed chats.
+      if (args.length === 0) return { method: allowedMethod, args: [] };
+      expectArgs(args, 1);
+      const target = expectRecord(args[0], ["workspaceId", "sessionId"]);
+      return {
+        method: allowedMethod,
+        args: [
+          {
+            workspaceId: expectAuthorizedWorkspace(target.workspaceId, workspaceIds),
+            sessionId: expectString(target.sessionId, "sessionId", 256),
+          },
+        ],
+      };
     }
     case "getSignIns":
     case "getAccountStates":
@@ -181,13 +216,28 @@ export function validateRemoteDesktopInvocation(
       if (args.length !== 1 && args.length !== 2) {
         throw new TypeError("sendText expects the text and an optional delivery.");
       }
-      const text = expectString(args[0], "text", MAX_TEXT_BYTES);
-      if (!text.trim()) throw new TypeError("Message text cannot be empty.");
-      if (args.length === 1) return { method: allowedMethod, args: [text] };
+      if (typeof args[0] !== "string" || Buffer.byteLength(args[0], "utf8") > MAX_TEXT_BYTES) {
+        throw new TypeError(`text must be a string of at most ${MAX_TEXT_BYTES} bytes.`);
+      }
+      const text = args[0];
+      const options = args.length === 1 ? {} : expectRecord(args[1], ["deliverAs", "attachments"]);
       // Steering reaches a running chat's next turn; anything else stays a follow-up.
-      const options = expectRecord(args[1], ["deliverAs"]);
-      if (options.deliverAs !== "steer") throw new TypeError("Delivery must be steer.");
-      return { method: allowedMethod, args: [text, { deliverAs: "steer" }] };
+      if (options.deliverAs !== undefined && options.deliverAs !== "steer") {
+        throw new TypeError("Delivery must be steer.");
+      }
+      const attachments =
+        options.attachments === undefined ? [] : expectRemoteImages(options.attachments);
+      if (!text.trim() && attachments.length === 0) {
+        throw new TypeError("Message text cannot be empty.");
+      }
+      const safeOptions: RemoteSendTextOptions = {
+        ...(options.deliverAs === "steer" ? { deliverAs: "steer" as const } : {}),
+        ...(attachments.length > 0 ? { attachments } : {}),
+      };
+      return {
+        method: allowedMethod,
+        args: Object.keys(safeOptions).length === 0 ? [text] : [text, safeOptions],
+      };
     }
     case "removeQueuedComposerMessage":
     case "steerQueuedComposerMessage": {
@@ -312,14 +362,8 @@ export function validateRemoteDesktopInvocation(
       if (input.environment !== "local" && input.environment !== "worktree") {
         throw new TypeError("Thread environment is invalid.");
       }
-      // The composer always sends its attachment list. A remote client's files live on its own
-      // disk, so only the empty list is accepted, as sendText takes text alone.
-      if (
-        input.attachments !== undefined &&
-        (!Array.isArray(input.attachments) || input.attachments.length > 0)
-      ) {
-        throw new TypeError("Attachments cannot be sent from a remote client yet.");
-      }
+      const attachments =
+        input.attachments === undefined ? [] : expectRemoteImages(input.attachments);
       const extensionFlags =
         input.extensionFlags === undefined
           ? undefined
@@ -346,6 +390,7 @@ export function validateRemoteDesktopInvocation(
         ...(modelId === undefined ? {} : { modelId }),
         ...(thinkingLevel === undefined ? {} : { thinkingLevel }),
         ...(extensionFlags === undefined ? {} : { extensionFlags }),
+        ...(attachments.length > 0 ? { attachments } : {}),
       };
       return { method: allowedMethod, args: [safeInput] };
     }
@@ -404,6 +449,19 @@ export function validateRemoteDesktopInvocation(
           expectAuthorizedWorkspace(args[0], workspaceIds),
           expectString(args[1], "sessionId", 256),
           expectHostUiResponse(args[2]),
+        ],
+      };
+    }
+    case "answerGenerativeUi": {
+      // Answers an ask_user question in an authorized chat; the host checks it against the question.
+      expectArgs(args, 4);
+      return {
+        method: allowedMethod,
+        args: [
+          expectAuthorizedWorkspace(args[0], workspaceIds),
+          expectString(args[1], "sessionId", 256),
+          expectString(args[2], "callId", 256),
+          expectGenerativeUiAnswer(args[3]),
         ],
       };
     }
@@ -691,6 +749,29 @@ function filterRecord<T>(
   return Object.fromEntries(Object.entries(record).filter(([key]) => keep(key)));
 }
 
+function expectGenerativeUiAnswer(
+  value: unknown,
+): Readonly<Record<string, string | readonly string[] | boolean>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError("answer must be an object.");
+  }
+  const entries = Object.entries(value);
+  if (entries.length > 64) throw new TypeError("answer has too many fields.");
+  const answer: Record<string, string | readonly string[] | boolean> = {};
+  for (const [key, entry] of entries) {
+    const field = expectString(key, "answer field", 64);
+    if (field === "__proto__" || field === "constructor" || field === "prototype") {
+      throw new TypeError(`${field} cannot be an answer field.`);
+    }
+    if (typeof entry === "boolean") answer[field] = entry;
+    else if (typeof entry === "string") answer[field] = expectString(entry, field, 4000);
+    else if (Array.isArray(entry) && entry.length <= 20) {
+      answer[field] = entry.map((item) => expectString(item, field, 4000));
+    } else throw new TypeError(`${field} must be text, a list of text, or true/false.`);
+  }
+  return answer;
+}
+
 function expectArgs(args: readonly unknown[], count: number): void {
   if (args.length !== count) throw new TypeError(`Expected ${count} remote method argument(s).`);
 }
@@ -711,6 +792,35 @@ function expectAuthorizedWorkspaceSessionTarget(
     workspaceId: expectAuthorizedWorkspace(target.workspaceId, workspaceIds),
     sessionId: expectString(target.sessionId, "sessionId", 256),
   };
+}
+
+/** A client's files live on its own disk, so only images travel, as bytes, never as paths. */
+function expectRemoteImages(value: unknown): readonly ComposerImageAttachment[] {
+  if (Array.isArray(value) && value.length > MAX_REMOTE_ATTACHMENTS) {
+    throw new TypeError(`At most ${MAX_REMOTE_ATTACHMENTS} attachments can be sent at once.`);
+  }
+  // Also enforces the per-image and total byte limits.
+  return expectComposerAttachments(value).map((attachment) => {
+    if (attachment.kind !== "image") {
+      throw new TypeError("Only images can be sent from a remote client.");
+    }
+    if (!IMAGE_MIME_TYPES.has(attachment.mimeType)) {
+      throw new TypeError("Image type is not supported.");
+    }
+    if (!/^[A-Za-z0-9+/]+={0,2}$/u.test(attachment.data)) {
+      throw new TypeError("Image data must be base64.");
+    }
+    if (attachment.id.length > 256 || attachment.name.length > 512) {
+      throw new TypeError("Image name is too long.");
+    }
+    return {
+      id: attachment.id,
+      kind: "image",
+      name: attachment.name,
+      mimeType: attachment.mimeType,
+      data: attachment.data,
+    };
+  });
 }
 
 function expectString(value: unknown, name: string, maxLength: number): string {

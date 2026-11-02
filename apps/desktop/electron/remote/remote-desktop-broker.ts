@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { BrowserWindow, ipcMain, type IpcMainEvent } from "electron";
 import { isMainFrameSender } from "../ipc/main-frame-ipc";
 import type { DesktopAppViewState } from "../../contracts/desktop-state";
-import type { DesktopAppState } from "../../contracts/desktop-state";
+import type { ComposerImageAttachment, DesktopAppState } from "../../contracts/desktop-state";
 import type {
   WorkspaceFolderAdapters,
   WorkspaceFolderDevice,
@@ -58,13 +58,15 @@ export interface RemoteDesktopBrokerOptions {
     | "runStateResultAction"
     | "stateForWindow"
   >;
-  /** Uses the host's no-attachment background-instruction path for an existing thread. */
+  /** Uses the host's background-instruction path for an existing thread. */
   readonly sendText: (input: {
     readonly clientId: string;
     readonly sessionRef: { readonly workspaceId: string; readonly sessionId: string };
     readonly text: string;
     /** A running chat takes it at its next turn instead of after the run. */
     readonly deliverAs?: "steer";
+    /** Images the client read on its own machine, already checked by the remote policy. */
+    readonly attachments?: readonly ComposerImageAttachment[];
   }) => Promise<void>;
 }
 
@@ -253,7 +255,7 @@ export class RemoteDesktopBroker {
         clientId: this.options.clientId,
         sessionRef,
         text: invocation.args[0],
-        ...(invocation.args[1] ? { deliverAs: invocation.args[1].deliverAs } : {}),
+        ...invocation.args[1],
       });
       return { accepted: true };
     }

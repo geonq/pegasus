@@ -426,3 +426,62 @@ test("review and terminals on the Mac run against the Windows checkout and shell
   expect(output).toEqual(["C:\>"]);
   expect(exits).toEqual([0]);
 });
+
+test("remote client keeps image attachments per chat and sends them with the message", async () => {
+  const png =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const image = { id: "i1", kind: "image" as const, name: "shot.png", mimeType: "image/png", data: png };
+  const invocations: Array<{ method: RemoteDesktopMethod; args: readonly unknown[] }> = [];
+  let hostState = {
+    ...createEmptyDesktopAppState(),
+    selectedWorkspaceId: "workspace",
+    selectedSessionId: "thread",
+  };
+  const preferences: RemoteDesktopClientPreferences = {
+    enableTransparency: false,
+    themeMode: "light",
+    themePresetId: "default",
+  };
+  const unused = async () => createEmptyDesktopAppState();
+  const api = createRemoteDesktopClientApi(
+    // The client spreads the local API, so it needs these names, never these bodies.
+    {
+      getState: unused,
+      addComposerAttachments: unused,
+      removeComposerAttachment: unused,
+      submitComposer: unused,
+    } as unknown as PiDesktopApi,
+    async (method, args) => {
+      invocations.push({ method, args });
+      return method === "getState" ? hostState : { accepted: true };
+    },
+    () => () => undefined,
+    async () => preferences,
+    async () => preferences,
+  );
+  await api.getState();
+
+  expect((await api.addComposerAttachments([image])).composerAttachments).toEqual([image]);
+  // A file path from this Mac means nothing on Windows, so it is refused with a visible error.
+  const refused = await api.addComposerAttachments([
+    { id: "f", kind: "file", name: "a.txt", mimeType: "text/plain", fsPath: "/Users/me/a.txt" },
+  ]);
+  expect(refused.lastError).toContain("Only images");
+  expect(refused.composerAttachments).toEqual([image]);
+
+  hostState = { ...hostState, selectedSessionId: "other-thread" };
+  expect((await api.getState()).composerAttachments).toEqual([]);
+  hostState = { ...hostState, selectedSessionId: "thread" };
+  expect((await api.getState()).composerAttachments).toEqual([image]);
+
+  await api.addComposerAttachments([{ ...image, id: "i2" }]);
+  expect((await api.removeComposerAttachment("i2")).composerAttachments).toEqual([image]);
+
+  const sent = await api.submitComposer("");
+  expect(sent.composerAttachments).toEqual([]);
+  const send = invocations.find((entry) => entry.method === "sendText");
+  expect(send?.args).toEqual(["", { attachments: [image] }]);
+  expect(() =>
+    validateRemoteDesktopInvocation("sendText", send?.args ?? [], new Set(["workspace"])),
+  ).not.toThrow();
+});

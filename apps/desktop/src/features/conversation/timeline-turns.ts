@@ -1,9 +1,12 @@
 import type { TurnChangeSummary } from "../../../contracts/review";
 import type {
   DisplayTimelineItem,
+  TimelineToolCall,
   TimelineTranscriptItem,
   TimelineTurnMarker,
 } from "../../../contracts/timeline-types";
+import { exploreKind } from "../../../contracts/tool-labels";
+import { askUserToolName, showUiToolName } from "../../../contracts/generative-ui";
 
 const MIN_WORKED_DURATION_MS = 1_000;
 
@@ -36,7 +39,13 @@ export function buildDisplayTimelineItems(
     readonly subagentsWorking?: readonly string[];
   } = {},
 ): readonly DisplayTimelineItem[] {
-  const transcript = withSubagentsWorking(withWorkingLast(source), options);
+  const transcript = withSubagentsWorking(
+    withGenerativeUi(
+      withThoughtDurations(withWorkingLast(source), options.lastTurnRunning === true),
+      options.lastTurnRunning === true,
+    ),
+    options,
+  );
   // Marker to emit immediately before the transcript item at that index.
   // Index `transcript.length` means "after the last item".
   const markersBefore = new Map<number, TimelineTurnMarker>();
@@ -95,7 +104,7 @@ export function buildDisplayTimelineItems(
 
   const cardsAfter = turnChangeCardPositions(transcript, options.turnChanges ?? []);
   if (markersBefore.size === 0 && cardsAfter.size === 0) {
-    return transcript;
+    return withExploreGroups(transcript);
   }
 
   const result: DisplayTimelineItem[] = [];
@@ -112,7 +121,52 @@ export function buildDisplayTimelineItems(
       result.push({ kind: "turn-changes", id: `turn-changes:${turn.checkpointId}`, turn });
     }
   }
-  return result;
+  return withExploreGroups(result);
+}
+
+/**
+ * Two or more finished reads and searches in a row fold into one "Explored 3 files, 2 searches"
+ * row that opens to the calls, the way Codex shows looking around. A running or failed call, or
+ * any other row, ends the run, so work in progress and errors stay in plain sight.
+ */
+function withExploreGroups(items: readonly DisplayTimelineItem[]): readonly DisplayTimelineItem[] {
+  const result: DisplayTimelineItem[] = [];
+  let run: TimelineToolCall[] = [];
+  const flush = () => {
+    if (run.length >= 2) {
+      const searches = run.filter((tool) => exploreKind(tool.toolName, tool.input) === "search");
+      const files = run.length - searches.length;
+      const parts = [
+        ...(files ? [`${files} file${files === 1 ? "" : "s"}`] : []),
+        ...(searches.length
+          ? [`${searches.length} search${searches.length === 1 ? "" : "es"}`]
+          : []),
+      ];
+      result.push({
+        kind: "tool-group",
+        id: `tool-group:${run[0]!.id}`,
+        label: `Explored ${parts.join(", ")}`,
+        tools: run,
+      });
+    } else {
+      result.push(...run);
+    }
+    run = [];
+  };
+  for (const item of items) {
+    if (
+      item.kind === "tool" &&
+      item.status === "success" &&
+      exploreKind(item.toolName, item.input) !== undefined
+    ) {
+      run.push(item);
+      continue;
+    }
+    flush();
+    result.push(item);
+  }
+  flush();
+  return result.length === items.length ? items : result;
 }
 
 /** The live "Thinking…" pill is the run's leading edge, so it always renders after the latest row. */
@@ -122,6 +176,76 @@ function withWorkingLast(
   const index = transcript.findIndex((item) => item.kind === "activity" && item.tone === "working");
   if (index < 0 || index === transcript.length - 1) return transcript;
   return [...transcript.slice(0, index), ...transcript.slice(index + 1), transcript[index]!];
+}
+
+/**
+ * A live thinking row ends where the next row starts, so it reads "Thought for Ns" once the model
+ * moves on, and the newest one in a running turn is still open. Rows from history already carry their duration; a gap under a second means the two
+ * rows share one saved timestamp, which says nothing about how long the thinking took.
+ */
+function withThoughtDurations(
+  transcript: readonly TimelineTranscriptItem[],
+  running: boolean,
+): readonly TimelineTranscriptItem[] {
+  let changed = false;
+  const result = transcript.map((item, index) => {
+    if (item.kind !== "thinking" || item.durationMs !== undefined) return item;
+    const next = transcript
+      .slice(index + 1)
+      .find((later) => !(later.kind === "activity" && later.tone === "working"));
+    if (!next && running) {
+      changed = true;
+      return { ...item, open: true };
+    }
+    const durationMs = next ? Date.parse(next.createdAt) - Date.parse(item.createdAt) : NaN;
+    if (!(durationMs >= MIN_WORKED_DURATION_MS)) return item;
+    changed = true;
+    return { ...item, durationMs };
+  });
+  return changed ? result : transcript;
+}
+
+/**
+ * A show_ui with a key is one element the agent updates: it stays where it first appeared and
+ * shows the latest call. An ask_user still waiting when no run is going (after a restart or a
+ * stop) can no longer be answered, so it says so.
+ */
+function withGenerativeUi(
+  transcript: readonly TimelineTranscriptItem[],
+  running: boolean,
+): readonly TimelineTranscriptItem[] {
+  const latestByKey = new Map<string, TimelineToolCall>();
+  for (const item of transcript) {
+    const key = uiKey(item);
+    if (key && item.kind === "tool") latestByKey.set(key, item);
+  }
+  let changed = false;
+  const shown = new Set<string>();
+  const result = transcript.flatMap((item): TimelineTranscriptItem[] => {
+    if (item.kind !== "tool") return [item];
+    if (item.toolName === askUserToolName && item.status === "running" && !running) {
+      changed = true;
+      return [{ ...item, status: "error", detail: "Expired. Reply in the chat instead." }];
+    }
+    const key = uiKey(item);
+    if (!key) return [item];
+    if (shown.has(key)) {
+      changed = true;
+      return [];
+    }
+    shown.add(key);
+    const latest = latestByKey.get(key)!;
+    if (latest === item) return [item];
+    changed = true;
+    return [{ ...item, input: latest.input, output: latest.output, status: latest.status }];
+  });
+  return changed ? result : transcript;
+}
+
+function uiKey(item: TimelineTranscriptItem): string | undefined {
+  if (item.kind !== "tool" || item.toolName !== showUiToolName) return undefined;
+  const key = (item.input as { key?: unknown } | undefined)?.key;
+  return typeof key === "string" && key.trim() ? key.trim() : undefined;
 }
 
 /** A chat whose own turn ended still shows that its subagents are working. */

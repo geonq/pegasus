@@ -294,8 +294,10 @@ const localPiDesktopApi = {
     ipcRenderer.invoke(desktopIpc.deleteScheduledTask, id) as Promise<DesktopAppState>,
   beginScheduledTaskInterview: () =>
     ipcRenderer.invoke(desktopIpc.beginScheduledTaskInterview) as Promise<DesktopAppState>,
-  cancelCurrentRun: () =>
-    ipcRenderer.invoke(desktopIpc.cancelCurrentRun) as Promise<DesktopAppState>,
+  cancelCurrentRun: (target?: WorkspaceSessionTarget) =>
+    (target === undefined
+      ? ipcRenderer.invoke(desktopIpc.cancelCurrentRun)
+      : ipcRenderer.invoke(desktopIpc.cancelCurrentRun, target)) as Promise<DesktopAppState>,
   setActiveView: (view: AppView) =>
     ipcRenderer.invoke(desktopIpc.setActiveView, view) as Promise<DesktopAppState>,
   setSidebarCollapsed: (collapsed: boolean) =>
@@ -461,6 +463,19 @@ const localPiDesktopApi = {
       workspaceId,
       sessionId,
       response,
+    ) as Promise<DesktopAppState>,
+  answerGenerativeUi: (
+    workspaceId: string,
+    sessionId: string,
+    callId: string,
+    answer: Readonly<Record<string, string | readonly string[] | boolean>>,
+  ) =>
+    ipcRenderer.invoke(
+      desktopIpc.answerGenerativeUi,
+      workspaceId,
+      sessionId,
+      callId,
+      answer,
     ) as Promise<DesktopAppState>,
   setNotificationPreferences: (preferences: Partial<NotificationPreferences>) =>
     ipcRenderer.invoke(

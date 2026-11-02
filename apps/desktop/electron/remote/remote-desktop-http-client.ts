@@ -10,7 +10,8 @@ import {
   type RemoteDesktopEvent,
 } from "./remote-desktop-protocol";
 
-const MAX_REQUEST_BYTES = 256 * 1024;
+// Room for a message with images up to the composer's 30 MB total, as base64 JSON.
+const MAX_REQUEST_BYTES = 48 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 24 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 65_000;
 const RECONNECT_DELAY_MS = 2_000;

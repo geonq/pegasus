@@ -24,6 +24,8 @@ export function forWindow(state: DesktopAppState): DesktopAppState {
   if (!light) {
     light = children.map((child) => ({
       ...child,
+      // The role its prompt named ("[PI_CHILD_ROLE=reviewer]") is all the Agents panel needs of the goal.
+      ...(childRole(child.goal) ? { role: childRole(child.goal) } : {}),
       goal: "",
       latestTranscript: "",
       transcript: [],
@@ -32,6 +34,10 @@ export function forWindow(state: DesktopAppState): DesktopAppState {
     windowChildren.set(children, light);
   }
   return { ...state, orchestrationChildren: light };
+}
+
+function childRole(goal: string): string | undefined {
+  return /\[(?:PI|HERMES)_CHILD_ROLE=(\w+)\]/i.exec(goal)?.[1]?.toLowerCase();
 }
 
 interface WindowViewState {

@@ -21,7 +21,7 @@ import type { TranscriptAnnotations } from "./annotations/use-transcript-annotat
 import { ThreadSearchBar } from "./thread-search";
 import type { RunExtensionAction } from "./extension-card";
 import { TimelineItem } from "./timeline-item";
-import { sameRowContent, type TimelineRow } from "./timeline-layout";
+import { sameGenerativeUiInput, sameRowContent, type TimelineRow } from "./timeline-layout";
 import type { OpenTurnChange } from "./turn-changes-card";
 import type { WorkspaceFileLine } from "./workspace-file-line";
 import { ChatIcon } from "../../ui/icons";
@@ -399,7 +399,8 @@ function isSameDisplayItem(a: DisplayTimelineItem, b: DisplayTimelineItem): bool
       a.toolName === b.toolName &&
       a.label === b.label &&
       a.detail === b.detail &&
-      a.metadata === b.metadata
+      a.metadata === b.metadata &&
+      sameGenerativeUiInput(a, b)
     );
   }
   if (a.kind === "activity" && b.kind === "activity") {
@@ -421,7 +422,10 @@ function isSameDisplayItem(a: DisplayTimelineItem, b: DisplayTimelineItem): bool
     // A card's id is its checkpoint, and a captured turn's files never change.
     return true;
   }
-  if ((a.kind === "card" || a.kind === "custom" || a.kind === "thinking") && a.kind === b.kind) {
+  if (
+    (a.kind === "card" || a.kind === "custom" || a.kind === "thinking" || a.kind === "tool-group") &&
+    a.kind === b.kind
+  ) {
     return sameRowContent(a, b);
   }
   return false;

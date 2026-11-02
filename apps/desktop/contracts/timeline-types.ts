@@ -53,7 +53,8 @@ export interface TimelineSummary {
 export type TranscriptMessage =
   | SessionTranscriptMessage
   | SessionTranscriptCustomMessage
-  | SessionTranscriptThinking
+  // `open` marks the thinking still streaming in a running turn; the timeline sets it for display.
+  | (SessionTranscriptThinking & { readonly open?: boolean })
   | SessionTranscriptCard
   | SessionTranscriptPin
   | TimelineActivity
@@ -85,4 +86,17 @@ export interface TimelineTurnChanges {
   readonly turn: TurnChangeSummary;
 }
 
-export type DisplayTimelineItem = TimelineTranscriptItem | TimelineTurnMarker | TimelineTurnChanges;
+/** A derived, view-only row folding a run of finished reads and searches: "Explored 4 files, 2 searches". */
+export interface TimelineToolGroup {
+  readonly kind: "tool-group";
+  /** The first folded row's id, so the group keeps its place as later rows join it. */
+  readonly id: string;
+  readonly label: string;
+  readonly tools: readonly TimelineToolCall[];
+}
+
+export type DisplayTimelineItem =
+  | TimelineTranscriptItem
+  | TimelineTurnMarker
+  | TimelineTurnChanges
+  | TimelineToolGroup;

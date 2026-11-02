@@ -1,4 +1,5 @@
 import { sessionKey } from "@pi-gui/session-driver";
+import { sessionAgentActivity } from "../../contracts/agent-activity";
 import type { SessionDriverEvent, SessionSnapshot } from "@pi-gui/session-driver";
 import type {
   DesktopAppState,
@@ -85,6 +86,9 @@ export function updateSessionRecord(
       options.transcript,
     ),
     config: options.snapshot?.config ?? session.config,
+    currentStep: undefined,
+    touchedFiles: undefined,
+    ...sessionAgentActivity(options.transcript, nextStatus),
   };
 }
 

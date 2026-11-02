@@ -156,3 +156,89 @@ test("a finished turn shows its subagents still working", () => {
   expect(last).not.toHaveProperty("detail");
   expect(buildDisplayTimelineItems(transcript, { subagentsWorking: [] }).at(-1)?.id).toBe("a1");
 });
+
+test("thinking reads Thought for Ns once the next row starts, and stays open while it streams", () => {
+  const thinking = (id: string, seconds: number, durationMs?: number): TranscriptMessage => ({
+    kind: "thinking",
+    id,
+    text: id,
+    createdAt: at(seconds),
+    ...(durationMs !== undefined ? { durationMs } : {}),
+  });
+  const working: TranscriptMessage = {
+    kind: "activity",
+    id: "working",
+    label: "Thinking…",
+    tone: "working",
+    createdAt: at(1),
+  };
+  const view = (transcript: readonly TranscriptMessage[], running: boolean) =>
+    buildDisplayTimelineItems(transcript, { lastTurnRunning: running }).flatMap((item) =>
+      item.kind === "thinking" ? [[item.id, item.durationMs, item.open === true]] : [],
+    );
+  const transcript = [
+    message("u1", "user", 0),
+    thinking("live", 2),
+    tool("t1", 21),
+    // Saved rows share their reply's timestamp, so only a duration from history counts.
+    thinking("saved", 25, 8_000),
+    thinking("same-time", 30),
+    message("a1", "assistant", 30),
+    thinking("streaming", 31),
+    working,
+  ];
+  expect(view(transcript, true)).toEqual([
+    ["live", 19_000, false],
+    ["saved", 8_000, false],
+    ["same-time", undefined, false],
+    ["streaming", undefined, true],
+  ]);
+  expect(view(transcript, false).at(-1)).toEqual(["streaming", undefined, false]);
+});
+
+test("finished reads and searches in a row fold into one Explored row; others stay in sight", () => {
+  const call = (
+    id: string,
+    toolName: string,
+    input: unknown,
+    status: "running" | "success" | "error" = "success",
+  ): TranscriptMessage => ({
+    kind: "tool",
+    id,
+    callId: id,
+    toolName,
+    status,
+    label: id,
+    input,
+    createdAt: at(1),
+  });
+  const view = (transcript: readonly TranscriptMessage[]) =>
+    buildDisplayTimelineItems(transcript, { lastTurnRunning: true }).map((item) =>
+      item.kind === "tool-group" ? `${item.label} [${item.tools.map((t) => t.id)}]` : item.id,
+    );
+  expect(
+    view([
+      message("u1", "user", 0),
+      call("r1", "project_read", { path: "a.ts" }),
+      call("r2", "project_ls", { path: "src" }),
+      call("g1", "grep", { pattern: "x" }),
+      call("s1", "project_shell", { command: "ls" }),
+      call("r3", "read", { path: "b.ts" }),
+      call("img", "project_read", { path: "shot.png" }),
+      call("r4", "read", { path: "c.ts" }),
+      call("r5", "read", { path: "d.ts" }, "error"),
+      call("r6", "read", { path: "e.ts" }),
+      call("r7", "read", { path: "f.ts" }, "running"),
+    ]),
+  ).toEqual([
+    "u1",
+    "Explored 2 files, 1 search [r1,r2,g1]",
+    "s1",
+    "r3",
+    "img",
+    "r4",
+    "r5",
+    "r6",
+    "r7",
+  ]);
+});

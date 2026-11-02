@@ -32,6 +32,7 @@ export const REMOTE_DESKTOP_PI_METHODS = [
   "setSessionThinkingLevel",
   "setSessionPermission",
   "respondToHostUiRequest",
+  "answerGenerativeUi",
   "setDefaultThinkingLevel",
   "setThreadGrouping",
   "listWorkspaceFiles",

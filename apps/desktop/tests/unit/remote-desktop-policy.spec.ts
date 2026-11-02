@@ -42,12 +42,14 @@ test("remote method policy scopes workspaces and rejects unsafe public methods a
         {
           rootWorkspaceId: allowedWorkspaceId,
           environment: "local",
-          attachments: [{ kind: "file", fsPath: "D:\\outside.txt" }],
+          attachments: [
+            { id: "f", kind: "file", name: "x.txt", mimeType: "text/plain", fsPath: "D:\\outside.txt" },
+          ],
         },
       ],
       workspaceScope,
     ),
-  ).toThrow("Attachments cannot be sent from a remote client");
+  ).toThrow("Only images can be sent from a remote client");
   expect(() =>
     validateRemoteDesktopInvocation(
       "startThread",
@@ -105,7 +107,48 @@ test("remote new chats accept the composer's empty attachment list and extension
       [{ rootWorkspaceId: allowedWorkspaceId, environment: "local", attachments: "none" }],
       workspaceScope,
     ),
-  ).toThrow("Attachments cannot be sent");
+  ).toThrow("attachments must be an array");
+});
+
+const PNG_1PX =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+test("remote messages carry images as bytes and nothing else", () => {
+  const image = { id: "i1", kind: "image", name: "shot.png", mimeType: "image/png", data: PNG_1PX };
+  expect(
+    validateRemoteDesktopInvocation(
+      "sendText",
+      ["", { attachments: [{ ...image, extra: 1 }] }],
+      workspaceScope,
+    ),
+  ).toEqual({ method: "sendText", args: ["", { attachments: [image] }] });
+  expect(
+    validateRemoteDesktopInvocation(
+      "startThread",
+      [{ rootWorkspaceId: allowedWorkspaceId, environment: "local", attachments: [image] }],
+      workspaceScope,
+    ).args[0],
+  ).toMatchObject({ attachments: [image] });
+  // Empty text needs an image; an empty options record collapses to plain text.
+  expect(() => validateRemoteDesktopInvocation("sendText", [" ", {}], workspaceScope)).toThrow(
+    "cannot be empty",
+  );
+  expect(validateRemoteDesktopInvocation("sendText", ["hi", {}], workspaceScope).args).toEqual([
+    "hi",
+  ]);
+  for (const bad of [
+    { ...image, mimeType: "image/svg+xml" },
+    { ...image, data: "<script>" },
+    { ...image, data: "A".repeat(15 * 1024 * 1024) },
+  ]) {
+    expect(() =>
+      validateRemoteDesktopInvocation("sendText", ["x", { attachments: [bad] }], workspaceScope),
+    ).toThrow();
+  }
+  const many = Array.from({ length: 17 }, (_, index) => ({ ...image, id: `i${index}` }));
+  expect(() =>
+    validateRemoteDesktopInvocation("sendText", ["x", { attachments: many }], workspaceScope),
+  ).toThrow("At most 16");
 });
 
 test("remote usage reads allow only the documented cachedOnly metadata option", () => {

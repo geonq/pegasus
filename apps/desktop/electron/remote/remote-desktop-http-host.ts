@@ -14,7 +14,8 @@ import { RemoteWorkspaceFolderError } from "./remote-workspace-folders";
 
 const HOST = "127.0.0.1";
 const MAX_HEADER_BYTES = 16 * 1024;
-const MAX_BODY_BYTES = 256 * 1024;
+// Room for a message with images up to the composer's 30 MB total, as base64 JSON.
+const MAX_BODY_BYTES = 48 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 24 * 1024 * 1024;
 const MAX_SSE_STREAMS = 32;
 const MAX_SSE_PER_CLIENT = 4;

@@ -1,6 +1,12 @@
 import type { PiDesktopApi } from "../../contracts/ipc";
+import {
+  acceptComposerAttachments,
+  SUPPORTED_COMPOSER_IMAGE_TYPES,
+} from "../../contracts/composer-attachments";
 import type {
   AppView,
+  ComposerAttachment,
+  ComposerImageAttachment,
   DesktopAppState,
   SelectedTranscriptRecord,
   ThreadGrouping,
@@ -56,6 +62,7 @@ const REMOTE_METHODS = new Set<PropertyKey>([
   "setSessionThinkingLevel",
   "setSessionPermission",
   "respondToHostUiRequest",
+  "answerGenerativeUi",
   "setDefaultThinkingLevel",
   "setThreadGrouping",
   "listWorkspaceFiles",
@@ -123,6 +130,9 @@ export function createRemoteDesktopClientApi(
   // Drafts stay on this client, one per chat like the host keeps them: the renderer flushes the
   // draft of the chat it leaves, and a single shared draft carried that text into the next chat.
   const localDrafts = new Map<string, string>();
+  // Attachments stay here too: the host cannot read this machine's files, so images are sent as
+  // bytes with the message.
+  const localAttachments = new Map<string, readonly ComposerAttachment[]>();
   const draftKey = (target: { readonly workspaceId: string; readonly sessionId: string }) =>
     `${target.workspaceId}:${target.sessionId}`;
   const setLocalDraft = (target: { readonly workspaceId: string; readonly sessionId: string }, draft: string) => {
@@ -173,9 +183,23 @@ export function createRemoteDesktopClientApi(
     ...state,
     composerDraft: localDrafts.get(draftKey(selectedTarget(state))) ?? "",
     composerDraftSyncSource: "state",
-    composerAttachments: [],
+    composerAttachments: localAttachments.get(draftKey(selectedTarget(state))) ?? [],
     editingQueuedMessageId: undefined,
   });
+  const addLocalAttachments = async (
+    incoming: readonly ComposerAttachment[],
+  ): Promise<DesktopAppState> => {
+    const state = lastState ?? (await getState());
+    const key = draftKey(selectedTarget(state));
+    const existing = localAttachments.get(key) ?? [];
+    const result = incoming.every((attachment) => attachment.kind === "image")
+      ? acceptComposerAttachments(existing, incoming)
+      : { ok: false as const, error: new Error("Only images can be sent to the Windows host.") };
+    if (!result.ok) return { ...state, lastError: result.error.message };
+    if (incoming.length > 0) localAttachments.set(key, [...existing, ...result.attachments]);
+    lastState = overlayDraft(state);
+    return lastState;
+  };
   const overlayLocalPreferences = async (state: DesktopAppState) => {
     const preferences = localPreferences ?? (await preferencesReady);
     return overlayDraft({ ...state, ...preferences });
@@ -264,7 +288,8 @@ export function createRemoteDesktopClientApi(
           case "unarchiveSession":
             return (target: unknown) => runState(property, [target]);
           case "cancelCurrentRun":
-            return () => runState("cancelCurrentRun", []);
+            return (target?: unknown) =>
+              runState("cancelCurrentRun", target === undefined ? [] : [target]);
           case "setSessionModel":
             return (...args: unknown[]) => runState("setSessionModel", args);
           case "setDefaultModel":
@@ -275,6 +300,8 @@ export function createRemoteDesktopClientApi(
             return (...args: unknown[]) => runState("setSessionPermission", args);
           case "respondToHostUiRequest":
             return (...args: unknown[]) => runState("respondToHostUiRequest", args);
+          case "answerGenerativeUi":
+            return (...args: unknown[]) => runState("answerGenerativeUi", args);
           case "setDefaultThinkingLevel":
             return (...args: unknown[]) => runState("setDefaultThinkingLevel", args);
           case "setThreadGrouping":
@@ -298,12 +325,38 @@ export function createRemoteDesktopClientApi(
       }
       if (property === "submitComposer") {
         return async (text: string, options?: { readonly deliverAs?: "steer" | "followUp" }) => {
+          const key = lastState ? draftKey(selectedTarget(lastState)) : undefined;
+          const attachments = key ? (localAttachments.get(key) ?? []) : [];
+          const sendOptions = {
+            ...(options?.deliverAs === "steer" ? { deliverAs: "steer" as const } : {}),
+            ...(attachments.length > 0 ? { attachments } : {}),
+          };
           await invokeRemote(
             "sendText",
-            options?.deliverAs === "steer" ? [text, { deliverAs: "steer" }] : [text],
+            Object.keys(sendOptions).length > 0 ? [text, sendOptions] : [text],
           );
           if (lastState) setLocalDraft(selectedTarget(lastState), "");
+          if (key) localAttachments.delete(key);
           return getState();
+        };
+      }
+      if (property === "addComposerAttachments") {
+        return (attachments: readonly ComposerAttachment[]) => addLocalAttachments(attachments);
+      }
+      if (property === "pickComposerAttachments") {
+        return async () => addLocalAttachments(await pickLocalImages());
+      }
+      if (property === "removeComposerAttachment") {
+        return async (attachmentId: string) => {
+          const state = lastState ?? (await getState());
+          const key = draftKey(selectedTarget(state));
+          const next = (localAttachments.get(key) ?? []).filter(
+            (attachment) => attachment.id !== attachmentId,
+          );
+          if (next.length > 0) localAttachments.set(key, next);
+          else localAttachments.delete(key);
+          lastState = overlayDraft(state);
+          return lastState;
         };
       }
       // This client keeps its draft locally, so editing a queued message brings its text back to
@@ -428,6 +481,48 @@ function createRemoteWorkspaceFolderAdapter(
       }
       return result;
     },
+  };
+}
+
+/** The host's file dialog would browse the host's disk, so the picker runs on this machine. */
+function pickLocalImages(): Promise<ComposerImageAttachment[]> {
+  // The preload runs in the page, but this tsconfig keeps DOM types out of electron/.
+  const page = globalThis as unknown as {
+    readonly document: {
+      createElement(tag: "input"): {
+        type: string;
+        multiple: boolean;
+        accept: string;
+        readonly files: ArrayLike<File> | null;
+        addEventListener(type: "change" | "cancel", listener: () => void, options: object): void;
+        click(): void;
+      };
+    };
+  };
+  return new Promise((resolve, reject) => {
+    const input = page.document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.accept = SUPPORTED_COMPOSER_IMAGE_TYPES.map((type) => type.mimeType).join(",");
+    input.addEventListener("cancel", () => resolve([]), { once: true });
+    input.addEventListener(
+      "change",
+      () => {
+        void Promise.all(Array.from(input.files ?? [], readImageFile)).then(resolve, reject);
+      },
+      { once: true },
+    );
+    input.click();
+  });
+}
+
+async function readImageFile(file: File): Promise<ComposerImageAttachment> {
+  return {
+    id: crypto.randomUUID(),
+    kind: "image",
+    name: file.name,
+    mimeType: file.type,
+    data: Buffer.from(await file.arrayBuffer()).toString("base64"),
   };
 }
 

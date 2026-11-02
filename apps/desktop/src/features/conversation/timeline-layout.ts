@@ -31,6 +31,8 @@ export function estimateRowHeight(item: DisplayTimelineItem, width: number): num
     }
     case "tool":
       return 52;
+    case "tool-group":
+      return 28;
     // Collapsed by default; an opened row is measured like any other.
     case "thinking":
       return 28;
@@ -70,14 +72,27 @@ export function sameRowContent(a: DisplayTimelineItem, b: DisplayTimelineItem): 
         a.status === b.status &&
         a.detail === b.detail &&
         a.label === b.label &&
-        a.metadata === b.metadata
+        a.metadata === b.metadata &&
+        sameGenerativeUiInput(a, b)
       );
     case "summary":
       return b.kind === a.kind && a.label === b.label && a.presentation === b.presentation;
     case "activity":
       return b.kind === a.kind && a.label === b.label && a.detail === b.detail;
+    case "tool-group":
+      return (
+        b.kind === a.kind &&
+        a.label === b.label &&
+        a.tools.length === b.tools.length &&
+        a.tools.every((tool, index) => sameRowContent(tool, b.tools[index]!))
+      );
     case "thinking":
-      return b.kind === a.kind && a.text === b.text;
+      return (
+        b.kind === a.kind &&
+        a.text === b.text &&
+        a.durationMs === b.durationMs &&
+        a.open === b.open
+      );
     case "custom":
       return b.kind === a.kind && a.customType === b.customType && a.text === b.text;
     case "card":
@@ -89,6 +104,18 @@ export function sameRowContent(a: DisplayTimelineItem, b: DisplayTimelineItem): 
     default:
       return unhandledKind(a, false);
   }
+}
+
+/** A drawn show_ui or ask_user changes with its input (a keyed update) and its answer. */
+export function sameGenerativeUiInput(
+  a: Extract<DisplayTimelineItem, { kind: "tool" }>,
+  b: Extract<DisplayTimelineItem, { kind: "tool" }>,
+): boolean {
+  if (a.toolName !== "show_ui" && a.toolName !== "ask_user") return true;
+  return (
+    JSON.stringify(a.input) === JSON.stringify(b.input) &&
+    JSON.stringify(a.output) === JSON.stringify(b.output)
+  );
 }
 
 function sameCard(a: ExtensionCard, b: ExtensionCard): boolean {

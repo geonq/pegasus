@@ -185,6 +185,7 @@ export const desktopIpc = {
   setMcpServerEnabled: "pi-gui:set-mcp-server-enabled",
   setCodemodeAlwaysOn: "pi-gui:set-codemode-always-on",
   respondToHostUiRequest: "pi-gui:respond-to-host-ui-request",
+  answerGenerativeUi: "pi-gui:answer-generative-ui",
   setNotificationPreferences: "pi-gui:set-notification-preferences",
   setIntegratedTerminalShell: "pi-gui:set-integrated-terminal-shell",
   setEnableTransparency: "pi-gui:set-enable-transparency",
@@ -757,7 +758,8 @@ export interface PiDesktopApi {
   updateScheduledTask(id: string, patch: UpdateScheduledTaskInput): Promise<DesktopAppState>;
   deleteScheduledTask(id: string): Promise<DesktopAppState>;
   beginScheduledTaskInterview(): Promise<DesktopAppState>;
-  cancelCurrentRun(): Promise<DesktopAppState>;
+  /** Stops the window's chat, or the named one (the Agents panel's Stop). */
+  cancelCurrentRun(target?: WorkspaceSessionTarget): Promise<DesktopAppState>;
   setActiveView(view: AppView): Promise<DesktopAppState>;
   setSidebarCollapsed(collapsed: boolean): Promise<DesktopAppState>;
   setThreadGrouping(grouping: ThreadGrouping): Promise<DesktopAppState>;
@@ -834,6 +836,13 @@ export interface PiDesktopApi {
       | { readonly requestId: string; readonly value: string }
       | { readonly requestId: string; readonly confirmed: boolean }
       | { readonly requestId: string; readonly cancelled: true },
+  ): Promise<DesktopAppState>;
+  /** Answers an ask_user question drawn in the chat; the agent continues with the answer. */
+  answerGenerativeUi(
+    workspaceId: string,
+    sessionId: string,
+    callId: string,
+    answer: Readonly<Record<string, string | readonly string[] | boolean>>,
   ): Promise<DesktopAppState>;
   setNotificationPreferences(
     preferences: Partial<NotificationPreferences>,

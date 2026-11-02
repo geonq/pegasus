@@ -129,6 +129,7 @@ type ConversationOwner = Pick<
   | "getSessionTree"
   | "navigateSessionTree"
   | "respondToHostUiRequest"
+  | "answerGenerativeUi"
   | "setSessionModel"
   | "setSessionThinkingLevel"
   | "withError"
@@ -696,6 +697,21 @@ export function registerDesktopIpc({
         ),
       ),
   );
+  ipcMain.handle(
+    desktopIpc.answerGenerativeUi,
+    (event, rawWorkspaceId: unknown, rawSessionId: unknown, rawCallId: unknown, rawAnswer: unknown) =>
+      immediate(event, () =>
+        // The answer is checked against the question it answers in the store.
+        owners.conversation.answerGenerativeUi(
+          {
+            workspaceId: expectNonEmptyString(rawWorkspaceId, "workspaceId"),
+            sessionId: expectNonEmptyString(rawSessionId, "sessionId"),
+          },
+          expectNonEmptyString(rawCallId, "callId"),
+          rawAnswer,
+        ),
+      ),
+  );
   ipcMain.handle(desktopIpc.setNotificationPreferences, (event, rawPreferences: unknown) =>
     run(event, () =>
       owners.settings.setNotificationPreferences(expectNotificationPreferences(rawPreferences)),
@@ -802,8 +818,12 @@ export function registerDesktopIpc({
     },
   );
 
-  ipcMain.handle(desktopIpc.cancelCurrentRun, (event) => {
-    const target = windows.targetForSender(event.sender);
+  ipcMain.handle(desktopIpc.cancelCurrentRun, (event, rawTarget?: unknown) => {
+    // Stop in the Agents panel names the chat; the stop button means the window's own chat.
+    const target =
+      rawTarget === undefined
+        ? windows.targetForSender(event.sender)
+        : expectSessionTarget(rawTarget);
     // A long slash command can still own the serialized action queue.
     // Stop must bypass that queue and cancel the captured target immediately.
     return immediate(event, () => owners.conversation.cancelCurrentRun(target));

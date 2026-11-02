@@ -13,7 +13,11 @@ import type {
   TimelineTurnMarker,
 } from "../../../contracts/timeline-types";
 import type { ScheduledTaskOrigin } from "../../../contracts/scheduled-tasks";
-import { extensionToolRowLabel } from "../../../contracts/tool-labels";
+import { extensionToolRowLabel, humanToolName } from "../../../contracts/tool-labels";
+import {
+  canDrawGenerativeUi,
+  GenerativeUiToolItem,
+} from "../generative-ui/generative-ui-tool-item";
 import { useExtensionToolLabel } from "../extensions/extension-tool-labels";
 import {
   AnnotationMarkers,
@@ -90,6 +94,7 @@ export function TimelineItem({
     case "activity":
       return <TimelineActivityItem item={item} />;
     case "tool":
+      if (canDrawGenerativeUi(item)) return <GenerativeUiToolItem item={item} />;
       return (
         <TimelineToolCallItem
           item={item}
@@ -105,7 +110,16 @@ export function TimelineItem({
     case "card":
       return <ExtensionCardItem card={item.card} onAction={onExtensionAction} />;
     case "thinking":
-      return <TimelineThinking text={item.text} />;
+      return <TimelineThinking item={item} />;
+    case "tool-group":
+      return (
+        <TimelineToolGroupItem
+          item={item}
+          expandedToolCallIds={expandedToolCallIds}
+          onToggleToolCall={onToggleToolCall}
+          onViewFileInDiff={onViewFileInDiff}
+        />
+      );
     default:
       return unhandledTimelineItem(item);
   }
@@ -116,8 +130,57 @@ function unhandledTimelineItem(item: never): null {
   return null;
 }
 
-/** The model's reasoning: one quiet "Thinking" line, collapsed until the reader opens it. */
-function TimelineThinking({ text }: { readonly text: string }) {
+/** A run of reads and searches as one quiet line that opens to the calls themselves. */
+function TimelineToolGroupItem({
+  item,
+  expandedToolCallIds,
+  onToggleToolCall,
+  onViewFileInDiff,
+}: {
+  readonly item: Extract<DisplayTimelineItem, { kind: "tool-group" }>;
+  readonly expandedToolCallIds?: ReadonlySet<string>;
+  readonly onToggleToolCall?: (callId: string) => void;
+  readonly onViewFileInDiff?: (path: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <article className="timeline-thinking timeline-tool-group" data-testid="timeline-tool-group">
+      <button
+        className="timeline-thinking__header"
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((open) => !open)}
+      >
+        <span
+          className={`timeline-thinking__chevron ${expanded ? "timeline-thinking__chevron--expanded" : ""}`}
+        >
+          <ChevronRightIcon />
+        </span>
+        <span className="timeline-thinking__label">{item.label}</span>
+      </button>
+      {expanded ? (
+        <div className="timeline-tool-group__calls">
+          {item.tools.map((tool) => (
+            <TimelineToolCallItem
+              key={tool.id}
+              item={tool}
+              expanded={expandedToolCallIds?.has(tool.callId) ?? false}
+              onToggle={onToggleToolCall}
+              onViewFileInDiff={onViewFileInDiff}
+            />
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+/** The model's reasoning: one quiet "Thought for 19s" line, collapsed until the reader opens it. */
+function TimelineThinking({
+  item,
+}: {
+  readonly item: Extract<DisplayTimelineItem, { kind: "thinking" }>;
+}) {
   const [expanded, setExpanded] = useState(false);
   return (
     <article className="timeline-thinking" data-testid="timeline-thinking">
@@ -132,11 +195,17 @@ function TimelineThinking({ text }: { readonly text: string }) {
         >
           <ChevronRightIcon />
         </span>
-        <span className="timeline-thinking__label">Thinking</span>
+        <span className="timeline-thinking__label">
+          {item.open
+            ? "Thinking…"
+            : item.durationMs !== undefined
+              ? `Thought for ${formatWorkedDuration(item.durationMs)}`
+              : "Thought"}
+        </span>
       </button>
       {expanded ? (
         <p className="timeline-thinking__body" data-testid="timeline-thinking-body">
-          {text}
+          {item.text}
         </p>
       ) : null}
     </article>
@@ -347,7 +416,7 @@ function TimelineToolCallItem({
   const diffStats = diffText ? countDiffStats(diffText) : undefined;
   const compactLabel =
     extensionLabel === undefined
-      ? buildCompactLabel(item, diffStats)
+      ? item.label
       : extensionToolRowLabel(extensionLabel, item.input);
   const filePath = writeTool ? extractFilename(item.input) || undefined : undefined;
   const diffLanguage = diffText && filePath ? extensionToLanguage(filePath) : undefined;
@@ -395,14 +464,15 @@ function TimelineToolCallItem({
               <span className="timeline-tool__stat-del">−{diffStats.removed}</span>
             </span>
           ) : null}
-          {/* A finished row needs no badge; the orb shows a running one, a dot marks a failure. */}
-          <span className="timeline-tool__meta-inline">
+          {/* A finished row needs no badge; the orb shows a running one, a dot marks a failure.
+              The exact tool id stays on hover for anyone tracing which tool ran. */}
+          <span className="timeline-tool__meta-inline" title={item.toolName}>
             {item.status === "error" ? (
               <span className="timeline-tool__status-pip" aria-hidden="true" />
             ) : null}
             {item.status === "success"
-              ? item.toolName
-              : `${item.toolName} \u00b7 ${statusLabel(item.status)}`}
+              ? humanToolName(item.toolName)
+              : `${humanToolName(item.toolName)} · ${statusLabel(item.status)}`}
           </span>
         </button>
         {filePath && onViewFileInDiff ? (
@@ -427,7 +497,7 @@ function TimelineToolCallItem({
             <ImageAttachmentThumb
               className="timeline-tool__image"
               key={`${item.callId}:${index}`}
-              name={`${item.toolName} image ${index + 1}`}
+              name={`${humanToolName(item.toolName)} image ${index + 1}`}
               src={toolOutputImageSrc(image)}
             />
           ))}
@@ -504,19 +574,6 @@ function toolGlyph(toolName: string) {
   return <ExtensionIcon />;
 }
 
-function buildCompactLabel(
-  item: TimelineToolCall,
-  diffStats: { added: number; removed: number } | undefined,
-): string {
-  if (isWriteTool(item.toolName)) {
-    const filename = extractFilename(item.input);
-    if (filename) {
-      return `Edited ${shortenPath(filename)}`;
-    }
-  }
-  return item.label;
-}
-
 function extractFilename(input: unknown): string {
   if (typeof input === "object" && input !== null) {
     const record = input as Record<string, unknown>;
@@ -526,15 +583,6 @@ function extractFilename(input: unknown): string {
     }
   }
   return "";
-}
-
-function shortenPath(filePath: string): string {
-  // Show last 2-3 path segments for readability
-  const parts = filePath.split("/");
-  if (parts.length <= 3) {
-    return filePath;
-  }
-  return parts.slice(-3).join("/");
 }
 
 function countDiffStats(diff: string): { added: number; removed: number } {

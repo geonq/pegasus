@@ -10,6 +10,7 @@
 @import "./styles/review.css";
 @import "./styles/extension-views.css";
 @import "./styles/timeline.css";
+@import "./styles/generative-ui.css";
 @import "./styles/scheduled-tasks.css";
 @import "./styles/thread-switch.css";
 @import "./styles/command-palette.css";

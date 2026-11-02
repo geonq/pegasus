@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import {
   determineRunOutcome,
   messageText,
   persistedToolOutput,
   shouldPersistSnapshotForAgentEvent,
   transcriptFromMessages,
+  transcriptFromSession,
 } from "../dist/session-supervisor-utils.js";
 
 const markdownParts = [
@@ -172,4 +174,45 @@ await test("transcriptFromMessages keeps non-blank thinking before the reply and
     ],
   );
   assert.equal(transcript[1]?.kind === "thinking" && transcript[1].text, "Plan the edit.");
+});
+
+await test("a saved reply that only thought and called tools says how long the thinking took", () => {
+  const manager = SessionManager.inMemory();
+  const reply = (content: unknown[], startedMsAgo: number) =>
+    manager.appendMessage({
+      role: "assistant",
+      content,
+      api: "openai-responses",
+      provider: "openai",
+      model: "gpt-6-luna",
+      usage: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 0,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+      stopReason: "toolUse",
+      timestamp: Date.now() - startedMsAgo,
+    } as never);
+  reply(
+    [
+      { type: "thinking", thinking: "First." },
+      { type: "thinking", thinking: "Then." },
+      { type: "toolCall", id: "c1", name: "project_shell", arguments: { command: "ls" } },
+    ],
+    12_000,
+  );
+  // A written answer streams after the thinking, so its time is not thinking time.
+  reply([{ type: "thinking", thinking: "Answer." }, { type: "text", text: "Done." }], 30_000);
+  const thinking = transcriptFromSession(manager).filter((item) => item.kind === "thinking");
+  assert.deepEqual(
+    thinking.map((item) => item.text),
+    ["First.", "Then.", "Answer."],
+  );
+  assert.equal(thinking[0]?.durationMs, undefined);
+  const measured = thinking[1]?.durationMs ?? 0;
+  assert.ok(measured >= 12_000 && measured < 14_000, String(measured));
+  assert.equal(thinking[2]?.durationMs, undefined);
 });
