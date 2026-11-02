@@ -13,7 +13,9 @@
 .main {
   background: var(--main);
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  /* The last row holds the scheduled-task strip's neighbour (the composer) when the strip is
+     shown; a child past the explicit rows would fall outside the side panel's 1 / -1 span. */
+  grid-template-rows: auto 1fr auto auto;
   min-width: 0;
   overflow: hidden;
   position: relative;
@@ -27,12 +29,13 @@
   grid-column: 1;
 }
 
-.main--with-side-panel > .composer {
+.main--with-side-panel > .composer,
+.main--with-side-panel > .scheduled-task-chip {
   grid-column: 1;
 }
 
 .main--with-startup-diagnostics {
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
 }
 
 .main--with-side-panel > .startup-diagnostics {

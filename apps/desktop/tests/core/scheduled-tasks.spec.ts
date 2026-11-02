@@ -140,6 +140,20 @@ test("firing a due existing-thread task labels the user bubble and shows a chip"
     await expect(window.getByTestId("transcript")).toContainText("Say ping from scheduled task");
     await expect(window.getByTestId("composer")).toHaveValue(composerDraft);
     await expect(window.getByTestId("scheduled-task-chip")).toBeVisible();
+    // The strip is an extra grid row; the side panel must still run to the window's bottom.
+    await window.getByTestId("toggle-side-panel").click();
+    const panel = window.locator("#task-workbench");
+    await expect(panel).toBeVisible();
+    const [panelBox, mainBox] = await Promise.all([
+      panel.boundingBox(),
+      window.locator(".main").boundingBox(),
+    ]);
+    expect(Math.round(panelBox!.y + panelBox!.height)).toBe(
+      Math.round(mainBox!.y + mainBox!.height),
+    );
+    if (process.env.PI_APP_SHOT_DIR) {
+      await window.screenshot({ path: join(process.env.PI_APP_SHOT_DIR, "chip-side-panel.png") });
+    }
     const after = await getDesktopState(window);
     expect(after.selectedSessionId).toBe(sessionId);
     expect(after.composerDraft).toBe(composerDraft);
