@@ -134,6 +134,10 @@ import {
   GenerativeUiContext,
   type GenerativeUiHost,
 } from "../features/generative-ui/generative-ui-view";
+import { DiagramView } from "../features/generative-ui/diagram-view";
+import type { UiNode } from "../../contracts/generative-ui";
+
+type PinnedDiagram = Extract<UiNode, { type: "diagram" }>;
 
 import { ScheduledTasksView } from "../features/scheduled-tasks/scheduled-tasks-view";
 
@@ -729,11 +733,20 @@ export default function App() {
     focusComposer,
   });
 
+  // A diagram pinned from the chat, per chat, shown by the Diagram side-panel tool.
+  const [pinnedDiagrams, setPinnedDiagrams] = useState<ReadonlyMap<string, PinnedDiagram>>(
+    () => new Map(),
+  );
   // Drawn ask_user questions answer into the open chat; their buttons reuse the card actions.
   const generativeUiHost = useMemo<GenerativeUiHost | null>(
     () =>
       api && workbenchTarget
         ? {
+            pinDiagram: (node) => {
+              const key = `${workbenchTarget.workspaceId}/${workbenchTarget.sessionId}`;
+              setPinnedDiagrams((current) => new Map(current).set(key, node));
+              workbench.openTool({ kind: "diagram" });
+            },
             answer: async (callId, answer) => {
               await api.answerGenerativeUi(
                 workbenchTarget.workspaceId,
@@ -745,7 +758,7 @@ export default function App() {
             runAction: runExtensionCardAction,
           }
         : null,
-    [api, workbenchTarget, runExtensionCardAction],
+    [api, workbenchTarget, runExtensionCardAction, workbench.openTool],
   );
 
   const dismissSchemaSkewNotice = useCallback((sessionKey: string) => {
@@ -2208,6 +2221,25 @@ export default function App() {
             ) : activeTool && activeTool.kind !== "extension" ? (
               renderBuiltinToolPanel(activeTool.kind, {
                 agents: () => <AgentsPanel snapshot={snapshot} onSelect={handleSelectSession} />,
+
+                diagram: () => {
+                  const pinned = pinnedDiagrams.get(
+                    `${selectedWorkspace.id}/${selectedSession.id}`,
+                  );
+                  return (
+                    <div className="diagram-panel" data-testid="diagram-panel">
+                      {pinned ? (
+                        <GenerativeUiContext.Provider value={generativeUiHost}>
+                          <DiagramView node={pinned} inPanel />
+                        </GenerativeUiContext.Provider>
+                      ) : (
+                        <p className="diagram-panel__empty">
+                          Open a diagram from the chat with "Open in side panel" to keep it here.
+                        </p>
+                      )}
+                    </div>
+                  );
+                },
 
                 changes: () => (
                   <DiffPanel

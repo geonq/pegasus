@@ -16,6 +16,8 @@ export interface GenerativeUiHost {
   readonly answer: (callId: string, answer: GenerativeUiAnswer) => Promise<void>;
   readonly runAction?: (action: ExtensionAction) => void;
   readonly openThread?: (threadId: string) => void;
+  /** Keeps a diagram in the side panel while the chat goes on. */
+  readonly pinDiagram?: (node: Extract<UiNode, { type: "diagram" }>) => void;
 }
 
 export const GenerativeUiContext = createContext<GenerativeUiHost | null>(null);

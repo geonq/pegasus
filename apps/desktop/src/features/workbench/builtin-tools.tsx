@@ -25,6 +25,11 @@ export const BUILTIN_TOOLS = {
     Icon: DiffIcon,
     shortcutKey: "R",
   },
+  diagram: {
+    label: "Diagram",
+    description: "Keep a diagram from the chat in view",
+    Icon: SparkIcon,
+  },
   terminal: {
     label: "Terminal",
     description: "Run commands in this task's checkout",

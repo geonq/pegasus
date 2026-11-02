@@ -6,6 +6,7 @@ import {
   workspaceFileLineFromAnchorProps,
   type WorkspaceFileLine,
 } from "./workspace-file-line";
+import { MermaidDiagram } from "../generative-ui/diagram-view";
 
 const REMARK_PLUGINS = [remarkGfm];
 
@@ -39,6 +40,16 @@ function markdownComponents(
           {children}
         </a>
       );
+    },
+    // A ```mermaid block in a reply is drawn as its diagram, the same way show_ui draws one.
+    pre: ({ children, node }) => {
+      const first = node?.children[0];
+      const classes = first?.type === "element" ? first.properties.className : undefined;
+      if (first?.type === "element" && Array.isArray(classes) && classes.includes("language-mermaid")) {
+        const source = first.children.map((child) => (child.type === "text" ? child.value : "")).join("");
+        return <MermaidDiagram source={source.trimEnd()} />;
+      }
+      return <pre>{children}</pre>;
     },
     table: ({ children }) => (
       <div className="message__table-scroll">
