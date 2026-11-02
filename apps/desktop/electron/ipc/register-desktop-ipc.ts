@@ -129,6 +129,7 @@ type ConversationOwner = Pick<
   | "getSessionTree"
   | "navigateSessionTree"
   | "respondToHostUiRequest"
+  | "answerGenerativeUi"
   | "setSessionModel"
   | "setSessionThinkingLevel"
   | "withError"
@@ -693,6 +694,21 @@ export function registerDesktopIpc({
             sessionId: expectNonEmptyString(rawSessionId, "sessionId"),
           },
           expectHostUiResponse(rawResponse),
+        ),
+      ),
+  );
+  ipcMain.handle(
+    desktopIpc.answerGenerativeUi,
+    (event, rawWorkspaceId: unknown, rawSessionId: unknown, rawCallId: unknown, rawAnswer: unknown) =>
+      immediate(event, () =>
+        // The answer is checked against the question it answers in the store.
+        owners.conversation.answerGenerativeUi(
+          {
+            workspaceId: expectNonEmptyString(rawWorkspaceId, "workspaceId"),
+            sessionId: expectNonEmptyString(rawSessionId, "sessionId"),
+          },
+          expectNonEmptyString(rawCallId, "callId"),
+          rawAnswer,
         ),
       ),
   );

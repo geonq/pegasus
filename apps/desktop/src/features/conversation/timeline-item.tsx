@@ -14,6 +14,10 @@ import type {
 } from "../../../contracts/timeline-types";
 import type { ScheduledTaskOrigin } from "../../../contracts/scheduled-tasks";
 import { extensionToolRowLabel, humanToolName } from "../../../contracts/tool-labels";
+import {
+  canDrawGenerativeUi,
+  GenerativeUiToolItem,
+} from "../generative-ui/generative-ui-tool-item";
 import { useExtensionToolLabel } from "../extensions/extension-tool-labels";
 import {
   AnnotationMarkers,
@@ -90,6 +94,7 @@ export function TimelineItem({
     case "activity":
       return <TimelineActivityItem item={item} />;
     case "tool":
+      if (canDrawGenerativeUi(item)) return <GenerativeUiToolItem item={item} />;
       return (
         <TimelineToolCallItem
           item={item}

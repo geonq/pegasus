@@ -462,6 +462,19 @@ const localPiDesktopApi = {
       sessionId,
       response,
     ) as Promise<DesktopAppState>,
+  answerGenerativeUi: (
+    workspaceId: string,
+    sessionId: string,
+    callId: string,
+    answer: Readonly<Record<string, string | readonly string[] | boolean>>,
+  ) =>
+    ipcRenderer.invoke(
+      desktopIpc.answerGenerativeUi,
+      workspaceId,
+      sessionId,
+      callId,
+      answer,
+    ) as Promise<DesktopAppState>,
   setNotificationPreferences: (preferences: Partial<NotificationPreferences>) =>
     ipcRenderer.invoke(
       desktopIpc.setNotificationPreferences,

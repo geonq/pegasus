@@ -6,6 +6,7 @@ import type {
   TimelineTurnMarker,
 } from "../../../contracts/timeline-types";
 import { exploreKind } from "../../../contracts/tool-labels";
+import { askUserToolName, showUiToolName } from "../../../contracts/generative-ui";
 
 const MIN_WORKED_DURATION_MS = 1_000;
 
@@ -38,7 +39,13 @@ export function buildDisplayTimelineItems(
     readonly subagentsWorking?: readonly string[];
   } = {},
 ): readonly DisplayTimelineItem[] {
-  const transcript = withSubagentsWorking(withThoughtDurations(withWorkingLast(source), options.lastTurnRunning === true), options);
+  const transcript = withSubagentsWorking(
+    withGenerativeUi(
+      withThoughtDurations(withWorkingLast(source), options.lastTurnRunning === true),
+      options.lastTurnRunning === true,
+    ),
+    options,
+  );
   // Marker to emit immediately before the transcript item at that index.
   // Index `transcript.length` means "after the last item".
   const markersBefore = new Map<number, TimelineTurnMarker>();
@@ -196,6 +203,49 @@ function withThoughtDurations(
     return { ...item, durationMs };
   });
   return changed ? result : transcript;
+}
+
+/**
+ * A show_ui with a key is one element the agent updates: it stays where it first appeared and
+ * shows the latest call. An ask_user still waiting when no run is going (after a restart or a
+ * stop) can no longer be answered, so it says so.
+ */
+function withGenerativeUi(
+  transcript: readonly TimelineTranscriptItem[],
+  running: boolean,
+): readonly TimelineTranscriptItem[] {
+  const latestByKey = new Map<string, TimelineToolCall>();
+  for (const item of transcript) {
+    const key = uiKey(item);
+    if (key && item.kind === "tool") latestByKey.set(key, item);
+  }
+  let changed = false;
+  const shown = new Set<string>();
+  const result = transcript.flatMap((item): TimelineTranscriptItem[] => {
+    if (item.kind !== "tool") return [item];
+    if (item.toolName === askUserToolName && item.status === "running" && !running) {
+      changed = true;
+      return [{ ...item, status: "error", detail: "Expired. Reply in the chat instead." }];
+    }
+    const key = uiKey(item);
+    if (!key) return [item];
+    if (shown.has(key)) {
+      changed = true;
+      return [];
+    }
+    shown.add(key);
+    const latest = latestByKey.get(key)!;
+    if (latest === item) return [item];
+    changed = true;
+    return [{ ...item, input: latest.input, output: latest.output, status: latest.status }];
+  });
+  return changed ? result : transcript;
+}
+
+function uiKey(item: TimelineTranscriptItem): string | undefined {
+  if (item.kind !== "tool" || item.toolName !== showUiToolName) return undefined;
+  const key = (item.input as { key?: unknown } | undefined)?.key;
+  return typeof key === "string" && key.trim() ? key.trim() : undefined;
 }
 
 /** A chat whose own turn ended still shows that its subagents are working. */

@@ -153,6 +153,7 @@ import {
   type ScheduledTaskOwner,
 } from "../scheduled-tasks/app-store-scheduled-tasks";
 import { earliestScheduledWakeAt } from "../scheduled-tasks/scheduled-task-schedule";
+import { GenerativeUiQuestions } from "../generative-ui/generative-ui-runtime";
 import {
   readScheduledTasksFile,
   writeScheduledTasksFile,
@@ -208,6 +209,8 @@ function traceStartupPromise<T>(stage: string, operation: () => Promise<T>): Pro
 }
 
 export class DesktopAppStore {
+  /** ask_user questions waiting for the person; the generative UI extension asks through it. */
+  readonly generativeUiQuestions = new GenerativeUiQuestions();
   private state = createEmptyDesktopAppState();
   private readonly listeners = new Set<StateListener>();
   /** Monotonic publish counter; emit() stamps every published state with it. */
@@ -3233,6 +3236,17 @@ export class DesktopAppStore {
 
     return this.withErrorHandling(async () => {
       await this.driver.respondToHostUiRequest(sessionRef, response);
+      return this.refreshState({ clearLastError: true });
+    });
+  }
+
+  async answerGenerativeUi(
+    sessionRef: SessionRef,
+    callId: string,
+    answer: unknown,
+  ): Promise<DesktopAppState> {
+    return this.withErrorHandling(async () => {
+      this.generativeUiQuestions.answer(sessionRef, callId, answer);
       return this.refreshState({ clearLastError: true });
     });
   }

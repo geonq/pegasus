@@ -1,0 +1,295 @@
+/* ---- Generative UI: agent-described cards drawn with the app's own parts ---- */
+
+.generative-ui {
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3xl);
+  background: var(--surface);
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.generative-ui__title {
+  font-weight: var(--font-semibold);
+  color: var(--text-strong);
+}
+
+.generative-ui__blocks {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.generative-ui__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+.generative-ui__label {
+  font-size: 13px;
+  font-weight: var(--font-medium);
+  color: var(--text-strong);
+}
+
+.generative-ui__muted {
+  color: var(--muted-soft);
+  font-weight: normal;
+}
+
+.generative-ui__card {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface-muted);
+}
+
+.generative-ui__card-title {
+  font-weight: var(--font-medium);
+  color: var(--text-strong);
+}
+
+.generative-ui__card-subtitle {
+  font-size: 12px;
+  color: var(--muted-soft);
+}
+
+.generative-ui__checklist ul,
+.generative-ui__diagram ul,
+.generative-ui__agent-map ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.generative-ui__check {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  column-gap: 6px;
+  align-items: baseline;
+}
+
+.generative-ui__check-mark {
+  color: var(--muted-soft);
+  text-align: center;
+}
+
+.generative-ui__check--running .generative-ui__check-mark {
+  color: var(--accent);
+}
+
+.generative-ui__check--done .generative-ui__check-mark {
+  color: var(--success);
+}
+
+.generative-ui__check--done .generative-ui__check-label {
+  color: var(--muted-strong);
+  text-decoration: line-through;
+}
+
+.generative-ui__check--failed .generative-ui__check-mark {
+  color: var(--error);
+}
+
+.generative-ui__check-note {
+  grid-column: 2;
+  font-size: 12px;
+  color: var(--muted-soft);
+}
+
+.generative-ui__choice {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.generative-ui__choice legend {
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.generative-ui__option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+}
+
+.generative-ui__option:hover {
+  background: var(--overlay-hover);
+}
+
+.generative-ui__option--picked {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.generative-ui__choice:disabled .generative-ui__option {
+  cursor: default;
+}
+
+.generative-ui__option input {
+  margin-top: 3px;
+}
+
+.generative-ui__option-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.generative-ui__option-label {
+  color: var(--text-strong);
+}
+
+.generative-ui__option-description {
+  font-size: 12px;
+  color: var(--muted-soft);
+}
+
+.generative-ui__form {
+  display: grid;
+  gap: 10px;
+}
+
+.generative-ui__field {
+  display: grid;
+  gap: 4px;
+}
+
+.generative-ui__toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.generative-ui__input {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+  min-width: 0;
+}
+
+.generative-ui__table-wrap {
+  overflow-x: auto;
+}
+
+.generative-ui__table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: 100%;
+}
+
+.generative-ui__table th,
+.generative-ui__table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.generative-ui__table th {
+  color: var(--muted-strong);
+  font-weight: var(--font-medium);
+}
+
+.generative-ui__progress-track {
+  height: 6px;
+  margin-top: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.generative-ui__progress-bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--motion-base) var(--ease-out);
+}
+
+.generative-ui__callout {
+  padding: 8px 10px;
+  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.generative-ui__callout--success {
+  border-left-color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+.generative-ui__callout--warning {
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.generative-ui__callout--error {
+  border-left-color: var(--error);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+}
+
+.generative-ui__code {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-x: auto;
+}
+
+.generative-ui__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.generative-ui__submit {
+  font: inherit;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 0;
+  background: var(--text-strong);
+  color: var(--surface);
+  cursor: pointer;
+}
+
+.generative-ui__submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.generative-ui__status {
+  font-size: 12px;
+  color: var(--muted-soft);
+}
+
+.generative-ui__status--done {
+  color: var(--success);
+}
+
+.generative-ui__error {
+  font-size: 12px;
+  color: var(--error-ink);
+}

@@ -54,6 +54,7 @@ import {
   createOrchestrationRuntimeTools,
   type OrchestrationRuntimeBridge,
 } from "./orchestration/orchestration-runtime";
+import { createGenerativeUiRuntimeExtension } from "./generative-ui/generative-ui-runtime";
 import {
   createScheduledTaskRuntimeExtension,
   createScheduledTaskRuntimeTools,
@@ -1402,6 +1403,15 @@ app
           displayName: "Thread orchestration",
           description: "Lets pi start, read and message other pi-gui threads",
           factory: createOrchestrationRuntimeExtension(orchestrationRuntimeBridge),
+        },
+        {
+          name: "pi-gui-generative-ui",
+          displayName: "Interactive cards",
+          description: "Lets pi show checklists, tables and diagrams, and ask with clickable options",
+          factory: createGenerativeUiRuntimeExtension({
+            questions: () => store.generativeUiQuestions,
+            sessionRef: sessionRefFromExtensionContext,
+          }),
         },
         {
           name: "pi-gui-scheduled-tasks",

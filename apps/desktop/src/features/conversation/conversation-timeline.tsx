@@ -21,7 +21,7 @@ import type { TranscriptAnnotations } from "./annotations/use-transcript-annotat
 import { ThreadSearchBar } from "./thread-search";
 import type { RunExtensionAction } from "./extension-card";
 import { TimelineItem } from "./timeline-item";
-import { sameRowContent, type TimelineRow } from "./timeline-layout";
+import { sameGenerativeUiInput, sameRowContent, type TimelineRow } from "./timeline-layout";
 import type { OpenTurnChange } from "./turn-changes-card";
 import type { WorkspaceFileLine } from "./workspace-file-line";
 import { SparkIcon } from "../../ui/icons";
@@ -399,7 +399,8 @@ function isSameDisplayItem(a: DisplayTimelineItem, b: DisplayTimelineItem): bool
       a.toolName === b.toolName &&
       a.label === b.label &&
       a.detail === b.detail &&
-      a.metadata === b.metadata
+      a.metadata === b.metadata &&
+      sameGenerativeUiInput(a, b)
     );
   }
   if (a.kind === "activity" && b.kind === "activity") {

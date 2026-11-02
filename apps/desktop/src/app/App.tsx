@@ -130,6 +130,10 @@ import { activityForTranscript } from "../../contracts/agent-activity";
 import { TerminalPanel } from "../features/workbench/terminal-panel";
 
 import { ConversationTimeline } from "../features/conversation/conversation-timeline";
+import {
+  GenerativeUiContext,
+  type GenerativeUiHost,
+} from "../features/generative-ui/generative-ui-view";
 
 import { ScheduledTasksView } from "../features/scheduled-tasks/scheduled-tasks-view";
 
@@ -724,6 +728,25 @@ export default function App() {
 
     focusComposer,
   });
+
+  // Drawn ask_user questions answer into the open chat; their buttons reuse the card actions.
+  const generativeUiHost = useMemo<GenerativeUiHost | null>(
+    () =>
+      api && workbenchTarget
+        ? {
+            answer: async (callId, answer) => {
+              await api.answerGenerativeUi(
+                workbenchTarget.workspaceId,
+                workbenchTarget.sessionId,
+                callId,
+                answer,
+              );
+            },
+            runAction: runExtensionCardAction,
+          }
+        : null,
+    [api, workbenchTarget, runExtensionCardAction],
+  );
 
   const dismissSchemaSkewNotice = useCallback((sessionKey: string) => {
     setDismissedSchemaSkewSessionKeys((current) => {
@@ -1812,6 +1835,7 @@ export default function App() {
                     </div>
                   ) : null}
 
+                  <GenerativeUiContext.Provider value={generativeUiHost}>
                   <ConversationTimeline
                     key={selectedSessionKey}
 
@@ -1849,6 +1873,7 @@ export default function App() {
 
                     platform={api?.platform ?? "linux"}
                   />
+                  </GenerativeUiContext.Provider>
                 </div>
               </section>
 

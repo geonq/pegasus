@@ -90,6 +90,10 @@ export type RemoteDesktopInvocation =
       readonly args: readonly [string, string, HostUiResponse];
     }
   | {
+      readonly method: "answerGenerativeUi";
+      readonly args: readonly [string, string, string, Readonly<Record<string, string | readonly string[] | boolean>>];
+    }
+  | {
       readonly method: "setDefaultThinkingLevel";
       readonly args: readonly [string] | readonly [string, string];
     }
@@ -377,6 +381,19 @@ export function validateRemoteDesktopInvocation(
         ],
       };
     }
+    case "answerGenerativeUi": {
+      // Answers an ask_user question in an authorized chat; the host checks it against the question.
+      expectArgs(args, 4);
+      return {
+        method: allowedMethod,
+        args: [
+          expectAuthorizedWorkspace(args[0], workspaceIds),
+          expectString(args[1], "sessionId", 256),
+          expectString(args[2], "callId", 256),
+          expectGenerativeUiAnswer(args[3]),
+        ],
+      };
+    }
     case "setDefaultThinkingLevel": {
       if (args.length !== 1 && args.length !== 2) {
         throw new TypeError("setDefaultThinkingLevel expects one or two arguments.");
@@ -556,6 +573,29 @@ function filterRecord<T>(
   keep: (key: string) => boolean,
 ): Record<string, T> {
   return Object.fromEntries(Object.entries(record).filter(([key]) => keep(key)));
+}
+
+function expectGenerativeUiAnswer(
+  value: unknown,
+): Readonly<Record<string, string | readonly string[] | boolean>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError("answer must be an object.");
+  }
+  const entries = Object.entries(value);
+  if (entries.length > 64) throw new TypeError("answer has too many fields.");
+  const answer: Record<string, string | readonly string[] | boolean> = {};
+  for (const [key, entry] of entries) {
+    const field = expectString(key, "answer field", 64);
+    if (field === "__proto__" || field === "constructor" || field === "prototype") {
+      throw new TypeError(`${field} cannot be an answer field.`);
+    }
+    if (typeof entry === "boolean") answer[field] = entry;
+    else if (typeof entry === "string") answer[field] = expectString(entry, field, 4000);
+    else if (Array.isArray(entry) && entry.length <= 20) {
+      answer[field] = entry.map((item) => expectString(item, field, 4000));
+    } else throw new TypeError(`${field} must be text, a list of text, or true/false.`);
+  }
+  return answer;
 }
 
 function expectArgs(args: readonly unknown[], count: number): void {

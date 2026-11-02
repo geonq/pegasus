@@ -51,6 +51,7 @@ const REMOTE_METHODS = new Set<PropertyKey>([
   "setSessionThinkingLevel",
   "setSessionPermission",
   "respondToHostUiRequest",
+  "answerGenerativeUi",
   "setDefaultThinkingLevel",
   "setThreadGrouping",
   "listWorkspaceFiles",
@@ -200,6 +201,8 @@ export function createRemoteDesktopClientApi(
             return (...args: unknown[]) => runState("setSessionPermission", args);
           case "respondToHostUiRequest":
             return (...args: unknown[]) => runState("respondToHostUiRequest", args);
+          case "answerGenerativeUi":
+            return (...args: unknown[]) => runState("answerGenerativeUi", args);
           case "setDefaultThinkingLevel":
             return (...args: unknown[]) => runState("setDefaultThinkingLevel", args);
           case "setThreadGrouping":
