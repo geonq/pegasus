@@ -141,6 +141,7 @@ function askUserTool(options: GenerativeUiRuntimeOptions): ToolDefinition<any, u
       "Use ask_user when the user must choose between a few concrete options (approaches, plans to approve, which item to do next) instead of asking in prose.",
       "Give every option a short label and a one-line description of its trade-off. Set allowOther when none may fit.",
       "Ask one decision at a time. Do not use ask_user for open questions a sentence answers better.",
+      'Before a large or risky change (many files, deleting data, a migration), show the plan and ask with a choice id "plan" and options approve ("Approve"), edit ("Change the plan", with allowOther so the user can say how) and reject ("Do not do it"); act only on approve.',
     ],
     parameters: {
       type: "object",
