@@ -27,7 +27,15 @@ export function extensionToolLabels(runtime: RuntimeSnapshot | undefined): Exten
   const labels = new Map<string, string>();
   for (const { tool, builtin } of registrations) {
     const label = tool.label.trim();
-    if (label && !builtin && !tool.replacesPiTool && counts.get(tool.name) === 1) {
+    // A tool the verb table knows (pi-ecosystem's project_shell, labelled "project shell") reads
+    // better as a sentence ("Ran git status") than as its registered label.
+    if (
+      label &&
+      !builtin &&
+      !tool.replacesPiTool &&
+      counts.get(tool.name) === 1 &&
+      builtInToolLabel(tool.name, {}) === undefined
+    ) {
       labels.set(tool.name, label);
     }
   }

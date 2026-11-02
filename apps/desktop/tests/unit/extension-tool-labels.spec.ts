@@ -50,6 +50,8 @@ test("a folder's extension tools are labelled, pi-gui's own and unlabelled tools
       extension("shadow", [tool("create_child_thread", "Shadowed")]),
       { ...extension("builtin", [tool("ticket_read", "Off built-in")]), enabled: false },
       extension("tickets", [tool("ticket_read", "Look up ticket")]),
+      // pi-ecosystem's wrappers register plain labels; the verb table words them better.
+      extension("native", [tool("project_shell", "project shell"), tool("project_read", "project read")]),
     ]),
   );
   // Replacing pi's bash keeps pi-gui's handling; a name two extensions register is ambiguous.
