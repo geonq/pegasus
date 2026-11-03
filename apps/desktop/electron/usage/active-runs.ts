@@ -36,10 +36,7 @@ export function answerActiveRuns(
 }
 
 /** Running threads across every workspace, from in-memory state only (no disk reads). */
-export function mapActiveRuns(
-  state: Readonly<DesktopAppState>,
-  accountNames: ReadonlyMap<string, string>,
-): readonly ActiveRun[] {
+export function mapActiveRuns(state: Readonly<DesktopAppState>): readonly ActiveRun[] {
   const workspaceNames = new Map(
     state.workspaces.map((workspace) => [workspace.id, workspace.name]),
   );
@@ -58,7 +55,8 @@ export function mapActiveRuns(
       runs.push({
         threadId: session.id,
         provider,
-        accountLabel: accountNames.get(provider) ?? provider,
+        // The provider id, never the sign-in display name (it can carry the owner's name; P23c).
+        accountLabel: provider,
         model: session.config?.modelId ?? "",
         workspaceName,
         status: waiting ? "waiting" : session.currentStep ? "tool" : "running",

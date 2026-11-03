@@ -1963,10 +1963,7 @@ app
               return store.deliverRemoteInstruction(sessionRef, text, deliverAs, attachments);
             },
             getActiveRuns: () =>
-              mapActiveRuns(
-                store.readState(),
-                new Map((signIns?.current() ?? []).map((signIn) => [signIn.id, signIn.name])),
-              ),
+              mapActiveRuns(store.readState()),
           });
           brokers.set(client.id, broker);
           remoteDesktopBrokers.add(broker);

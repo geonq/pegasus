@@ -5,6 +5,7 @@ import {
   type SessionRecord,
   type WorkspaceRecord,
 } from "../../contracts/desktop-state";
+import { isRemoteDesktopPiMethod } from "../../electron/remote/remote-desktop-protocol";
 import { mapActiveRuns } from "../../electron/usage/active-runs";
 
 const SECRET_TITLE = "Title: rotate the bank token";
@@ -51,15 +52,13 @@ function stateWith(
   return { ...createEmptyDesktopAppState(), workspaces, ...extra };
 }
 
-const names = new Map([["claude-code-account-2", "Claude 2"]]);
-
-test("a plain running thread reports running with the account name and workspace name", () => {
-  const runs = mapActiveRuns(stateWith([workspace("ws-1", "Seher", [session("t-1")])]), names);
+test("a plain running thread reports running with the provider id, never the sign-in name, and the workspace name", () => {
+  const runs = mapActiveRuns(stateWith([workspace("ws-1", "Seher", [session("t-1")])]));
   expect(runs).toEqual([
     {
       threadId: "t-1",
       provider: "claude-code-account-2",
-      accountLabel: "Claude 2",
+      accountLabel: "claude-code-account-2",
       model: "claude-opus-5-5",
       workspaceName: "Seher",
       status: "running",
@@ -89,7 +88,7 @@ test("a running tool reports tool, an open dialog reports waiting", () => {
       },
     },
   );
-  expect(mapActiveRuns(state, names).map((run) => [run.threadId, run.status])).toEqual([
+  expect(mapActiveRuns(state).map((run) => [run.threadId, run.status])).toEqual([
     ["tool", "tool"],
     ["ask", "waiting"],
   ]);
@@ -102,11 +101,11 @@ test("idle and failed threads are left out; no running threads gives an empty li
       session("failed", { status: "failed" }),
     ]),
   ]);
-  expect(mapActiveRuns(state, names)).toEqual([]);
-  expect(mapActiveRuns(createEmptyDesktopAppState(), names)).toEqual([]);
+  expect(mapActiveRuns(state)).toEqual([]);
+  expect(mapActiveRuns(createEmptyDesktopAppState())).toEqual([]);
 });
 
-test("a worktree reports its project's name; unknown accounts fall back to the provider id", () => {
+test("a worktree reports its project's name; the account label is the provider id", () => {
   const state = stateWith([
     workspace("root", "Pegasus", []),
     workspace(
@@ -116,7 +115,7 @@ test("a worktree reports its project's name; unknown accounts fall back to the p
       { kind: "worktree", rootWorkspaceId: "root" },
     ),
   ]);
-  const [run] = mapActiveRuns(state, names);
+  const [run] = mapActiveRuns(state);
   expect(run).toMatchObject({
     workspaceName: "Pegasus",
     accountLabel: "openai",
@@ -129,7 +128,7 @@ test("no title, preview, tool label, touched file or path leaves through the res
   const state = stateWith([
     workspace("ws-1", "Seher", [session("a", { currentStep: SECRET_STEP }), session("b")]),
   ]);
-  const runs = mapActiveRuns(state, names);
+  const runs = mapActiveRuns(state);
   const json = JSON.stringify(runs);
   for (const secret of [SECRET_TITLE, SECRET_PREVIEW, SECRET_STEP, SECRET_PATH, "notes.md"]) {
     expect(json).not.toContain(JSON.stringify(secret).slice(1, -1));
@@ -144,4 +143,8 @@ test("no title, preview, tool label, touched file or path leaves through the res
     "threadId",
     "workspaceName",
   ]);
+});
+
+test("getActiveRuns is a host method: preload never forwards it to the renderer (P23c)", () => {
+  expect(isRemoteDesktopPiMethod("getActiveRuns")).toBe(false);
 });
