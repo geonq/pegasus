@@ -28,6 +28,8 @@ import type {
 import { latestSessionActivityAt, previewFromTranscript } from "../application/app-store-utils";
 import type { RefreshStateOptions } from "../application/refresh-state-options";
 import { promptTitle } from "../conversation/thread-title-constants";
+import { findTouchedRepositories } from "../workbench/review-owner";
+import { sessionAgentActivity } from "../../contracts/agent-activity";
 import {
   createChildThreadAction,
   createChildThreadPromptFromToolOutput,
@@ -112,6 +114,7 @@ interface OrchestrationOwnerHost {
 
 export interface OrchestrationOwner {
   reconcileDueSupervisionLoops(): { readonly changed: boolean };
+  reportFinishedChild(childRef: SessionRef): Promise<void>;
   cancelChildRunsForParent(parentRef: SessionRef): Promise<void>;
   sendChildThreadFollowUp(input: SendChildThreadFollowUpInput): Promise<DesktopAppState>;
   setChildSupervisionLoopGate(input: SetChildSupervisionLoopInput): Promise<DesktopAppState>;
@@ -146,6 +149,7 @@ export interface OrchestrationOwner {
 export function createOrchestrationOwner(store: OrchestrationOwnerHost): OrchestrationOwner {
   return {
     reconcileDueSupervisionLoops: () => reconcileDueSupervisionLoops(store),
+    reportFinishedChild: (childRef) => reportFinishedChild(store, childRef),
     cancelChildRunsForParent: (parentRef) => cancelChildRunsForParent(store, parentRef),
     sendChildThreadFollowUp: (input) => sendChildThreadFollowUp(store, input),
     setChildSupervisionLoopGate: (input) => setChildSupervisionLoopGate(store, input),
@@ -502,6 +506,10 @@ async function cancelChildRunsForParent(
         child.parentWorkspaceId === parentRef.workspaceId &&
         child.parentSessionId === parentRef.sessionId,
     );
+  // A run the parent's own stop ended is not news to the parent, and reporting it would restart it.
+  for (const child of children)
+    if (child.childSessionId && child.status === "running")
+      cancelledByParent.add(child.childSessionId);
   await Promise.all(children.map((child) => cancelChildRun(store, child)));
 }
 
@@ -1009,6 +1017,93 @@ function initialPromptDeliveryStatus(
     return "responded";
   }
   return session?.status === "running" ? "running" : undefined;
+}
+
+const MAX_REPORT_REPLY_CHARS = 2000;
+const MAX_REPORT_COMMITS = 8;
+// One report per finished run; reports fire on live run-end events only, which a restart does not replay.
+const reportedRuns = new Set<string>();
+const cancelledByParent = new Set<string>();
+
+/**
+ * Tells the parent that a child finished, without the parent having to poll: its status, its last
+ * reply, and per repository it changed files in, the commits since it started and what is still
+ * uncommitted. Sent as a follow-up, so a busy parent gets it after its turn and an idle one wakes.
+ */
+async function reportFinishedChild(
+  store: OrchestrationOwnerHost,
+  childRef: SessionRef,
+): Promise<void> {
+  const child = store
+    .orchestrationState()
+    .orchestrationChildren.find(
+      (entry) =>
+        entry.childSessionId === childRef.sessionId &&
+        entry.childWorkspaceId === childRef.workspaceId,
+    );
+  if (cancelledByParent.delete(childRef.sessionId)) return;
+  if (!child || (child.status !== "complete" && child.status !== "failed")) return;
+  if (child.supervisionLoop?.status === "stopped") return;
+  const parentRef = { workspaceId: child.parentWorkspaceId, sessionId: child.parentSessionId };
+  if (!store.sessionFromState(parentRef)) return;
+  const runKey = `${child.childSessionId}:${child.updatedAt}`;
+  if (reportedRuns.has(runKey)) return;
+  reportedRuns.add(runKey);
+
+  const transcript = store.transcriptFor(childRef);
+  let reply = "";
+  for (let index = transcript.length - 1; index >= 0 && !reply; index -= 1) {
+    const item = transcript[index];
+    if (item?.kind === "message" && item.role === "assistant" && item.text.trim())
+      reply = item.text.trim();
+  }
+  const basePath = store.workspaceRefFromState(child.childWorkspaceId)?.path ?? "";
+  const repositories = basePath
+    ? await findTouchedRepositories(
+        sessionAgentActivity(transcript, "idle").touchedFiles ?? [],
+        basePath,
+      ).catch(() => [])
+    : [];
+  const gitLines: string[] = [];
+  for (const repository of repositories) {
+    const [branch = "HEAD"] = await gitOutputLines(repository, [
+      "rev-parse",
+      "--abbrev-ref",
+      "HEAD",
+    ]);
+    const commits = await gitOutputLines(repository, [
+      "log",
+      `--since=${child.createdAt}`,
+      `-n${MAX_REPORT_COMMITS}`,
+      "--format=%h %s",
+      "HEAD",
+    ]);
+    const pending = await gitOutputLines(repository, ["status", "--porcelain"]);
+    const staged = pending.filter((line) => line[0] !== " " && line[0] !== "?").length;
+    gitLines.push(
+      `- ${repository} (${branch}): ${commits.length ? `${commits.length} commit(s) since the child started` : "no new commits"}` +
+        (pending.length
+          ? `; ${pending.length} uncommitted change(s), ${staged} staged`
+          : "; clean"),
+      ...commits.map((commit) => `  - ${commit}`),
+    );
+  }
+  const text = [
+    `[Child thread report] "${child.title}" ${child.status === "failed" ? "failed" : "finished"}.`,
+    `childThreadId: ${child.id}`,
+    ...(gitLines.length ? ["Git:", ...gitLines] : []),
+    "Last reply:",
+    reply
+      ? reply.length > MAX_REPORT_REPLY_CHARS
+        ? `${reply.slice(0, MAX_REPORT_REPLY_CHARS)}… (read_thread ${child.id} for the rest)`
+        : reply
+      : "(no reply; read_thread for its transcript)",
+  ].join("\n");
+
+  await store.submitComposerToSession(parentRef, text, [], {
+    deliverAs: "followUp",
+    allowCommands: false,
+  });
 }
 
 function isWorkerResponse(item: TranscriptMessage): boolean {

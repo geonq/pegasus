@@ -3781,6 +3781,15 @@ export class DesktopAppStore {
           ),
         };
         this.scheduleOrchestrationSupervision();
+        if (
+          (event.type === "runCompleted" || event.type === "runFailed") &&
+          this.orchestrationOwner.hasOrchestrationChildSession(event.sessionRef)
+        ) {
+          // Not awaited: the report submits to the parent session, which must not wait on this event.
+          void this.orchestrationOwner.reportFinishedChild(event.sessionRef).catch((error: unknown) => {
+            console.error("[app-store] child report to parent failed", error);
+          });
+        }
       }
       if (shouldFollowSessionMutation && event.type !== "sessionClosed") {
         this.applyFastSessionSelection(event.sessionRef);
