@@ -49,7 +49,20 @@ export function DiffPanel({
 }: DiffPanelProps) {
   const scopeKey = JSON.stringify(selection.scope);
   const requestedScope = useMemo(() => selection.scope, [scopeKey]);
-  const queryKey = JSON.stringify([workspaceId, sessionId, selection.workspaceId, scopeKey]);
+  // A repository picked from a comparison's repositories, kept for the checkout it was picked in.
+  const [repository, setRepository] = useState<{
+    readonly checkoutId: string;
+    readonly path: string;
+  }>();
+  const chosenRepository =
+    repository?.checkoutId === selection.workspaceId ? repository.path : undefined;
+  const queryKey = JSON.stringify([
+    workspaceId,
+    sessionId,
+    selection.workspaceId,
+    scopeKey,
+    chosenRepository ?? null,
+  ]);
   const activeQueryKey = useRef(queryKey);
   activeQueryKey.current = queryKey;
   const [loaded, setLoaded] = useState<{
@@ -120,6 +133,7 @@ export function DiffPanel({
         target: { workspaceId, sessionId },
         checkoutId: selection.workspaceId,
         scope: requestedScope,
+        ...(chosenRepository ? { repository: chosenRepository } : {}),
       })
       .then(
         (next) => {
@@ -139,6 +153,7 @@ export function DiffPanel({
   }, [
     api,
     checkoutAvailable,
+    chosenRepository,
     queryKey,
     requestedScope,
     selection.workspaceId,
@@ -205,6 +220,7 @@ export function DiffPanel({
         target: { workspaceId, sessionId },
         checkoutId: selection.workspaceId,
         scope: requestedScope,
+        ...(chosenRepository ? { repository: chosenRepository } : {}),
       });
       const shown =
         next.state === "available"
@@ -242,6 +258,7 @@ export function DiffPanel({
   }, [
     api,
     checkoutAvailable,
+    chosenRepository,
     queryKey,
     requestedScope,
     selection.workspaceId,
@@ -438,6 +455,25 @@ export function DiffPanel({
           ).map((option) => ({ ...option, checked: option.id === selectedScope }))}
           onSelect={chooseScope}
         />
+        {review?.repository && review.repositories && review.repositories.length > 1 ? (
+          <ReviewMenu
+            label="Repository"
+            value={folderName(review.repository)}
+            buttonClassName="review-panel__scope"
+            buttonContent={<ChevronDownIcon />}
+            align="start"
+            options={review.repositories.map((path) => ({
+              id: path,
+              label: folderName(path),
+              checked: path === review.repository,
+            }))}
+            onSelect={(path) => setRepository({ checkoutId: selection.workspaceId, path })}
+          />
+        ) : review?.repository ? (
+          <span className="review-panel__repository" title={review.repository}>
+            {folderName(review.repository)}
+          </span>
+        ) : null}
         {totals ? (
           <span className="review-panel__totals" data-testid="review-line-totals">
             <span className="review-panel__added">+{totals.added}</span>
@@ -572,7 +608,7 @@ export function DiffPanel({
                   </span>
                 ) : null}
                 <span className="review-panel__toolbar-spacer" />
-                {selectedFile.status !== "deleted" ? (
+                {selectedFile.status !== "deleted" && !result.repository ? (
                   <button
                     className="icon-button review-panel__open-file"
                     type="button"
@@ -773,4 +809,9 @@ function useReviewTreeVisible() {
     }
   }, []);
   return [visible, update] as const;
+}
+
+/** The last segment of a repository path, for the Repository menu. */
+function folderName(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
 }

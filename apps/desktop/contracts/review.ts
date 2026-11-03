@@ -60,6 +60,12 @@ export interface AvailableReview {
   readonly capturedAt?: string;
   readonly files: readonly ReviewFileEntry[];
   readonly coverage: ReviewCoverage;
+  /**
+   * Set when the checkout is not a Git repository: the comparison is of `repository`, one of the
+   * repositories holding files this task changed (newest first).
+   */
+  readonly repository?: string;
+  readonly repositories?: readonly string[];
 }
 
 export type ReviewResult = AvailableReview | ReviewIssue;
@@ -79,6 +85,8 @@ export interface GetReviewInput {
   readonly target: SessionRef;
   readonly checkoutId: string;
   readonly scope: ReviewScope;
+  /** A repository from a previous result's `repositories`; main ignores any other path. */
+  readonly repository?: string;
 }
 
 export interface TurnChangesInput {
@@ -161,11 +169,12 @@ export function decodeReviewScope(value: unknown): ReviewScope {
 }
 
 export function decodeGetReviewInput(value: unknown): GetReviewInput {
-  const input = record(value, ["target", "checkoutId", "scope"]);
+  const input = record(value, ["target", "checkoutId", "scope", "repository"]);
   return {
     target: sessionTarget(input.target),
     checkoutId: text(input.checkoutId, "checkoutId"),
     scope: decodeReviewScope(input.scope),
+    ...(input.repository === undefined ? {} : { repository: text(input.repository, "repository") }),
   };
 }
 

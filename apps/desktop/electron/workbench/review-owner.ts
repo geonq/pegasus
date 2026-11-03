@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import { realpath } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import type { SessionRef } from "@pi-gui/session-driver/types";
 import type {
   ChangeReviewFileStageInput,
@@ -60,13 +61,21 @@ export interface ReviewOwnerOptions {
   readonly resolveCheckoutPath: (checkoutId: string) => string | undefined;
   readonly validateTask: (target: SessionRef) => boolean;
   readonly checkpoints?: ReviewCheckpointSource;
+  /** Repository roots holding files the task changed, newest first. */
+  readonly touchedRepositories?: (
+    target: SessionRef,
+    checkoutPath: string,
+  ) => Promise<readonly string[]>;
 }
 
 interface OwnedReview {
   readonly id: string;
   readonly target: SessionRef;
   readonly checkoutId: string;
+  /** Where Git runs: the checkout, or the touched repository shown in its place. */
   readonly checkoutPath: string | null;
+  /** The checkout itself, to notice when it moves. */
+  readonly sourcePath: string | null;
   readonly snapshot: GitReviewSnapshot;
 }
 
@@ -140,6 +149,7 @@ export class ReviewOwner {
       let gitPath: string;
       let scope: GitReviewScope;
       let capturedAt: string | undefined;
+      let repositories: readonly string[] = [];
       if (input.scope.kind === "turn") {
         if (!this.options.checkpoints) {
           return unavailable(
@@ -175,14 +185,32 @@ export class ReviewOwner {
         gitPath = currentPath;
         scope = input.scope;
       }
-      const snapshot = await createGitReview(gitPath, scope);
+      let snapshot = await createGitReview(gitPath, scope);
+      // A chat in a plain folder usually works in other repositories: review those instead.
+      if (
+        snapshot.state !== "available" &&
+        snapshot.code === "not-a-repository" &&
+        checkoutPath &&
+        this.options.touchedRepositories
+      ) {
+        repositories = await this.options.touchedRepositories(input.target, checkoutPath);
+        const chosen =
+          input.repository && repositories.includes(input.repository)
+            ? input.repository
+            : repositories[0];
+        if (chosen) {
+          gitPath = chosen;
+          snapshot = await createGitReview(chosen, scope);
+        }
+      }
       if (snapshot.state !== "available") return snapshot;
       const marks = await this.reviewed.snapshot();
       const owned: OwnedReview = {
         id: randomUUID(),
         target: { ...input.target },
         checkoutId: input.checkoutId,
-        checkoutPath,
+        checkoutPath: checkoutPath === null ? null : gitPath,
+        sourcePath: checkoutPath,
         snapshot,
       };
       this.remember(owned);
@@ -196,6 +224,7 @@ export class ReviewOwner {
         baseOid: snapshot.baseOid,
         ...(capturedAt ? { capturedAt } : {}),
         coverage: snapshot.coverage,
+        ...(repositories.length ? { repository: gitPath, repositories } : {}),
         files: snapshot.files.map((file) => ({
           id: file.id,
           path: file.path,
@@ -289,7 +318,7 @@ export class ReviewOwner {
     if (review.snapshot.scope.kind !== "turn") {
       const currentPath = await this.checkoutPath(review.target, review.checkoutId);
       if (typeof currentPath !== "string") return currentPath;
-      if (currentPath !== review.checkoutPath) {
+      if (currentPath !== review.sourcePath) {
         return {
           state: "stale",
           code: "checkout-changed",
@@ -344,6 +373,44 @@ export class ReviewOwner {
       if (this.mutations.get(checkoutPath) === settled) this.mutations.delete(checkoutPath);
     }
   }
+}
+
+/**
+ * The Git roots (a folder holding `.git`) above the given files, in the files' order, without
+ * duplicates. Relative paths start at basePath. Files outside any repository are skipped.
+ */
+export async function findTouchedRepositories(
+  files: readonly string[],
+  basePath: string,
+): Promise<string[]> {
+  const roots: string[] = [];
+  const checked = new Map<string, string | null>();
+  for (const file of files) {
+    let dir = dirname(resolve(basePath, file));
+    const visited: string[] = [];
+    let root: string | null | undefined;
+    while (root === undefined) {
+      if (checked.has(dir)) root = checked.get(dir);
+      else if (await exists(join(dir, ".git"))) root = await realpath(dir).catch(() => null);
+      else if (dirname(dir) === dir) root = null;
+      else {
+        visited.push(dir);
+        dir = dirname(dir);
+        continue;
+      }
+      visited.push(dir);
+    }
+    for (const seen of visited) checked.set(seen, root ?? null);
+    if (root && !roots.includes(root)) roots.push(root);
+  }
+  return roots;
+}
+
+async function exists(path: string): Promise<boolean> {
+  return stat(path).then(
+    () => true,
+    () => false,
+  );
 }
 
 function markKey(review: OwnedReview, file: GitReviewFile): string {

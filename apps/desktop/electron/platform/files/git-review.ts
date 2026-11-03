@@ -429,7 +429,19 @@ export async function createGitReview(
   const maxGitBytes = limits.maxGitBytes ?? MAX_GIT_BYTES;
   try {
     if (scope.kind !== "turn") {
-      const topLevel = (await gitText(checkoutPath, ["rev-parse", "--show-toplevel"])).trim();
+      const notRepository = issue(
+        "unavailable",
+        "not-a-repository",
+        "This folder isn't in a Git repository, and this chat hasn't changed files in one yet.",
+      );
+      let topLevel: string;
+      try {
+        topLevel = (await gitText(checkoutPath, ["rev-parse", "--show-toplevel"])).trim();
+      } catch (error) {
+        if (error instanceof Error && /not a git repository/i.test(error.message))
+          return notRepository;
+        throw error;
+      }
       const [checkout, root] = await Promise.all([realpath(checkoutPath), realpath(topLevel)]);
       if (checkout !== root) {
         // A folder the enclosing repository ignores (D:/Pi ignores /projects/) has no history
@@ -453,11 +465,7 @@ export async function createGitReview(
               entry.startsWith("!! ") && entry.endsWith("/") && folder.startsWith(entry.slice(3)),
           );
         return ignored
-          ? issue(
-              "unavailable",
-              "not-a-repository",
-              "This folder isn't in a Git repository, so there are no changes to review here. Work this chat did in other repositories shows up when you open those folders.",
-            )
+          ? notRepository
           : issue(
               "unavailable",
               "nested-workspace",

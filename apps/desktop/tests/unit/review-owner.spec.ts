@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -14,7 +14,11 @@ import {
   type AvailableReview,
   type ReviewResult,
 } from "../../contracts/review";
-import { ReviewOwner, type ReviewCheckpointSource } from "../../electron/workbench/review-owner";
+import {
+  findTouchedRepositories,
+  ReviewOwner,
+  type ReviewCheckpointSource,
+} from "../../electron/workbench/review-owner";
 import { ReviewedStore } from "../../electron/workbench/reviewed-store";
 
 const execFileAsync = promisify(execFile);
@@ -307,4 +311,44 @@ test("reviewed marks are bounded and forget the oldest acknowledgements first", 
   const before = await readFile(join(dir, "reviewed-files.json"), "utf8");
   await store.set(marks[1]!, true);
   expect(await readFile(join(dir, "reviewed-files.json"), "utf8")).toBe(before);
+});
+
+test("a chat in a plain folder reviews the repositories it changed files in, newest first", async () => {
+  const { checkoutPath: repo, userDataDir } = await fixture();
+  const other = await mkdtemp(join(tmpdir(), "pi-gui-review-owner-other-"));
+  await git(other, ["init", "-b", "trunk"]);
+  const plain = await mkdtemp(join(tmpdir(), "pi-gui-review-owner-plain-"));
+  await mkdir(join(plain, "notes"));
+  const touched = [join(repo, "example.txt"), join(other, "a", "new.txt"), "notes/todo.md"];
+  const repositories = await findTouchedRepositories(touched, plain);
+  expect(repositories).toEqual([await realpath(repo), await realpath(other)]);
+
+  const owner = new ReviewOwner({
+    userDataDir,
+    resolveCheckoutPath: (id) => (id === "plain" ? plain : undefined),
+    validateTask: (target) => target.workspaceId === "workspace",
+    touchedRepositories: () => findTouchedRepositories(touched, plain),
+  });
+  const input = { target: firstTask, checkoutId: "plain", scope: { kind: "uncommitted" } } as const;
+  const first = available(await owner.getReview(input));
+  expect(first.repository).toBe(await realpath(repo));
+  expect(first.repositories).toEqual(repositories);
+  expect(first.files.map((file) => file.path)).toEqual(["example.txt"]);
+  expect(
+    (await owner.getReviewFile({ reviewId: first.reviewId, fileId: first.files[0]!.id })).state,
+  ).toBe("available");
+
+  const picked = available(await owner.getReview({ ...input, repository: await realpath(other) }));
+  expect(picked.repository).toBe(await realpath(other));
+  // A path the chat never touched is not reviewed; the newest touched repository is.
+  const foreign = available(await owner.getReview({ ...input, repository: tmpdir() }));
+  expect(foreign.repository).toBe(await realpath(repo));
+
+  const nothing = new ReviewOwner({
+    userDataDir,
+    resolveCheckoutPath: () => plain,
+    validateTask: () => true,
+    touchedRepositories: async () => [],
+  });
+  expect(await nothing.getReview(input)).toMatchObject({ code: "not-a-repository" });
 });

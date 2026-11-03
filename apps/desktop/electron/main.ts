@@ -45,7 +45,7 @@ import {
 } from "./extensions/extension-view-owner";
 import { performExtensionViewHostAction } from "./extensions/extension-view-actions";
 import { extensionFrameDocument } from "./extensions/extension-frame-document";
-import { ReviewOwner } from "./workbench/review-owner";
+import { findTouchedRepositories, ReviewOwner } from "./workbench/review-owner";
 import { promptTitle } from "./conversation/thread-title-constants";
 import { assertComposerAttachmentPixels } from "./ipc/composer-attachment-pixels";
 import { mainFrameHandler } from "./ipc/main-frame-ipc";
@@ -1730,6 +1730,15 @@ app
           checkpoints,
           userDataDir: app.getPath("userData"),
           resolveCheckoutPath: (checkoutId) => store.getWorkspacePath(checkoutId),
+          // shortcut: only file tools' paths count, not files a shell command changed; add shell cwd if that misses repos.
+          touchedRepositories: (target, checkoutPath) =>
+            findTouchedRepositories(
+              store
+                .snapshot()
+                .workspaces.find((workspace) => workspace.id === target.workspaceId)
+                ?.sessions.find((session) => session.id === target.sessionId)?.touchedFiles ?? [],
+              checkoutPath,
+            ),
           validateTask: (target) =>
             store
               .snapshot()

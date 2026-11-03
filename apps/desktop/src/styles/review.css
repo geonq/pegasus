@@ -24,6 +24,12 @@
   display: flex;
 }
 
+.review-panel__repository {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .review-panel__scope {
   display: inline-flex;
   align-items: center;
