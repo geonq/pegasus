@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { realpath, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import type { DesktopAppState } from "../../contracts/desktop-state";
 import type { SessionRef } from "@pi-gui/session-driver/types";
 import type {
   ChangeReviewFileStageInput,
@@ -185,24 +186,32 @@ export class ReviewOwner {
         gitPath = currentPath;
         scope = input.scope;
       }
-      let snapshot = await createGitReview(gitPath, scope);
-      // A chat in a plain folder usually works in other repositories: review those instead.
+      // The task and its child threads often change other repositories and worktrees than the
+      // checkout: those are offered beside it, and reviewed in its place when it is no repository.
+      const touched =
+        checkoutPath && this.options.touchedRepositories
+          ? (await this.options.touchedRepositories(input.target, checkoutPath)).filter(
+              (path) => path !== checkoutPath,
+            )
+          : [];
+      const picked =
+        input.repository && touched.includes(input.repository) ? input.repository : null;
+      let snapshot = await createGitReview(picked ?? gitPath, scope);
+      if (picked) gitPath = picked;
+      const checkoutIsRepository =
+        checkoutPath !== null &&
+        (picked ? await exists(join(checkoutPath, ".git")) : snapshot.state === "available");
       if (
+        !picked &&
         snapshot.state !== "available" &&
         snapshot.code === "not-a-repository" &&
-        checkoutPath &&
-        this.options.touchedRepositories
+        touched[0]
       ) {
-        repositories = await this.options.touchedRepositories(input.target, checkoutPath);
-        const chosen =
-          input.repository && repositories.includes(input.repository)
-            ? input.repository
-            : repositories[0];
-        if (chosen) {
-          gitPath = chosen;
-          snapshot = await createGitReview(chosen, scope);
-        }
+        gitPath = touched[0];
+        snapshot = await createGitReview(gitPath, scope);
       }
+      if (touched.length)
+        repositories = checkoutIsRepository ? [checkoutPath!, ...touched] : touched;
       if (snapshot.state !== "available") return snapshot;
       const marks = await this.reviewed.snapshot();
       const owned: OwnedReview = {
@@ -224,7 +233,9 @@ export class ReviewOwner {
         baseOid: snapshot.baseOid,
         ...(capturedAt ? { capturedAt } : {}),
         coverage: snapshot.coverage,
-        ...(repositories.length ? { repository: gitPath, repositories } : {}),
+        // `repository` is set only when Git ran somewhere other than the checkout itself.
+        ...(repositories.length ? { repositories } : {}),
+        ...(repositories.length && gitPath !== checkoutPath ? { repository: gitPath } : {}),
         files: snapshot.files.map((file) => ({
           id: file.id,
           path: file.path,
@@ -373,6 +384,40 @@ export class ReviewOwner {
       if (this.mutations.get(checkoutPath) === settled) this.mutations.delete(checkoutPath);
     }
   }
+}
+
+/**
+ * Files a task and every child thread under it changed, the task's own first. Children are found
+ * through the orchestration records, so a lead's Review covers the worktrees its workers edit.
+ */
+export function taskTreeTouchedFiles(
+  state: Pick<DesktopAppState, "workspaces" | "orchestrationChildren">,
+  target: SessionRef,
+): string[] {
+  const sessions = new Map<string, DesktopAppState["workspaces"][number]["sessions"][number]>(
+    state.workspaces.flatMap((workspace) =>
+      workspace.sessions.map((session) => [`${workspace.id}\0${session.id}`, session] as const),
+    ),
+  );
+  const files: string[] = [];
+  const seen = new Set<string>();
+  const queue: SessionRef[] = [target];
+  for (let ref = queue.shift(); ref; ref = queue.shift()) {
+    const key = `${ref.workspaceId}\0${ref.sessionId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    files.push(...(sessions.get(key)?.touchedFiles ?? []));
+    for (const child of state.orchestrationChildren) {
+      if (
+        child.childSessionId &&
+        child.parentWorkspaceId === ref.workspaceId &&
+        child.parentSessionId === ref.sessionId
+      ) {
+        queue.push({ workspaceId: child.childWorkspaceId, sessionId: child.childSessionId });
+      }
+    }
+  }
+  return files;
 }
 
 /**

@@ -455,17 +455,17 @@ export function DiffPanel({
           ).map((option) => ({ ...option, checked: option.id === selectedScope }))}
           onSelect={chooseScope}
         />
-        {review?.repository && review.repositories && review.repositories.length > 1 ? (
+        {review?.repositories && review.repositories.length > 1 ? (
           <ReviewMenu
             label="Repository"
-            value={folderName(review.repository)}
+            value={folderName(review.repository ?? review.repositories[0]!)}
             buttonClassName="review-panel__scope"
             buttonContent={<ChevronDownIcon />}
             align="start"
             options={review.repositories.map((path) => ({
               id: path,
               label: folderName(path),
-              checked: path === review.repository,
+              checked: path === (review.repository ?? review.repositories?.[0]),
             }))}
             onSelect={(path) => setRepository({ checkoutId: selection.workspaceId, path })}
           />

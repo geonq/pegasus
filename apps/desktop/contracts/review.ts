@@ -61,8 +61,8 @@ export interface AvailableReview {
   readonly files: readonly ReviewFileEntry[];
   readonly coverage: ReviewCoverage;
   /**
-   * Set when the checkout is not a Git repository: the comparison is of `repository`, one of the
-   * repositories holding files this task changed (newest first).
+   * Repositories this task and its child threads changed files in, newest first, after the
+   * checkout when the checkout is one. `repository` is the one compared when it is not the checkout.
    */
   readonly repository?: string;
   readonly repositories?: readonly string[];

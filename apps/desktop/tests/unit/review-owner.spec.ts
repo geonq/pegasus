@@ -16,6 +16,7 @@ import {
 } from "../../contracts/review";
 import {
   findTouchedRepositories,
+  taskTreeTouchedFiles,
   ReviewOwner,
   type ReviewCheckpointSource,
 } from "../../electron/workbench/review-owner";
@@ -351,4 +352,66 @@ test("a chat in a plain folder reviews the repositories it changed files in, new
     touchedRepositories: async () => [],
   });
   expect(await nothing.getReview(input)).toMatchObject({ code: "not-a-repository" });
+});
+
+test("a lead's Review offers its checkout and the worktrees its child threads changed", async () => {
+  const { checkoutPath: repo, userDataDir } = await fixture();
+  const worktree = join(await mkdtemp(join(tmpdir(), "pi-gui-review-owner-wt-")), "p20");
+  await git(repo, ["worktree", "add", "-b", "p/20", worktree]);
+  await writeFile(join(worktree, "example.txt"), "child change\n");
+
+  const lead = { workspaceId: "workspace", sessionId: "lead" };
+  const state = {
+    workspaces: [
+      {
+        id: "workspace",
+        sessions: [
+          { id: "lead", touchedFiles: ["example.txt"] },
+          { id: "worker", touchedFiles: [join(worktree, "example.txt")] },
+          { id: "grandchild", touchedFiles: [join(worktree, "notes.md")] },
+          { id: "stranger", touchedFiles: [join(tmpdir(), "elsewhere.txt")] },
+        ],
+      },
+    ],
+    orchestrationChildren: [
+      {
+        parentWorkspaceId: "workspace",
+        parentSessionId: "lead",
+        childWorkspaceId: "workspace",
+        childSessionId: "worker",
+      },
+      {
+        parentWorkspaceId: "workspace",
+        parentSessionId: "worker",
+        childWorkspaceId: "workspace",
+        childSessionId: "grandchild",
+      },
+    ],
+  } as unknown as Parameters<typeof taskTreeTouchedFiles>[0];
+  expect(taskTreeTouchedFiles(state, lead)).toEqual([
+    "example.txt",
+    join(worktree, "example.txt"),
+    join(worktree, "notes.md"),
+  ]);
+
+  const owner = new ReviewOwner({
+    userDataDir,
+    resolveCheckoutPath: (id) => (id === "checkout" ? repo : undefined),
+    validateTask: () => true,
+    touchedRepositories: (target, checkoutPath) =>
+      findTouchedRepositories(taskTreeTouchedFiles(state, target), checkoutPath),
+  });
+  const input = { target: lead, checkoutId: "checkout", scope: { kind: "uncommitted" } } as const;
+  const own = available(await owner.getReview(input));
+  expect(own.repositories).toEqual([await realpath(repo), await realpath(worktree)]);
+  expect(own.repository).toBeUndefined();
+  expect(own.files.map((file) => file.path)).toEqual(["example.txt"]);
+
+  const child = available(
+    await owner.getReview({ ...input, repository: await realpath(worktree) }),
+  );
+  expect(child.repository).toBe(await realpath(worktree));
+  expect(child.files.map((file) => file.path)).toEqual(["example.txt"]);
+  const patch = await owner.getReviewFile({ reviewId: child.reviewId, fileId: child.files[0]!.id });
+  expect(patch.state === "available" && patch.patch).toContain("child change");
 });
