@@ -1,7 +1,7 @@
 {
   "name": "@pi-gui/desktop",
   "private": true,
-  "version": "1.0.22",
+  "version": "1.0.23",
   "author": "geonq",
   "license": "MIT",
   "description": "Pegasus, geonq's desktop app for coding agents, built on pi",
