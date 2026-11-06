@@ -95,7 +95,14 @@ test("the public Electron helper loads through Playwright and the marketing scri
   const smokeSpec = path.join(root, "apps/desktop/tests/core/smoke.spec.ts");
   const result = spawnSync(
     process.execPath,
-    [require.resolve("@playwright/test/cli"), "test", "-c", desktopConfig, smokeSpec, "--list"],
+    [
+      require.resolve("@playwright/test/cli"),
+      "test",
+      "-c",
+      desktopConfig,
+      smokeSpec.split(path.sep).join("/"),
+      "--list",
+    ],
     {
       cwd: root,
       env: { ...process.env, PI_APP_TEST_MODE: "background" },
