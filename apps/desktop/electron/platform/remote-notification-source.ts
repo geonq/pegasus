@@ -79,8 +79,8 @@ export function remoteNotificationEvents(
 export function createRemoteNotificationStore(options: {
   readonly selectSession: NotificationStore["selectSession"];
 }): NotificationStore & { readonly publish: (state: DesktopAppState) => void } {
-  const stateListeners = new Set<(state: DesktopAppState) => void>();
-  const eventListeners = new Set<(event: SessionDriverEvent, state: DesktopAppState) => void>();
+  const stateListeners = new Set<Parameters<NotificationStore["subscribe"]>[0]>();
+  const eventListeners = new Set<Parameters<NotificationStore["subscribeToSessionEvents"]>[0]>();
   let latest: DesktopAppState | undefined;
   return {
     subscribe(listener) {
@@ -95,8 +95,15 @@ export function createRemoteNotificationStore(options: {
     publish(state) {
       const events = remoteNotificationEvents(latest, state);
       latest = state;
-      for (const listener of stateListeners) listener(state);
-      for (const event of events) for (const listener of eventListeners) listener(event, state);
+      for (const listener of stateListeners)
+        void Promise.resolve(listener(state)).catch((error: unknown) => {
+          console.error("[notifications] remote state listener failed", error);
+        });
+      for (const event of events)
+        for (const listener of eventListeners)
+          void Promise.resolve(listener(event, state)).catch((error: unknown) => {
+            console.error("[notifications] remote event listener failed", error);
+          });
     },
   };
 }

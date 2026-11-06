@@ -1,6 +1,34 @@
 import { expect, test } from "@playwright/test";
 import { createEmptyDesktopAppState, type DesktopAppState } from "../../contracts/desktop-state";
-import { remoteNotificationEvents } from "../../electron/platform/remote-notification-source";
+import {
+  createRemoteNotificationStore,
+  remoteNotificationEvents,
+} from "../../electron/platform/remote-notification-source";
+
+test("rejected async notification listeners are handled without losing later notifications", async () => {
+  const store = createRemoteNotificationStore({ selectSession: async () => snapshot({}) });
+  const errors: unknown[][] = [];
+  const previous = console.error;
+  console.error = (...args: unknown[]) => {
+    errors.push(args);
+  };
+  let delivered = 0;
+  try {
+    store.subscribeToSessionEvents(async () => {
+      throw new Error("event listener failed");
+    });
+    store.subscribeToSessionEvents(() => {
+      delivered++;
+    });
+    store.publish(snapshot({ a: "running" }));
+    store.publish(snapshot({ a: "idle" }));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(delivered).toBe(1);
+    expect(errors).toHaveLength(1);
+  } finally {
+    console.error = previous;
+  }
+});
 
 function snapshot(
   sessions: Record<string, "running" | "idle" | "failed">,

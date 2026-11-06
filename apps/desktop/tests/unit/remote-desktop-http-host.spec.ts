@@ -81,7 +81,8 @@ function makeTranscriptEvent(id: string, padding = ""): RemoteDesktopEvent {
 
 function eventLabel(event: RemoteDesktopEvent): string {
   if (event.type === "stateChanged") return "state:" + event.state.revision;
-  const entry = event.transcript?.transcript[0] as { id?: string } | undefined;
+  if (event.type !== "selectedTranscriptChanged") return event.type;
+  const entry = event.transcript.transcript[0] as { id?: string } | undefined;
   return "transcript:" + (entry?.id ?? "none");
 }
 
@@ -250,7 +251,12 @@ test("the client hears each time its event stream reconnects to a restarted host
       brokers: new Map([["mac-client", createTestBroker(makeState(1)).broker]]),
     });
   let host = await startHost();
-  const client = new RemoteDesktopHttpClient({ version: 1, baseUrl: host.origin, origin: "file://", token });
+  const client = new RemoteDesktopHttpClient({
+    version: 1,
+    baseUrl: host.origin,
+    origin: "file://",
+    token,
+  });
   let ready = 0;
   client.onReady(() => {
     ready += 1;
@@ -637,7 +643,8 @@ test("a client that does not ask for Brotli still gets plain JSON", async () => 
       body: Buffer.from(JSON.stringify({ method: "getState", args: [] })),
     });
     expect(plain.status).toBe(200);
-    expect(JSON.parse(plain.body.toString("utf8")).result.revision).toBe(4);
+    const payload: unknown = JSON.parse(plain.body.toString("utf8"));
+    expect(payload).toMatchObject({ result: { revision: 4 } });
   } finally {
     await host.close();
   }

@@ -178,7 +178,9 @@ function readRateLimitsInWorker(binary: string, home: string): Promise<unknown> 
     let replied = false;
     worker.once("message", (result: { readonly value?: unknown; readonly error?: string }) => {
       replied = true;
-      void worker.terminate();
+      void worker.terminate().catch((error: unknown) => {
+        console.error("[codex-limits] worker termination failed", error);
+      });
       if (result.error !== undefined) reject(new Error(result.error));
       else resolve(result.value);
     });

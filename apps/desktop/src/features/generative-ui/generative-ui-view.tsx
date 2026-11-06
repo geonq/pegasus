@@ -58,7 +58,7 @@ export function GenerativeUiView({
   const editable = state.kind === "open" && !sending && host !== null;
   const hasInputs = inputs(spec.blocks).length > 0;
 
-  const submit = async () => {
+  const submit = () => {
     if (state.kind !== "open" || !host) return;
     let answer: GenerativeUiAnswer;
     try {
@@ -69,12 +69,12 @@ export function GenerativeUiView({
     }
     setError(undefined);
     setSending(true);
-    try {
-      await host.answer(state.callId, answer);
-    } catch (problem) {
-      setError(problem instanceof Error ? problem.message : String(problem));
-      setSending(false);
-    }
+    void Promise.resolve()
+      .then(() => host.answer(state.callId, answer))
+      .catch((problem: unknown) => {
+        setError(problem instanceof Error ? problem.message : String(problem));
+        setSending(false);
+      });
   };
 
   const context: NodeContext = {
@@ -105,7 +105,7 @@ export function GenerativeUiView({
               type="button"
               className="generative-ui__submit"
               disabled={!editable}
-              onClick={() => void submit()}
+              onClick={submit}
               data-testid="generative-ui-submit"
             >
               {sending ? "Sending…" : "Send answer"}
@@ -136,7 +136,13 @@ interface NodeContext {
   readonly setOther: (inputId: string, value: string) => void;
 }
 
-function Node({ node, context }: { readonly node: UiNode; readonly context: NodeContext }): ReactNode {
+function Node({
+  node,
+  context,
+}: {
+  readonly node: UiNode;
+  readonly context: NodeContext;
+}): ReactNode {
   switch (node.type) {
     case "text":
       return <p className="generative-ui__text">{node.text}</p>;
@@ -144,7 +150,9 @@ function Node({ node, context }: { readonly node: UiNode; readonly context: Node
       return (
         <section className="generative-ui__card">
           <div className="generative-ui__card-title">{node.title}</div>
-          {node.subtitle ? <div className="generative-ui__card-subtitle">{node.subtitle}</div> : null}
+          {node.subtitle ? (
+            <div className="generative-ui__card-subtitle">{node.subtitle}</div>
+          ) : null}
           {node.children.map((child, index) => (
             <Node key={index} node={child} context={context} />
           ))}
@@ -189,7 +197,8 @@ function Node({ node, context }: { readonly node: UiNode; readonly context: Node
       return (
         <div className="generative-ui__progress">
           <div className="generative-ui__label">
-            {node.label} <span className="generative-ui__muted">{Math.round(node.value * 100)}%</span>
+            {node.label}{" "}
+            <span className="generative-ui__muted">{Math.round(node.value * 100)}%</span>
           </div>
           <div
             className="generative-ui__progress-track"
@@ -199,7 +208,10 @@ function Node({ node, context }: { readonly node: UiNode; readonly context: Node
             aria-valuemax={100}
             aria-valuenow={Math.round(node.value * 100)}
           >
-            <div className="generative-ui__progress-bar" style={{ width: `${node.value * 100}%` }} />
+            <div
+              className="generative-ui__progress-bar"
+              style={{ width: `${node.value * 100}%` }}
+            />
           </div>
         </div>
       );
@@ -235,7 +247,11 @@ function Checklist({ node }: { readonly node: Extract<UiNode, { type: "checklist
         {node.items.map((item, index) => {
           const status = (item.threadId && host?.threadStatus?.(item.threadId)) || item.status;
           return (
-            <li key={index} className={`generative-ui__check generative-ui__check--${status}`} data-status={status}>
+            <li
+              key={index}
+              className={`generative-ui__check generative-ui__check--${status}`}
+              data-status={status}
+            >
               <span className="generative-ui__check-mark" aria-label={status}>
                 {CHECK_MARKS[status]}
               </span>
@@ -259,7 +275,9 @@ function Choice({
   // Two questions in one chat may reuse a choice id; each radio group still needs its own name.
   const groupName = useId();
   const current = context.values[node.id];
-  const picked = new Set(Array.isArray(current) ? current : typeof current === "string" ? [current] : []);
+  const picked = new Set(
+    Array.isArray(current) ? current : typeof current === "string" ? [current] : [],
+  );
   const pick = (optionId: string) => {
     if (!node.multiple) {
       context.setValue(node.id, optionId);
@@ -355,7 +373,11 @@ function Field({ field, context }: { readonly field: UiField; readonly context: 
     <label className="generative-ui__field">
       <span className="generative-ui__label">{field.label}</span>
       {field.multiline ? (
-        <textarea {...shared} rows={3} onChange={(event) => context.setValue(field.id, event.target.value)} />
+        <textarea
+          {...shared}
+          rows={3}
+          onChange={(event) => context.setValue(field.id, event.target.value)}
+        />
       ) : (
         <input {...shared} onChange={(event) => context.setValue(field.id, event.target.value)} />
       )}
@@ -369,7 +391,7 @@ function initialValues(spec: GenerativeUiSpec, answer: GenerativeUiAnswer | unde
     const given = answer?.[input.id];
     if (input.kind === "choice") {
       const known = new Set(input.node.options.map((option) => option.id));
-      const list = Array.isArray(given) ? [...given] : typeof given === "string" ? [given] : [];
+      const list = typeof given === "string" ? [given] : typeof given === "object" ? given : [];
       // A free-text answer shows as the picked "Other…" with its text.
       const mapped = list.map((entry) => (known.has(entry) ? entry : OTHER));
       values[input.id] = input.node.multiple ? mapped : (mapped[0] ?? "");
@@ -382,13 +404,16 @@ function initialValues(spec: GenerativeUiSpec, answer: GenerativeUiAnswer | unde
   return values;
 }
 
-function initialOther(spec: GenerativeUiSpec, answer: GenerativeUiAnswer | undefined): Record<string, string> {
+function initialOther(
+  spec: GenerativeUiSpec,
+  answer: GenerativeUiAnswer | undefined,
+): Record<string, string> {
   const other: Record<string, string> = {};
   for (const input of inputs(spec.blocks)) {
     if (input.kind !== "choice") continue;
     const given = answer?.[input.id];
     const known = new Set(input.node.options.map((option) => option.id));
-    const list = Array.isArray(given) ? given : typeof given === "string" ? [given] : [];
+    const list = typeof given === "string" ? [given] : typeof given === "object" ? given : [];
     const free = list.find((entry) => !known.has(entry));
     if (free) other[input.id] = free;
   }
