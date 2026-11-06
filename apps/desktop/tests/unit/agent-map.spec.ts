@@ -5,7 +5,13 @@ import type { TranscriptMessage } from "../../contracts/timeline-types";
 import { validateRemoteDesktopInvocation } from "../../electron/remote/remote-desktop-policy";
 import { agentAreas, agentCards } from "../../src/features/workbench/agents-panel";
 
-const tool = (id: string, toolName: string, input: unknown, status: "running" | "success" | "error", label = id): TranscriptMessage => ({
+const tool = (
+  id: string,
+  toolName: string,
+  input: unknown,
+  status: "running" | "success" | "error",
+  label = id,
+): TranscriptMessage => ({
   kind: "tool",
   id,
   callId: id,
@@ -42,10 +48,41 @@ test("the map nests agents under their chat and flags an area two agents changed
         name: "Pegasus",
         path: "D:/Pi/pi-gui",
         sessions: [
-          { id: "lead", title: "Lead", status: "idle", updatedAt: "", preview: "", hasUnseenUpdate: false },
-          { id: "c1", title: "Docs", status: "running", updatedAt: "", preview: "", hasUnseenUpdate: false, touchedFiles: ["docs/a.md", "src/ui/x.ts"], config: { modelId: "gpt-6-luna" } },
-          { id: "c2", title: "Tests", status: "running", updatedAt: "", preview: "", hasUnseenUpdate: false, touchedFiles: ["src/ui/y.ts"] },
-          { id: "quiet", title: "Old chat", status: "idle", updatedAt: "", preview: "", hasUnseenUpdate: false },
+          {
+            id: "lead",
+            title: "Lead",
+            status: "idle",
+            updatedAt: "",
+            preview: "",
+            hasUnseenUpdate: false,
+          },
+          {
+            id: "c1",
+            title: "Docs",
+            status: "running",
+            updatedAt: "",
+            preview: "",
+            hasUnseenUpdate: false,
+            touchedFiles: ["docs/a.md", "src/ui/x.ts"],
+            config: { modelId: "gpt-6-luna" },
+          },
+          {
+            id: "c2",
+            title: "Tests",
+            status: "running",
+            updatedAt: "",
+            preview: "",
+            hasUnseenUpdate: false,
+            touchedFiles: ["src/ui/y.ts"],
+          },
+          {
+            id: "quiet",
+            title: "Old chat",
+            status: "idle",
+            updatedAt: "",
+            preview: "",
+            hasUnseenUpdate: false,
+          },
         ],
       } as never,
     ],
@@ -72,7 +109,9 @@ test("the map nests agents under their chat and flags an area two agents changed
     ["w/c1", "w/lead", "implementer", "gpt-6-luna"],
     ["w/c2", "w/lead", "reviewer", undefined],
   ]);
-  expect(agentAreas(cards).map(({ area, agents }) => [area, agents.map((agent) => agent.title)])).toEqual([
+  expect(
+    agentAreas(cards).map(({ area, agents }) => [area, agents.map((agent) => agent.title)]),
+  ).toEqual([
     ["src/ui", ["Docs", "Tests"]],
     ["docs", ["Docs"]],
   ]);
@@ -82,9 +121,17 @@ test("the Mac client may stop one of its allowed chats by name", () => {
   const scope = new Set(["w"]);
   expect(validateRemoteDesktopInvocation("cancelCurrentRun", [], scope).args).toEqual([]);
   expect(
-    validateRemoteDesktopInvocation("cancelCurrentRun", [{ workspaceId: "w", sessionId: "s" }], scope).args,
+    validateRemoteDesktopInvocation(
+      "cancelCurrentRun",
+      [{ workspaceId: "w", sessionId: "s" }],
+      scope,
+    ).args,
   ).toEqual([{ workspaceId: "w", sessionId: "s" }]);
-  for (const args of [[{ workspaceId: "other", sessionId: "s" }], [{ workspaceId: "w", sessionId: "s", extra: 1 }], ["w"]]) {
+  for (const args of [
+    [{ workspaceId: "other", sessionId: "s" }],
+    [{ workspaceId: "w", sessionId: "s", extra: 1 }],
+    ["w"],
+  ]) {
     expect(() => validateRemoteDesktopInvocation("cancelCurrentRun", args, scope)).toThrow();
   }
 });

@@ -77,7 +77,11 @@ function GraphDiagram({
     const dy = event.clientY - start.y;
     if (Math.abs(dx) + Math.abs(dy) > 3) start.moved = true;
     drag.current = { ...start, x: event.clientX, y: event.clientY };
-    setView((current) => ({ ...current, x: current.x - dx / current.zoom, y: current.y - dy / current.zoom }));
+    setView((current) => ({
+      ...current,
+      x: current.x - dx / current.zoom,
+      y: current.y - dy / current.zoom,
+    }));
   };
   const onPointerUp = () => {
     // A click after a drag would otherwise select the node under the pointer.
@@ -112,7 +116,15 @@ function GraphDiagram({
         onPointerLeave={onPointerUp}
       >
         <defs>
-          <marker id="generative-ui-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <marker
+            id="generative-ui-arrow"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
             <path d="M 0 0 L 10 5 L 0 10 z" className="generative-ui__graph-arrow" />
           </marker>
         </defs>
@@ -159,7 +171,12 @@ function GraphDiagram({
               {clip(entry.label, 22)}
             </text>
             {entry.kind ? (
-              <text className="generative-ui__graph-kind" x={NODE_WIDTH / 2} y={34} textAnchor="middle">
+              <text
+                className="generative-ui__graph-kind"
+                x={NODE_WIDTH / 2}
+                y={34}
+                textAnchor="middle"
+              >
                 {clip(entry.kind, 26)}
               </text>
             ) : null}
@@ -179,7 +196,9 @@ function GraphDiagram({
             {shown.path && host?.runAction ? (
               <button
                 type="button"
-                onClick={() => host.runAction?.({ type: "openFile", label: "Open file", path: shown.path! })}
+                onClick={() =>
+                  host.runAction?.({ type: "openFile", label: "Open file", path: shown.path! })
+                }
               >
                 Open {shown.path}
               </button>
@@ -219,31 +238,32 @@ let mermaidCount = 0;
 export function MermaidDiagram({ source }: { readonly source: string }) {
   const [svg, setSvg] = useState<string>();
   const [error, setError] = useState<string>();
-  const dark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+  const dark =
+    typeof document !== "undefined" && document.documentElement.classList.contains("dark");
   useEffect(() => {
     let live = true;
     const id = `generative-ui-mermaid-${(mermaidCount += 1)}`;
     // A reply still streaming changes the text every tick; draw once it rests.
     const wait = setTimeout(() => {
-    // Mermaid keeps global state, so renders run one at a time.
-    mermaidQueue = mermaidQueue.then(async () => {
-      if (!live) return;
-      try {
-        const { default: mermaid } = await import("mermaid");
-        mermaid.initialize({
-          startOnLoad: false,
-          securityLevel: "strict",
-          theme: dark ? "dark" : "neutral",
-          fontFamily: "inherit",
-        });
-        const result = await mermaid.render(id, source);
-        if (live) setSvg(result.svg);
-      } catch (problem) {
-        if (live) setError(problem instanceof Error ? problem.message : String(problem));
-      } finally {
-        document.getElementById(`d${id}`)?.remove();
-      }
-    });
+      // Mermaid keeps global state, so renders run one at a time.
+      mermaidQueue = mermaidQueue.then(async () => {
+        if (!live) return;
+        try {
+          const { default: mermaid } = await import("mermaid");
+          mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: "strict",
+            theme: dark ? "dark" : "neutral",
+            fontFamily: "inherit",
+          });
+          const result = await mermaid.render(id, source);
+          if (live) setSvg(result.svg);
+        } catch (problem) {
+          if (live) setError(problem instanceof Error ? problem.message : String(problem));
+        } finally {
+          document.getElementById(`d${id}`)?.remove();
+        }
+      });
     }, 300);
     return () => {
       live = false;

@@ -135,7 +135,10 @@ export function createRemoteDesktopClientApi(
   const localAttachments = new Map<string, readonly ComposerAttachment[]>();
   const draftKey = (target: { readonly workspaceId: string; readonly sessionId: string }) =>
     `${target.workspaceId}:${target.sessionId}`;
-  const setLocalDraft = (target: { readonly workspaceId: string; readonly sessionId: string }, draft: string) => {
+  const setLocalDraft = (
+    target: { readonly workspaceId: string; readonly sessionId: string },
+    draft: string,
+  ) => {
     if (draft) localDrafts.set(draftKey(target), draft);
     else localDrafts.delete(draftKey(target));
   };
@@ -258,7 +261,8 @@ export function createRemoteDesktopClientApi(
       if (terminalEvent) {
         return (listener: (event: unknown) => void) =>
           subscribeRemote((event) => {
-            if (event.type === terminalEvent) listener((event as { readonly event: unknown }).event);
+            if (event.type === terminalEvent)
+              listener((event as { readonly event: unknown }).event);
           });
       }
       if (REMOTE_METHODS.has(property)) {
@@ -403,7 +407,10 @@ export function createRemoteDesktopClientApi(
           updatePreferences({ themePresetId });
       }
       if (property === "updateComposerDraft") {
-        return async (draft: string, target?: { readonly workspaceId: string; readonly sessionId: string }) => {
+        return async (
+          draft: string,
+          target?: { readonly workspaceId: string; readonly sessionId: string },
+        ) => {
           const owner = target ?? (lastState ? selectedTarget(lastState) : undefined);
           if (owner) setLocalDraft(owner, draft);
           if (!lastState) return getState();

@@ -415,9 +415,7 @@ function TimelineToolCallItem({
   const diffText = writeTool ? extractDiffFromOutput(item.output) : undefined;
   const diffStats = diffText ? countDiffStats(diffText) : undefined;
   const compactLabel =
-    extensionLabel === undefined
-      ? item.label
-      : extensionToolRowLabel(extensionLabel, item.input);
+    extensionLabel === undefined ? item.label : extensionToolRowLabel(extensionLabel, item.input);
   const filePath = writeTool ? extractFilename(item.input) || undefined : undefined;
   const diffLanguage = diffText && filePath ? extensionToLanguage(filePath) : undefined;
   const inlineDetail = item.status === "error" ? item.detail : undefined;
@@ -617,7 +615,9 @@ function readableToolInput(input: unknown): string | undefined {
   if (command !== undefined && typeof command !== "string") rest.command = command;
   for (const [key, value] of Object.entries(rest)) {
     if (value === undefined) continue;
-    lines.push(typeof value === "string" ? `${key}: ${value}` : `${key}: ${stringifyToolValue(value)}`);
+    lines.push(
+      typeof value === "string" ? `${key}: ${value}` : `${key}: ${stringifyToolValue(value)}`,
+    );
   }
   return lines.join("\n");
 }

@@ -407,7 +407,8 @@ function thinkingItems(
   const durationMs =
     typeof message.savedAt === "string" ? Date.parse(message.savedAt) - Date.parse(createdAt) : NaN;
   const wroteText = content.some(
-    (part) => isRecord(part) && part.type === "text" && typeof part.text === "string" && part.text.trim(),
+    (part) =>
+      isRecord(part) && part.type === "text" && typeof part.text === "string" && part.text.trim(),
   );
   if (!last || wroteText || !(durationMs >= 0)) return items;
   return [...items.slice(0, -1), { ...last, durationMs }];

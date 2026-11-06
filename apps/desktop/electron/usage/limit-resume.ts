@@ -18,9 +18,13 @@ export const LIMIT_CONTINUE_INSTRUCTION =
  * rate limit. Billing refusals and sign-in problems do not count: waiting does not fix those.
  */
 export function isClaudeLimitFailure(message: string): boolean {
-  const pool = /No authenticated Claude account can complete this request[^:]*:(.*)$/is.exec(message);
+  const pool = /No authenticated Claude account can complete this request[^:]*:(.*)$/is.exec(
+    message,
+  );
   // Only the reason after the colon counts; the prefix itself names the "quota policy".
-  return pool !== null && /rate.?limit|usage.?limit|429|too many requests|hit your limit/i.test(pool[1]!);
+  return (
+    pool !== null && /rate.?limit|usage.?limit|429|too many requests|hit your limit/i.test(pool[1]!)
+  );
 }
 
 /**

@@ -258,7 +258,10 @@ export function UsageView({ workspaces }: { readonly workspaces: readonly Worksp
     };
     const topModels = ranked.slice(0, 6);
     const modelBars = {
-      rows: topModels.map(([key, tokens]) => ({ model: names.get(key) ?? shortName(key), [labelOf(key)]: tokens })),
+      rows: topModels.map(([key, tokens]) => ({
+        model: names.get(key) ?? shortName(key),
+        [labelOf(key)]: tokens,
+      })),
       series: [...new Set(topModels.map(([key]) => labelOf(key)))],
     };
     return {

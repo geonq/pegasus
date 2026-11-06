@@ -3742,7 +3742,10 @@ export class DesktopAppStore {
       if (event.type === "runFailed") {
         this.sessionState.sessionErrorsBySession.set(key, event.error.message);
         void this.continueAfterLimit(event.sessionRef, event.error.message).catch((error) =>
-          console.error(`[app-store] could not schedule a continue after the limit for ${key}`, error),
+          console.error(
+            `[app-store] could not schedule a continue after the limit for ${key}`,
+            error,
+          ),
         );
       } else if (event.type === "runCompleted" || event.type === "sessionClosed") {
         this.sessionState.sessionErrorsBySession.delete(key);
@@ -3786,9 +3789,11 @@ export class DesktopAppStore {
           this.orchestrationOwner.hasOrchestrationChildSession(event.sessionRef)
         ) {
           // Not awaited: the report submits to the parent session, which must not wait on this event.
-          void this.orchestrationOwner.reportFinishedChild(event.sessionRef).catch((error: unknown) => {
-            console.error("[app-store] child report to parent failed", error);
-          });
+          void this.orchestrationOwner
+            .reportFinishedChild(event.sessionRef)
+            .catch((error: unknown) => {
+              console.error("[app-store] child report to parent failed", error);
+            });
         }
       }
       if (shouldFollowSessionMutation && event.type !== "sessionClosed") {

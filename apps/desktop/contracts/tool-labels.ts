@@ -124,7 +124,8 @@ export function humanToolName(toolName: string): string {
  * "Looked at image shot.png". Undefined for a tool this table does not know.
  */
 export function builtInToolLabel(toolName: string, input: unknown): string | undefined {
-  const args = typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
+  const args =
+    typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
   const text = (...keys: string[]) => {
     for (const key of keys) {
       const value = args[key];
@@ -228,6 +229,8 @@ export function exploreKind(toolName: string, input: unknown): "search" | "file"
   if (SEARCH_TOOLS.has(name)) return "search";
   if (!LOOK_TOOLS.has(name)) return undefined;
   const path =
-    typeof input === "object" && input !== null ? (input as Record<string, unknown>).path : undefined;
+    typeof input === "object" && input !== null
+      ? (input as Record<string, unknown>).path
+      : undefined;
   return typeof path === "string" && IMAGE_FILE.test(path) ? undefined : "file";
 }

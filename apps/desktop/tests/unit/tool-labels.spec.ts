@@ -4,7 +4,11 @@ import { builtInToolLabel, humanToolName } from "../../contracts/tool-labels";
 test("every tool pi-gui and pi-ecosystem run reads as a sentence, never its raw id", () => {
   const rows: Array<[string, unknown, string]> = [
     ["project_shell", { command: "git status\ngit log" }, "Ran git status"],
-    ["project_shell", { command: "npm test", description: "Open test program" }, "Open test program"],
+    [
+      "project_shell",
+      { command: "npm test", description: "Open test program" },
+      "Open test program",
+    ],
     ["bash", { command: "ls -la" }, "Ran ls -la"],
     ["powershell", {}, "Ran a command"],
     ["mac_exec", { command: "open -a Safari" }, "Ran open -a Safari"],

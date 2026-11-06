@@ -39,7 +39,11 @@ test("a turn's rows read as sentences and its thinking says how long it took", a
         runId,
         snapshot: {
           ref: sessionRef,
-          workspace: { workspaceId: workspace.id, path: workspace.path, displayName: workspace.name },
+          workspace: {
+            workspaceId: workspace.id,
+            path: workspace.path,
+            displayName: workspace.name,
+          },
           title: session.title,
           status: "running",
           updatedAt: now(),

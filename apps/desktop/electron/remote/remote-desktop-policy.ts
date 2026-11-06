@@ -33,7 +33,9 @@ import {
 const MAX_TEXT_BYTES = 128 * 1024;
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 const MAX_REMOTE_ATTACHMENTS = 16;
-const IMAGE_MIME_TYPES = new Set<string>(SUPPORTED_COMPOSER_IMAGE_TYPES.map((type) => type.mimeType));
+const IMAGE_MIME_TYPES = new Set<string>(
+  SUPPORTED_COMPOSER_IMAGE_TYPES.map((type) => type.mimeType),
+);
 
 export interface RemoteSendTextOptions {
   readonly deliverAs?: "steer";
@@ -55,7 +57,8 @@ export type RemoteDesktopInvocation =
     }
   | {
       readonly method: "cancelCurrentRun";
-      readonly args: readonly [] | readonly [{ readonly workspaceId: string; readonly sessionId: string }];
+      readonly args:
+        readonly [] | readonly [{ readonly workspaceId: string; readonly sessionId: string }];
     }
   | {
       readonly method: "getSignIns" | "getAccountStates" | "getUsageReport";
@@ -126,7 +129,12 @@ export type RemoteDesktopInvocation =
     }
   | {
       readonly method: "answerGenerativeUi";
-      readonly args: readonly [string, string, string, Readonly<Record<string, string | readonly string[] | boolean>>];
+      readonly args: readonly [
+        string,
+        string,
+        string,
+        Readonly<Record<string, string | readonly string[] | boolean>>,
+      ];
     }
   | {
       readonly method: "setDefaultThinkingLevel";
@@ -140,14 +148,26 @@ export type RemoteDesktopInvocation =
   | { readonly method: "getTurnChanges"; readonly args: readonly [TurnChangesInput] }
   | { readonly method: "getReview"; readonly args: readonly [GetReviewInput] }
   | { readonly method: "getReviewFile"; readonly args: readonly [ReviewFileInput] }
-  | { readonly method: "setReviewFileReviewed"; readonly args: readonly [SetReviewFileReviewedInput] }
-  | { readonly method: "changeReviewFileStage"; readonly args: readonly [ChangeReviewFileStageInput] }
+  | {
+      readonly method: "setReviewFileReviewed";
+      readonly args: readonly [SetReviewFileReviewedInput];
+    }
+  | {
+      readonly method: "changeReviewFileStage";
+      readonly args: readonly [ChangeReviewFileStageInput];
+    }
   | {
       readonly method: "ensureTerminalPanel" | "createTerminalSession";
       readonly args: readonly [string, string] | readonly [string, string, Partial<TerminalSize>];
     }
-  | { readonly method: "setActiveTerminalSession"; readonly args: readonly [string, string, string] }
-  | { readonly method: "writeTerminal" | "setTerminalTitle"; readonly args: readonly [string, string] }
+  | {
+      readonly method: "setActiveTerminalSession";
+      readonly args: readonly [string, string, string];
+    }
+  | {
+      readonly method: "writeTerminal" | "setTerminalTitle";
+      readonly args: readonly [string, string];
+    }
   | { readonly method: "resizeTerminal"; readonly args: readonly [string, TerminalSize] }
   | {
       readonly method: "restartTerminalSession";
@@ -605,7 +625,11 @@ function expectTerminalSize(value: unknown, complete: boolean): Partial<Terminal
   for (const key of ["cols", "rows"] as const) {
     const dimension = size[key];
     if (dimension === undefined && !complete) continue;
-    if (!Number.isInteger(dimension) || (dimension as number) < 1 || (dimension as number) > 1_000) {
+    if (
+      !Number.isInteger(dimension) ||
+      (dimension as number) < 1 ||
+      (dimension as number) > 1_000
+    ) {
       throw new TypeError(`Terminal ${key} is invalid.`);
     }
     result[key] = dimension as number;

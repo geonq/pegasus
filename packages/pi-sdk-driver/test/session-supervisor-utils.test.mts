@@ -205,7 +205,13 @@ await test("a saved reply that only thought and called tools says how long the t
     12_000,
   );
   // A written answer streams after the thinking, so its time is not thinking time.
-  reply([{ type: "thinking", thinking: "Answer." }, { type: "text", text: "Done." }], 30_000);
+  reply(
+    [
+      { type: "thinking", thinking: "Answer." },
+      { type: "text", text: "Done." },
+    ],
+    30_000,
+  );
   const thinking = transcriptFromSession(manager).filter((item) => item.kind === "thinking");
   assert.deepEqual(
     thinking.map((item) => item.text),

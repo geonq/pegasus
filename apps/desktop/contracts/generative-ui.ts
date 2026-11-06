@@ -107,7 +107,11 @@ export type UiNode =
       readonly nodes?: readonly DiagramNode[];
       readonly edges?: readonly DiagramEdge[];
     }
-  | { readonly type: "agent_map"; readonly title?: string; readonly agents: readonly AgentMapEntry[] };
+  | {
+      readonly type: "agent_map";
+      readonly title?: string;
+      readonly agents: readonly AgentMapEntry[];
+    };
 
 export interface GenerativeUiSpec {
   readonly version: typeof GENERATIVE_UI_VERSION;
@@ -155,7 +159,9 @@ function text(value: unknown, where: string, max = MAX_TEXT): string {
 }
 
 function optionalText(value: unknown, where: string, max = MAX_TEXT): string | undefined {
-  return value === undefined || value === null || value === "" ? undefined : text(value, where, max);
+  return value === undefined || value === null || value === ""
+    ? undefined
+    : text(value, where, max);
 }
 
 function id(value: unknown, where: string): string {
@@ -204,7 +210,8 @@ function node(value: unknown, where: string, depth: number): UiNode | undefined 
     case "text":
       return { type: "text", text: text(raw.text, `${where}.text`) };
     case "card": {
-      if (depth >= MAX_DEPTH) throw new SpecError(`${where}: cards nest at most ${MAX_DEPTH} deep.`);
+      if (depth >= MAX_DEPTH)
+        throw new SpecError(`${where}: cards nest at most ${MAX_DEPTH} deep.`);
       const subtitle = optionalText(raw.subtitle, `${where}.subtitle`, MAX_LABEL);
       const body = optionalText(raw.text, `${where}.text`);
       return {
@@ -280,7 +287,11 @@ function node(value: unknown, where: string, depth: number): UiNode | undefined 
       };
     case "code": {
       const language = optionalText(raw.language, `${where}.language`, 32);
-      return { type: "code", code: text(raw.code, `${where}.code`, 20_000), ...(language ? { language } : {}) };
+      return {
+        type: "code",
+        code: text(raw.code, `${where}.code`, 20_000),
+        ...(language ? { language } : {}),
+      };
     }
     case "diagram":
       return diagram(raw, where);
@@ -408,13 +419,18 @@ function safeJson(value: string): unknown {
 }
 
 /** Every choice and form field in the spec, cards included, in order. */
-export function inputs(
-  blocks: readonly UiNode[],
-): ({ readonly kind: "choice"; readonly id: string; readonly node: Extract<UiNode, { type: "choice" }> } | {
-  readonly kind: "field";
-  readonly id: string;
-  readonly field: UiField;
-})[] {
+export function inputs(blocks: readonly UiNode[]): (
+  | {
+      readonly kind: "choice";
+      readonly id: string;
+      readonly node: Extract<UiNode, { type: "choice" }>;
+    }
+  | {
+      readonly kind: "field";
+      readonly id: string;
+      readonly field: UiField;
+    }
+)[] {
   return blocks.flatMap((block) => {
     if (block.type === "choice") return [{ kind: "choice" as const, id: block.id, node: block }];
     if (block.type === "form") {
@@ -429,7 +445,10 @@ export function inputs(
  * The user's answer, checked against the spec it answers: only its own ids, a choice's own option
  * ids (or free text where "Other…" is offered), and required fields filled.
  */
-export function parseGenerativeUiAnswer(spec: GenerativeUiSpec, value: unknown): GenerativeUiAnswer {
+export function parseGenerativeUiAnswer(
+  spec: GenerativeUiSpec,
+  value: unknown,
+): GenerativeUiAnswer {
   const raw = record(value, "answer");
   const answer: Record<string, string | readonly string[] | boolean> = {};
   for (const input of inputs(spec.blocks)) {
@@ -459,7 +478,11 @@ export function parseGenerativeUiAnswer(spec: GenerativeUiSpec, value: unknown):
     }
     const filled = typeof given === "string" ? given.trim() : "";
     if (filled.length > MAX_TEXT) throw new SpecError(`The answer to ${entry.id} is too long.`);
-    if (entry.kind === "select" && filled && !entry.options.some((option) => option.id === filled)) {
+    if (
+      entry.kind === "select" &&
+      filled &&
+      !entry.options.some((option) => option.id === filled)
+    ) {
       throw new SpecError(`${filled} is not an option of ${entry.id}.`);
     }
     if (entry.required && !filled) throw new SpecError(`Fill in "${entry.label}".`);
@@ -469,7 +492,10 @@ export function parseGenerativeUiAnswer(spec: GenerativeUiSpec, value: unknown):
 }
 
 /** The answer as the tool result's text: each question with what was picked, by label. */
-export function describeGenerativeUiAnswer(spec: GenerativeUiSpec, answer: GenerativeUiAnswer): string {
+export function describeGenerativeUiAnswer(
+  spec: GenerativeUiSpec,
+  answer: GenerativeUiAnswer,
+): string {
   const label = (options: readonly UiOption[], value: string) =>
     options.find((option) => option.id === value)?.label ?? value;
   const lines = inputs(spec.blocks).flatMap((input) => {
@@ -477,11 +503,14 @@ export function describeGenerativeUiAnswer(spec: GenerativeUiSpec, answer: Gener
     if (value === undefined) return [];
     if (input.kind === "choice") {
       const values = Array.isArray(value) ? value : [value as string];
-      return [`${input.node.label}: ${values.map((entry) => label(input.node.options, entry)).join(", ")}`];
+      return [
+        `${input.node.label}: ${values.map((entry) => label(input.node.options, entry)).join(", ")}`,
+      ];
     }
     const entry = input.field;
     if (entry.kind === "toggle") return [`${entry.label}: ${value === true ? "yes" : "no"}`];
-    if (entry.kind === "select") return [`${entry.label}: ${label(entry.options, value as string)}`];
+    if (entry.kind === "select")
+      return [`${entry.label}: ${label(entry.options, value as string)}`];
     return [`${entry.label}: ${value as string}`];
   });
   return `The user answered.\n${lines.join("\n")}\n\nAnswer as JSON: ${JSON.stringify(answer)}`;

@@ -45,16 +45,29 @@ test("the Agents panel maps a chat's agents live, opens one, and stops one", asy
   const userDataDir = await makeUserDataDir();
   const agentDir = join(userDataDir, "agent");
   const workspacePath = await makeWorkspace("agent-map");
-  await seedAgentDir(agentDir, { withOpenAiAuth: false, withDefaultModel: false, enabledModels: ["slow-test/slow"] });
+  await seedAgentDir(agentDir, {
+    withOpenAiAuth: false,
+    withDefaultModel: false,
+    enabledModels: ["slow-test/slow"],
+  });
   await writeFile(
     join(agentDir, "settings.json"),
-    JSON.stringify({ defaultProvider: "slow-test", defaultModel: "slow", enabledModels: ["slow-test/slow"] }),
+    JSON.stringify({
+      defaultProvider: "slow-test",
+      defaultModel: "slow",
+      enabledModels: ["slow-test/slow"],
+    }),
   );
   await writeFile(
     join(agentDir, "models.json"),
     JSON.stringify({
       providers: {
-        "slow-test": { baseUrl: server.baseUrl, api: "openai-completions", apiKey: "unused", models: [{ id: "slow" }] },
+        "slow-test": {
+          baseUrl: server.baseUrl,
+          api: "openai-completions",
+          apiKey: "unused",
+          models: [{ id: "slow" }],
+        },
       },
     }),
   );
@@ -68,7 +81,10 @@ test("the Agents panel maps a chat's agents live, opens one, and stops one", asy
     const window = await harness.firstWindow();
     await createNamedThread(window, "Lead chat");
     const state = await getDesktopState(window);
-    const parentRef: SessionRef = { workspaceId: state.selectedWorkspaceId!, sessionId: state.selectedSessionId! };
+    const parentRef: SessionRef = {
+      workspaceId: state.selectedWorkspaceId!,
+      sessionId: state.selectedSessionId!,
+    };
     for (const [id, prompt] of [
       ["child-docs", "[PI_CHILD_ROLE=implementer]\nWrite the docs page."],
       ["child-tests", "[PI_CHILD_ROLE=reviewer]\nReview the tests."],
@@ -102,20 +118,44 @@ test("the Agents panel maps a chat's agents live, opens one, and stops one", asy
                 title: "Plan",
                 agents: [
                   { id: "lead", label: "Lead", status: "running" },
-                  { id: "docs", label: "Docs page", status: "pending", parent: "lead", role: "implementer", threadId: docs.childSessionId },
-                  { id: "tests", label: "Test review", status: "pending", parent: "lead", role: "reviewer", threadId: tests.childSessionId },
+                  {
+                    id: "docs",
+                    label: "Docs page",
+                    status: "pending",
+                    parent: "lead",
+                    role: "implementer",
+                    threadId: docs.childSessionId,
+                  },
+                  {
+                    id: "tests",
+                    label: "Test review",
+                    status: "pending",
+                    parent: "lead",
+                    role: "reviewer",
+                    threadId: tests.childSessionId,
+                  },
                 ],
               },
             ],
           },
         },
       },
-      { type: "toolFinished", sessionRef: parentRef, timestamp: now, callId: "plan", success: true },
+      {
+        type: "toolFinished",
+        sessionRef: parentRef,
+        timestamp: now,
+        callId: "plan",
+        success: true,
+      },
     ]);
     const map = window.getByTestId("generative-ui-agent-map");
     // Linked entries follow their threads: both agents are working, not "pending".
-    await expect(map.getByTestId("generative-ui-agent").filter({ hasText: "Docs page" })).toHaveAttribute("data-status", "running");
-    await expect(map.getByTestId("generative-ui-agent").filter({ hasText: "Test review" })).toHaveAttribute("data-status", "running");
+    await expect(
+      map.getByTestId("generative-ui-agent").filter({ hasText: "Docs page" }),
+    ).toHaveAttribute("data-status", "running");
+    await expect(
+      map.getByTestId("generative-ui-agent").filter({ hasText: "Test review" }),
+    ).toHaveAttribute("data-status", "running");
 
     await window.getByRole("button", { name: "Toggle side panel" }).click();
     const panel = window.locator(".agents-panel");
@@ -127,20 +167,33 @@ test("the Agents panel maps a chat's agents live, opens one, and stops one", asy
     const docsCard = cards.filter({ hasText: docs.title });
     await expect(docsCard).toContainText("implementer · slow");
     await expect(docsCard).toHaveAttribute("data-status", "running");
-    expect(await docsCard.evaluate((element) => parseFloat(getComputedStyle(element).marginLeft))).toBeGreaterThan(0);
+    expect(
+      await docsCard.evaluate((element) => parseFloat(getComputedStyle(element).marginLeft)),
+    ).toBeGreaterThan(0);
     await window.screenshot({ path: test.info().outputPath("agents-panel.png") });
 
     // Clicking a card opens that agent's chat.
     await docsCard.locator(".agents-panel__row").click();
-    await expect.poll(async () => (await getDesktopState(window)).selectedSessionId).toBe(docs.childSessionId);
+    await expect
+      .poll(async () => (await getDesktopState(window)).selectedSessionId)
+      .toBe(docs.childSessionId);
 
     // Each chat keeps its own side panel, so it opens again here.
     await window.getByRole("button", { name: "Toggle side panel" }).click();
     // Stop ends the agent's run; the panel follows.
-    await cards.filter({ hasText: tests.title }).getByRole("button", { name: `Stop ${tests.title}` }).click();
-    await expect(cards.filter({ hasText: tests.title })).not.toHaveAttribute("data-status", "running", { timeout: 15_000 });
+    await cards
+      .filter({ hasText: tests.title })
+      .getByRole("button", { name: `Stop ${tests.title}` })
+      .click();
+    await expect(cards.filter({ hasText: tests.title })).not.toHaveAttribute(
+      "data-status",
+      "running",
+      { timeout: 15_000 },
+    );
     await expect(panel).toContainText("1 working");
-    await expect(cards.filter({ hasText: tests.title }).getByRole("button", { name: `Stop ${tests.title}` })).toHaveCount(0);
+    await expect(
+      cards.filter({ hasText: tests.title }).getByRole("button", { name: `Stop ${tests.title}` }),
+    ).toHaveCount(0);
     // Stop left this chat open.
     expect((await getDesktopState(window)).selectedSessionId).toBe(docs.childSessionId);
   } finally {

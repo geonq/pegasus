@@ -33,8 +33,21 @@ test("continues when the first account is back: the later of its cooldown and it
   ];
   const limits = [
     // Account 1's five-hour window is spent until 19:30; account 2's until 18:40.
-    { id: "claude-code-account-1", name: "A", asOf: NOW, windows: [{ label: "5-hour", usedPercent: 100, resetsAt: NOW + 90 * MIN }] },
-    { id: "claude-code-account-2", name: "B", asOf: NOW, windows: [{ label: "5-hour", usedPercent: 100, resetsAt: NOW + 40 * MIN }, { label: "Weekly", usedPercent: 60, resetsAt: NOW + 3 * 24 * 60 * MIN }] },
+    {
+      id: "claude-code-account-1",
+      name: "A",
+      asOf: NOW,
+      windows: [{ label: "5-hour", usedPercent: 100, resetsAt: NOW + 90 * MIN }],
+    },
+    {
+      id: "claude-code-account-2",
+      name: "B",
+      asOf: NOW,
+      windows: [
+        { label: "5-hour", usedPercent: 100, resetsAt: NOW + 40 * MIN },
+        { label: "Weekly", usedPercent: 60, resetsAt: NOW + 3 * 24 * 60 * MIN },
+      ],
+    },
   ];
   expect(limitResumeAt(states, limits, NOW)).toBe(NOW + 41 * MIN);
 });
@@ -43,7 +56,14 @@ test("never sooner than two minutes, and a half-hour retry when no reset time is
   const ready = [{ id: "claude-code-account-1", state: "ready" as const }];
   expect(limitResumeAt(ready, [], NOW)).toBe(NOW + 2 * MIN);
   const unknown = [{ id: "claude-code-account-1", state: "ready" as const }];
-  const spentNoReset = [{ id: "claude-code-account-1", name: "A", asOf: NOW, windows: [{ label: "5-hour", usedPercent: 100 }] }];
+  const spentNoReset = [
+    {
+      id: "claude-code-account-1",
+      name: "A",
+      asOf: NOW,
+      windows: [{ label: "5-hour", usedPercent: 100 }],
+    },
+  ];
   expect(limitResumeAt(unknown, spentNoReset, NOW)).toBe(NOW + 30 * MIN);
   expect(limitResumeAt([], [], NOW)).toBe(NOW + 30 * MIN);
 });

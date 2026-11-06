@@ -45,8 +45,14 @@ function markdownComponents(
     pre: ({ children, node }) => {
       const first = node?.children[0];
       const classes = first?.type === "element" ? first.properties.className : undefined;
-      if (first?.type === "element" && Array.isArray(classes) && classes.includes("language-mermaid")) {
-        const source = first.children.map((child) => (child.type === "text" ? child.value : "")).join("");
+      if (
+        first?.type === "element" &&
+        Array.isArray(classes) &&
+        classes.includes("language-mermaid")
+      ) {
+        const source = first.children
+          .map((child) => (child.type === "text" ? child.value : ""))
+          .join("");
         return <MermaidDiagram source={source.trimEnd()} />;
       }
       return <pre>{children}</pre>;

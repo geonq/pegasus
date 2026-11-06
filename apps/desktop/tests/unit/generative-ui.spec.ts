@@ -117,9 +117,7 @@ test("a question is answered once, by its own chat, and a stop cancels it", asyn
   expect(() => questions.answer(chat, "call-1", { approach: "a" })).toThrow("Fill in");
   questions.answer(chat, "call-1", { approach: "a", why: "x" });
   await expect(pending).resolves.toEqual({ approach: "a", why: "x", now: false });
-  expect(() => questions.answer(chat, "call-1", { approach: "a", why: "x" })).toThrow(
-    "no longer",
-  );
+  expect(() => questions.answer(chat, "call-1", { approach: "a", why: "x" })).toThrow("no longer");
 
   const stop = new AbortController();
   const stopped = questions.ask(chat, "call-2", spec, stop.signal);

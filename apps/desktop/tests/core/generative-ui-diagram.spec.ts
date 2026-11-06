@@ -16,7 +16,14 @@ const graph = {
       type: "diagram",
       title: "Pegasus",
       nodes: [
-        { id: "ui", label: "Renderer", group: "App", kind: "React", path: "src/app/App.tsx", description: "Draws the chat." },
+        {
+          id: "ui",
+          label: "Renderer",
+          group: "App",
+          kind: "React",
+          path: "src/app/App.tsx",
+          description: "Draws the chat.",
+        },
         { id: "main", label: "Main process", group: "App", kind: "Electron" },
         { id: "driver", label: "Session driver", group: "Runtime" },
         { id: "pi", label: "pi SDK", group: "Runtime" },
@@ -27,7 +34,12 @@ const graph = {
         { from: "driver", to: "pi" },
       ],
     },
-    { type: "diagram", title: "Flow", mermaid: "flowchart LR\n  A[Prompt] --> B{Tool?}\n  B -->|yes| C[Run tool]\n  B -->|no| D[Reply]" },
+    {
+      type: "diagram",
+      title: "Flow",
+      mermaid:
+        "flowchart LR\n  A[Prompt] --> B{Tool?}\n  B -->|yes| C[Run tool]\n  B -->|no| D[Reply]",
+    },
   ],
 };
 
@@ -59,7 +71,11 @@ test("an agent's diagram draws as a floorplan you can click, and Mermaid draws i
         runId,
         snapshot: {
           ref: sessionRef,
-          workspace: { workspaceId: workspace.id, path: workspace.path, displayName: workspace.name },
+          workspace: {
+            workspaceId: workspace.id,
+            path: workspace.path,
+            displayName: workspace.name,
+          },
           title: session.title,
           status: "running",
           updatedAt: now(),
@@ -67,8 +83,23 @@ test("an agent's diagram draws as a floorplan you can click, and Mermaid draws i
           runningRunId: runId,
         },
       },
-      { type: "toolStarted", sessionRef, timestamp: now(), runId, toolName: "show_ui", callId: "d1", input: { spec: graph } },
-      { type: "toolFinished", sessionRef, timestamp: now(), callId: "d1", success: true, output: { content: [{ type: "text", text: "Shown." }] } },
+      {
+        type: "toolStarted",
+        sessionRef,
+        timestamp: now(),
+        runId,
+        toolName: "show_ui",
+        callId: "d1",
+        input: { spec: graph },
+      },
+      {
+        type: "toolFinished",
+        sessionRef,
+        timestamp: now(),
+        callId: "d1",
+        success: true,
+        output: { content: [{ type: "text", text: "Shown." }] },
+      },
       {
         type: "assistantDelta",
         sessionRef,
@@ -90,7 +121,9 @@ test("an agent's diagram draws as a floorplan you can click, and Mermaid draws i
     await expect(details).toContainText("App · React");
     await expect(details).toContainText("Draws the chat.");
     await details.getByRole("button", { name: "Explain this" }).click();
-    await expect(window.getByTestId("composer")).toHaveValue(/Explain "Renderer" \(src\/app\/App\.tsx\)/);
+    await expect(window.getByTestId("composer")).toHaveValue(
+      /Explain "Renderer" \(src\/app\/App\.tsx\)/,
+    );
 
     // The graph can stay in view in the side panel while the chat goes on.
     await diagram.getByRole("button", { name: "Open in side panel" }).click();
@@ -99,7 +132,9 @@ test("an agent's diagram draws as a floorplan you can click, and Mermaid draws i
     await expect(panel.getByRole("button", { name: "Open in side panel" })).toHaveCount(0);
     // The frame takes the drawing's own shape in both places: no empty band, never squeezed flat.
     const [inChat, inPanel] = await Promise.all(
-      [diagram, panel].map((scope) => scope.locator("svg.generative-ui__graph-canvas").boundingBox()),
+      [diagram, panel].map((scope) =>
+        scope.locator("svg.generative-ui__graph-canvas").boundingBox(),
+      ),
     );
     expect(inChat!.height).toBeGreaterThan(120);
     expect(inChat!.height / inChat!.width).toBeCloseTo(inPanel!.height / inPanel!.width, 1);

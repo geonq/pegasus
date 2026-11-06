@@ -50,7 +50,13 @@ test("remote method policy scopes workspaces and rejects unsafe public methods a
           rootWorkspaceId: allowedWorkspaceId,
           environment: "local",
           attachments: [
-            { id: "f", kind: "file", name: "x.txt", mimeType: "text/plain", fsPath: "D:\\outside.txt" },
+            {
+              id: "f",
+              kind: "file",
+              name: "x.txt",
+              mimeType: "text/plain",
+              fsPath: "D:\\outside.txt",
+            },
           ],
         },
       ],
@@ -476,7 +482,11 @@ test("remote review and terminal calls stay inside authorized workspaces", () =>
     ).args,
   ).toEqual([allowedWorkspaceId, "scope", { cols: 80, rows: 24 }]);
   expect(() =>
-    validateRemoteDesktopInvocation("ensureTerminalPanel", [deniedWorkspaceId, "scope"], workspaceScope),
+    validateRemoteDesktopInvocation(
+      "ensureTerminalPanel",
+      [deniedWorkspaceId, "scope"],
+      workspaceScope,
+    ),
   ).toThrow("not authorized");
   expect(() =>
     validateRemoteDesktopInvocation("resizeTerminal", ["t1", { cols: 80 }], workspaceScope),

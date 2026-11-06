@@ -29,7 +29,14 @@ const STATUS_LABEL: Record<string, string> = {
   complete: "Done",
   idle: "Idle",
 };
-const RANK: Record<string, number> = { running: 0, waiting: 1, queued: 2, failed: 3, complete: 4, idle: 5 };
+const RANK: Record<string, number> = {
+  running: 0,
+  waiting: 1,
+  queued: 2,
+  failed: 3,
+  complete: 4,
+  idle: 5,
+};
 const ACTIVE = new Set(["running", "waiting", "queued"]);
 const ROLE = /\[(?:PI|HERMES)_CHILD_ROLE=(\w+)\]/i;
 const keyOf = (target: SessionTarget) => `${target.workspaceId}/${target.sessionId}`;
@@ -40,13 +47,23 @@ const keyOf = (target: SessionTarget) => `${target.workspaceId}/${target.session
  * or started agents.
  */
 export function agentCards(snapshot: DesktopAppState): AgentCard[] {
-  const sessions = new Map<string, { session: SessionRecord; workspaceName: string; workspaceId: string }>();
+  const sessions = new Map<
+    string,
+    { session: SessionRecord; workspaceName: string; workspaceId: string }
+  >();
   for (const workspace of snapshot.workspaces) {
     for (const session of workspace.sessions) {
-      sessions.set(`${workspace.id}/${session.id}`, { session, workspaceName: workspace.name, workspaceId: workspace.id });
+      sessions.set(`${workspace.id}/${session.id}`, {
+        session,
+        workspaceName: workspace.name,
+        workspaceId: workspace.id,
+      });
     }
   }
-  const card = (key: string, extra: Partial<AgentCard> & Pick<AgentCard, "title" | "status" | "target">): AgentCard => {
+  const card = (
+    key: string,
+    extra: Partial<AgentCard> & Pick<AgentCard, "title" | "status" | "target">,
+  ): AgentCard => {
     const entry = sessions.get(key);
     return {
       key,
@@ -74,19 +91,26 @@ export function agentCards(snapshot: DesktopAppState): AgentCard[] {
   const childKeys = new Set(children.map((child) => child.key));
   const parentKeys = new Set(children.map((child) => child.parentKey!));
   const threads = [...sessions.entries()]
-    .filter(([key, { session }]) =>
-      !childKeys.has(key) &&
-      !session.archivedAt &&
-      (session.status !== "idle" || parentKeys.has(key)),
+    .filter(
+      ([key, { session }]) =>
+        !childKeys.has(key) &&
+        !session.archivedAt &&
+        (session.status !== "idle" || parentKeys.has(key)),
     )
     .map(([key, { session, workspaceId }]) =>
-      card(key, { title: session.title, status: session.status, target: { workspaceId, sessionId: session.id } }),
+      card(key, {
+        title: session.title,
+        status: session.status,
+        target: { workspaceId, sessionId: session.id },
+      }),
     );
   return [...threads, ...children];
 }
 
 /** Agents grouped by the folder their changes landed in; an area two agents changed is a likely conflict. */
-export function agentAreas(cards: readonly AgentCard[]): { readonly area: string; readonly agents: readonly AgentCard[] }[] {
+export function agentAreas(
+  cards: readonly AgentCard[],
+): { readonly area: string; readonly agents: readonly AgentCard[] }[] {
   const byArea = new Map<string, AgentCard[]>();
   for (const agent of cards) {
     for (const area of new Set(agent.files.map(areaOf))) {
@@ -124,7 +148,9 @@ export function AgentsPanel({
   const [view, setView] = useState<"team" | "areas">("team");
   const [now, setNow] = useState(() => Date.now());
   const cards = agentCards(snapshot).sort((a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9));
-  const working = cards.filter((card) => card.status === "running" || card.status === "waiting").length;
+  const working = cards.filter(
+    (card) => card.status === "running" || card.status === "waiting",
+  ).length;
   const queued = cards.filter((card) => card.status === "queued").length;
   const anyRunning = cards.some((card) => card.runningSince);
   useEffect(() => {
@@ -141,12 +167,20 @@ export function AgentsPanel({
 
   const renderCard = (card: AgentCard, depth: number) => (
     <li key={card.key}>
-      <div className="agents-panel__card" style={{ marginLeft: depth * 16 }} data-testid="agents-panel-card" data-status={card.status}>
+      <div
+        className="agents-panel__card"
+        style={{ marginLeft: depth * 16 }}
+        data-testid="agents-panel-card"
+        data-status={card.status}
+      >
         <button className="agents-panel__row" type="button" onClick={() => onSelect(card.target)}>
           {ACTIVE.has(card.status) ? (
             <StateOrb state="working" />
           ) : (
-            <span aria-hidden="true" className={`agents-panel__dot agents-panel__dot--${card.status}`} />
+            <span
+              aria-hidden="true"
+              className={`agents-panel__dot agents-panel__dot--${card.status}`}
+            />
           )}
           <span className="agents-panel__text">
             <span className="agents-panel__title" title={card.title}>
@@ -165,13 +199,20 @@ export function AgentsPanel({
           </span>
         </button>
         {card.status === "running" && onStop ? (
-          <button type="button" className="agents-panel__stop" onClick={() => onStop(card.target)} aria-label={`Stop ${card.title}`}>
+          <button
+            type="button"
+            className="agents-panel__stop"
+            onClick={() => onStop(card.target)}
+            aria-label={`Stop ${card.title}`}
+          >
             Stop
           </button>
         ) : null}
       </div>
       {depth < 4 && childrenOf(card.key).length ? (
-        <ul className="agents-panel__list">{childrenOf(card.key).map((child) => renderCard(child, depth + 1))}</ul>
+        <ul className="agents-panel__list">
+          {childrenOf(card.key).map((child) => renderCard(child, depth + 1))}
+        </ul>
       ) : null}
     </li>
   );
@@ -185,10 +226,20 @@ export function AgentsPanel({
           {cards.length ? ` · ${cards.length} total` : ""}
         </p>
         <div className="agents-panel__views" role="tablist" aria-label="Agents view">
-          <button type="button" role="tab" aria-selected={view === "team"} onClick={() => setView("team")}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "team"}
+            onClick={() => setView("team")}
+          >
             Team
           </button>
-          <button type="button" role="tab" aria-selected={view === "areas"} onClick={() => setView("areas")}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "areas"}
+            onClick={() => setView("areas")}
+          >
             By area
           </button>
         </div>
@@ -200,15 +251,26 @@ export function AgentsPanel({
       ) : (
         <ul className="agents-panel__areas" data-testid="agents-panel-areas">
           {areas.map(({ area, agents }) => (
-            <li key={area} className={`agents-panel__area ${agents.length > 1 ? "agents-panel__area--overlap" : ""}`}>
+            <li
+              key={area}
+              className={`agents-panel__area ${agents.length > 1 ? "agents-panel__area--overlap" : ""}`}
+            >
               <div className="agents-panel__area-name">
                 {area}
-                {agents.length > 1 ? <span className="agents-panel__overlap">{agents.length} agents · possible conflict</span> : null}
+                {agents.length > 1 ? (
+                  <span className="agents-panel__overlap">
+                    {agents.length} agents · possible conflict
+                  </span>
+                ) : null}
               </div>
               <ul className="agents-panel__area-agents">
                 {agents.map((agent) => (
                   <li key={agent.key}>
-                    <button type="button" className="agents-panel__chip" onClick={() => onSelect(agent.target)}>
+                    <button
+                      type="button"
+                      className="agents-panel__chip"
+                      onClick={() => onSelect(agent.target)}
+                    >
                       {agent.title}
                     </button>
                   </li>

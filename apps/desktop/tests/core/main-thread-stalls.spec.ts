@@ -48,7 +48,9 @@ test("logs a slow window frame with the script that held it", async () => {
     const log = join(userDataDir, "logs", "renderer-stalls.log");
     await expect
       .poll(async () => readFile(log, "utf8").catch(() => ""))
-      .toMatch(/ms \(blocking \d+ ms\) in [\w?-]+\n.*\n {4}(29\d|3\d\d|4\d\d) ms in .* via TimerHandler:setTimeout/);
+      .toMatch(
+        /ms \(blocking \d+ ms\) in [\w?-]+\n.*\n {4}(29\d|3\d\d|4\d\d) ms in .* via TimerHandler:setTimeout/,
+      );
   } finally {
     await h.close();
   }

@@ -21,12 +21,7 @@ const RETRY_UNKNOWN_MS = 2 * 60_000;
 const MAX_UNKNOWN_RETRIES = 5;
 const CLAUDE_STATUS_TIMEOUT_MS = 30_000;
 
-const run = (
-  file: string,
-  args: readonly string[],
-  env?: NodeJS.ProcessEnv,
-  timeout = 12_000,
-) =>
+const run = (file: string, args: readonly string[], env?: NodeJS.ProcessEnv, timeout = 12_000) =>
   new Promise<{ output: string; interrupted: boolean }>((resolve) => {
     execFile(
       file,

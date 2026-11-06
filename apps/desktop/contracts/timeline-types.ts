@@ -96,7 +96,4 @@ export interface TimelineToolGroup {
 }
 
 export type DisplayTimelineItem =
-  | TimelineTranscriptItem
-  | TimelineTurnMarker
-  | TimelineTurnChanges
-  | TimelineToolGroup;
+  TimelineTranscriptItem | TimelineTurnMarker | TimelineTurnChanges | TimelineToolGroup;

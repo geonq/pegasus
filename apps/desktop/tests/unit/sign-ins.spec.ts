@@ -104,7 +104,11 @@ test("a check that could not finish keeps the last answer and is retried, not sh
   const ok: SignInStatus = { id: "claude-code-account-1", name: "Claude · work", state: "ok" };
   const timedOut: SignInStatus = { ...ok, state: "unknown" };
   let world: SignInStatus[] = [ok];
-  const monitor = startSignInMonitor(paths, () => undefined, async () => world);
+  const monitor = startSignInMonitor(
+    paths,
+    () => undefined,
+    async () => world,
+  );
   try {
     await monitor.checkNow();
     world = [timedOut];

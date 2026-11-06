@@ -93,7 +93,10 @@ test("remote client keeps Mac presentation and draft local while actions target 
 
   // Drafts belong to their chat: the draft flushed for the chat being left (even text that was
   // just sent) never shows up in the chat opened next, and comes back when its chat reopens.
-  await api.persistComposerDraft({ target: { workspaceId: "workspace", sessionId: "thread" }, draft: "Stay here" });
+  await api.persistComposerDraft({
+    target: { workspaceId: "workspace", sessionId: "thread" },
+    draft: "Stay here",
+  });
   hostState = { ...hostState, selectedSessionId: "other-thread" };
   expect((await api.getState()).composerDraft).toBe("");
   hostState = { ...hostState, selectedSessionId: "thread" };
@@ -332,7 +335,11 @@ test("queued messages can be steered, removed and edited from the Mac, and a new
 
 test("the Mac keeps its own tool tabs, so the side panel restores instead of failing", async () => {
   const invocations: RemoteDesktopMethod[] = [];
-  const preferences = { enableTransparency: false, themeMode: "light" as const, themePresetId: "default" as const };
+  const preferences = {
+    enableTransparency: false,
+    themeMode: "light" as const,
+    themePresetId: "default" as const,
+  };
   const api = createRemoteDesktopClientApi(
     {
       getTaskWorkbenchTemplate: async () => {
@@ -360,7 +367,11 @@ test("the Mac keeps its own tool tabs, so the side panel restores instead of fai
     api.getTaskWorkbenchTemplate({ workspaceId: "workspace", sessionId: "other" }),
   ).resolves.toBeNull();
   await expect(
-    api.saveTaskWorkbenchTemplate({ target, template: { visibility: "sideways" } as never, sequence: 2 }),
+    api.saveTaskWorkbenchTemplate({
+      target,
+      template: { visibility: "sideways" } as never,
+      sequence: 2,
+    }),
   ).rejects.toThrow();
   expect(invocations).toEqual([]);
 });
@@ -430,7 +441,13 @@ test("review and terminals on the Mac run against the Windows checkout and shell
 test("remote client keeps image attachments per chat and sends them with the message", async () => {
   const png =
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  const image = { id: "i1", kind: "image" as const, name: "shot.png", mimeType: "image/png", data: png };
+  const image = {
+    id: "i1",
+    kind: "image" as const,
+    name: "shot.png",
+    mimeType: "image/png",
+    data: png,
+  };
   const invocations: Array<{ method: RemoteDesktopMethod; args: readonly unknown[] }> = [];
   let hostState = {
     ...createEmptyDesktopAppState(),

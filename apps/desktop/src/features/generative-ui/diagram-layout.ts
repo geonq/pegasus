@@ -21,7 +21,11 @@ export interface Lane {
 
 export interface DiagramLayout {
   readonly nodes: readonly PlacedNode[];
-  readonly edges: readonly { readonly edge: DiagramEdge; readonly path: string; readonly mid: { x: number; y: number } }[];
+  readonly edges: readonly {
+    readonly edge: DiagramEdge;
+    readonly path: string;
+    readonly mid: { x: number; y: number };
+  }[];
   readonly lanes: readonly Lane[];
   readonly width: number;
   readonly height: number;
@@ -32,7 +36,10 @@ export interface DiagramLayout {
  * the flow, a node one column right of everything that points at it. Cycles are broken by
  * ignoring edges that point back. Deterministic, so the same spec always draws the same picture.
  */
-export function layoutDiagram(nodes: readonly DiagramNode[], edges: readonly DiagramEdge[]): DiagramLayout {
+export function layoutDiagram(
+  nodes: readonly DiagramNode[],
+  edges: readonly DiagramEdge[],
+): DiagramLayout {
   const index = new Map(nodes.map((node, position) => [node.id, position]));
   const incoming = new Map<string, string[]>(nodes.map((node) => [node.id, []]));
   for (const edge of forwardEdges(nodes, edges)) incoming.get(edge.to)!.push(edge.from);
@@ -43,7 +50,9 @@ export function layoutDiagram(nodes: readonly DiagramNode[], edges: readonly Dia
     if (known !== undefined) return known;
     seen.add(id);
     const parents = incoming.get(id)!.filter((parent) => !seen.has(parent));
-    const value = parents.length ? Math.max(...parents.map((parent) => columnOf(parent, seen))) + 1 : 0;
+    const value = parents.length
+      ? Math.max(...parents.map((parent) => columnOf(parent, seen))) + 1
+      : 0;
     seen.delete(id);
     column.set(id, value);
     return value;
@@ -72,7 +81,8 @@ export function layoutDiagram(nodes: readonly DiagramNode[], edges: readonly Dia
         y: laneTop + row * (NODE_HEIGHT + ROW_GAP),
       });
     }
-    const height = (laned ? LANE_LABEL + LANE_PADDING * 2 : 0) + rows * NODE_HEIGHT + (rows - 1) * ROW_GAP;
+    const height =
+      (laned ? LANE_LABEL + LANE_PADDING * 2 : 0) + rows * NODE_HEIGHT + (rows - 1) * ROW_GAP;
     if (laned) lanes.push({ name: group || "Other", y: top, height });
     top += height + (laned ? LANE_GAP : 0);
   }
@@ -112,8 +122,14 @@ function forwardEdges(nodes: readonly DiagramNode[], edges: readonly DiagramEdge
 /** A curve from the right edge of one box to the left edge of the next, or around for back edges. */
 function route(edge: DiagramEdge, from: PlacedNode, to: PlacedNode) {
   const forward = to.x > from.x;
-  const start = { x: from.x + (forward ? NODE_WIDTH : NODE_WIDTH / 2), y: from.y + (forward ? NODE_HEIGHT / 2 : NODE_HEIGHT) };
-  const end = { x: forward ? to.x : to.x + NODE_WIDTH / 2, y: to.y + (forward ? NODE_HEIGHT / 2 : NODE_HEIGHT) };
+  const start = {
+    x: from.x + (forward ? NODE_WIDTH : NODE_WIDTH / 2),
+    y: from.y + (forward ? NODE_HEIGHT / 2 : NODE_HEIGHT),
+  };
+  const end = {
+    x: forward ? to.x : to.x + NODE_WIDTH / 2,
+    y: to.y + (forward ? NODE_HEIGHT / 2 : NODE_HEIGHT),
+  };
   const bend = forward ? Math.max(24, (end.x - start.x) / 2) : 0;
   const drop = forward ? 0 : 36;
   const path = forward

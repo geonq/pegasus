@@ -48,12 +48,12 @@ test("an idle child whose runs all failed before replying reads failed, not queu
   expect(idleChildStatus([runFailed], noTranscript)).toBe("failed");
   // The marker saved when it last read failed survives a restart that forgets the failed status.
   expect(idleChildStatus([{ source: "blocker", status: "blocked" }], noTranscript)).toBe("failed");
-  expect(idleChildStatus([{ source: "orchestrator-observed", status: "failed" }], noTranscript)).toBe(
-    "queued",
-  );
+  expect(
+    idleChildStatus([{ source: "orchestrator-observed", status: "failed" }], noTranscript),
+  ).toBe("queued");
   expect(idleChildStatus([], noTranscript)).toBe("queued");
   // A child that replied after a failure is complete.
-  expect(idleChildStatus([runFailed, { source: "worker-reported", status: "reported" }], noTranscript)).toBe(
-    "complete",
-  );
+  expect(
+    idleChildStatus([runFailed, { source: "worker-reported", status: "reported" }], noTranscript),
+  ).toBe("complete");
 });

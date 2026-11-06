@@ -61,7 +61,9 @@ export class GenerativeUiQuestions {
   answer(sessionRef: SessionRef, callId: string, value: unknown): void {
     const question = this.pending.get(callId);
     if (!question || question.session !== sessionKey(sessionRef)) {
-      throw new Error("This question is no longer waiting for an answer. Reply in the chat instead.");
+      throw new Error(
+        "This question is no longer waiting for an answer. Reply in the chat instead.",
+      );
     }
     const answer = parseGenerativeUiAnswer(question.spec, value);
     this.pending.delete(callId);
@@ -81,16 +83,16 @@ const SPEC_PROPERTIES = {
     type: "array",
     items: { type: "object" },
     description:
-    'The interface, as a list of blocks. Blocks: ' +
-    '{"type":"text","text"} · {"type":"card","title","subtitle"?,"text"?,"children"?:[block]} · ' +
-    '{"type":"checklist","title"?,"items":[{"label","status":"pending|running|done|failed","note"?,"threadId"?}]} · ' +
-    '{"type":"choice","id","label","options":[{"id","label","description"?}],"multiple"?,"allowOther"?} · ' +
-    '{"type":"form","fields":[{"kind":"text|select|toggle","id","label","options"?,"placeholder"?,"multiline"?,"required"?}]} · ' +
-    '{"type":"table","columns":[string],"rows":[[string]]} · {"type":"progress","label","value":0..1} · ' +
-    '{"type":"callout","tone":"info|success|warning|error","text"} · {"type":"code","code","language"?} · ' +
-    '{"type":"diagram","title"?,"mermaid"?: string} or {"type":"diagram","title"?,"nodes":[{"id","label","kind"?,"group"?,"description"?,"path"?}],"edges":[{"from","to","label"?}]} · ' +
-    '{"type":"agent_map","title"?,"agents":[{"id","label","status","threadId"?,"role"?,"note"?,"parent"?}]}. ' +
-    "All values are plain text; no HTML or markdown.",
+      "The interface, as a list of blocks. Blocks: " +
+      '{"type":"text","text"} · {"type":"card","title","subtitle"?,"text"?,"children"?:[block]} · ' +
+      '{"type":"checklist","title"?,"items":[{"label","status":"pending|running|done|failed","note"?,"threadId"?}]} · ' +
+      '{"type":"choice","id","label","options":[{"id","label","description"?}],"multiple"?,"allowOther"?} · ' +
+      '{"type":"form","fields":[{"kind":"text|select|toggle","id","label","options"?,"placeholder"?,"multiline"?,"required"?}]} · ' +
+      '{"type":"table","columns":[string],"rows":[[string]]} · {"type":"progress","label","value":0..1} · ' +
+      '{"type":"callout","tone":"info|success|warning|error","text"} · {"type":"code","code","language"?} · ' +
+      '{"type":"diagram","title"?,"mermaid"?: string} or {"type":"diagram","title"?,"nodes":[{"id","label","kind"?,"group"?,"description"?,"path"?}],"edges":[{"from","to","label"?}]} · ' +
+      '{"type":"agent_map","title"?,"agents":[{"id","label","status","threadId"?,"role"?,"note"?,"parent"?}]}. ' +
+      "All values are plain text; no HTML or markdown.",
   },
 };
 
@@ -163,7 +165,9 @@ function askUserTool(options: GenerativeUiRuntimeOptions): ToolDefinition<any, u
     async execute(toolCallId, params, signal, _onUpdate, ctx) {
       const spec = parseGenerativeUi(specOf(params));
       if (inputs(spec.blocks).length === 0) {
-        throw new Error("ask_user needs at least one choice or form block; use show_ui to only show.");
+        throw new Error(
+          "ask_user needs at least one choice or form block; use show_ui to only show.",
+        );
       }
       const answer = await options
         .questions()
@@ -176,7 +180,9 @@ function askUserTool(options: GenerativeUiRuntimeOptions): ToolDefinition<any, u
   };
 }
 
-export function createGenerativeUiRuntimeExtension(options: GenerativeUiRuntimeOptions): ExtensionFactory {
+export function createGenerativeUiRuntimeExtension(
+  options: GenerativeUiRuntimeOptions,
+): ExtensionFactory {
   return (pi: ExtensionAPI) => {
     pi.registerTool(showUiTool());
     pi.registerTool(askUserTool(options));

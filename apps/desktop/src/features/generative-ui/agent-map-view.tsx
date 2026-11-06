@@ -20,9 +20,11 @@ export function AgentMapView({ node }: { readonly node: Extract<UiNode, { type: 
     if (seen.has(agent.id)) return null;
     const next = new Set(seen).add(agent.id);
     const status = statusOf(agent);
-    const open = agent.threadId && host?.runAction
-      ? () => host.runAction?.({ type: "openThread", label: agent.label, sessionId: agent.threadId! })
-      : undefined;
+    const open =
+      agent.threadId && host?.runAction
+        ? () =>
+            host.runAction?.({ type: "openThread", label: agent.label, sessionId: agent.threadId! })
+        : undefined;
     return (
       <li key={agent.id}>
         <div
@@ -43,7 +45,9 @@ export function AgentMapView({ node }: { readonly node: Extract<UiNode, { type: 
               <span className="generative-ui__agent-label">{agent.label}</span>
             )}
             {agent.role || agent.note ? (
-              <span className="generative-ui__check-note">{[agent.role, agent.note].filter(Boolean).join(" · ")}</span>
+              <span className="generative-ui__check-note">
+                {[agent.role, agent.note].filter(Boolean).join(" · ")}
+              </span>
             ) : null}
           </span>
         </div>

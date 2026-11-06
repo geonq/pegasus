@@ -88,10 +88,7 @@ export function sameRowContent(a: DisplayTimelineItem, b: DisplayTimelineItem): 
       );
     case "thinking":
       return (
-        b.kind === a.kind &&
-        a.text === b.text &&
-        a.durationMs === b.durationMs &&
-        a.open === b.open
+        b.kind === a.kind && a.text === b.text && a.durationMs === b.durationMs && a.open === b.open
       );
     case "custom":
       return b.kind === a.kind && a.customType === b.customType && a.text === b.text;

@@ -179,9 +179,7 @@ export function WorkspaceFolderPicker({
       const selected = await onOpenResult(result);
       if (selected) onClose();
       else {
-        setNotice(
-          "Open a folder inside this location; the location itself cannot be a project.",
-        );
+        setNotice("Open a folder inside this location; the location itself cannot be a project.");
       }
     } catch (cause) {
       setError(errorMessage(cause));
@@ -205,9 +203,7 @@ export function WorkspaceFolderPicker({
         setRelativePath(result.relativePath);
         setCreateMode(false);
         setFolderName("");
-        setNotice(
-          "Folder created on the Mac. Open it to make it a project.",
-        );
+        setNotice("Folder created on the Mac. Open it to make it a project.");
       }
     } catch (cause) {
       setError(errorMessage(cause));

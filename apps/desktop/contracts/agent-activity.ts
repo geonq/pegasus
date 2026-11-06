@@ -31,7 +31,15 @@ export function activityForTranscript(items: readonly TranscriptMessage[]): Agen
     : "solving";
 }
 
-const FILE_CHANGE_TOOLS = new Set(["edit", "write", "multi_edit", "apply_patch", "create_file", "mac_edit", "mac_create_file"]);
+const FILE_CHANGE_TOOLS = new Set([
+  "edit",
+  "write",
+  "multi_edit",
+  "apply_patch",
+  "create_file",
+  "mac_edit",
+  "mac_create_file",
+]);
 const MAX_TOUCHED_FILES = 50;
 
 /**
@@ -47,11 +55,21 @@ export function sessionAgentActivity(
   for (let index = transcript.length - 1; index >= 0; index -= 1) {
     const item = transcript[index];
     if (item?.kind !== "tool") continue;
-    if (status === "running" && currentStep === undefined && item.status === "running") currentStep = item.label;
-    const name = item.toolName.replace(/^mcp__.+?__/, "").replace(/^project_/, "").toLowerCase();
-    const path = (item.input as { path?: unknown; file_path?: unknown } | undefined)?.path ??
+    if (status === "running" && currentStep === undefined && item.status === "running")
+      currentStep = item.label;
+    const name = item.toolName
+      .replace(/^mcp__.+?__/, "")
+      .replace(/^project_/, "")
+      .toLowerCase();
+    const path =
+      (item.input as { path?: unknown; file_path?: unknown } | undefined)?.path ??
       (item.input as { file_path?: unknown } | undefined)?.file_path;
-    if (item.status === "success" && FILE_CHANGE_TOOLS.has(name) && typeof path === "string" && path.trim()) {
+    if (
+      item.status === "success" &&
+      FILE_CHANGE_TOOLS.has(name) &&
+      typeof path === "string" &&
+      path.trim()
+    ) {
       const normalized = path.trim().replaceAll("\\", "/");
       if (!files.includes(normalized) && files.length < MAX_TOUCHED_FILES) files.push(normalized);
     }

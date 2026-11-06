@@ -423,7 +423,10 @@ function isSameDisplayItem(a: DisplayTimelineItem, b: DisplayTimelineItem): bool
     return true;
   }
   if (
-    (a.kind === "card" || a.kind === "custom" || a.kind === "thinking" || a.kind === "tool-group") &&
+    (a.kind === "card" ||
+      a.kind === "custom" ||
+      a.kind === "thinking" ||
+      a.kind === "tool-group") &&
     a.kind === b.kind
   ) {
     return sameRowContent(a, b);

@@ -1,9 +1,5 @@
 import type { DesktopAppState, SelectedTranscriptRecord } from "../../contracts/desktop-state";
-import type {
-  TerminalDataEvent,
-  TerminalErrorEvent,
-  TerminalExitEvent,
-} from "../../contracts/ipc";
+import type { TerminalDataEvent, TerminalErrorEvent, TerminalExitEvent } from "../../contracts/ipc";
 
 /** Methods with safe, view-scoped public IPC handlers. Provider-secret methods stay excluded. */
 export const REMOTE_DESKTOP_PI_METHODS = [
@@ -145,7 +141,11 @@ export function isRemoteDesktopEvent(value: unknown): value is RemoteDesktopEven
   if (value.type === "selectedTranscriptChanged") {
     return value.transcript === null || isSelectedTranscriptRecord(value.transcript);
   }
-  if (value.type === "terminalData" || value.type === "terminalExit" || value.type === "terminalError") {
+  if (
+    value.type === "terminalData" ||
+    value.type === "terminalExit" ||
+    value.type === "terminalError"
+  ) {
     return isTerminalEvent(value.type, value.event);
   }
   return false;

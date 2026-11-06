@@ -88,7 +88,8 @@ export function TokenHeatmap({
       if (mode === "daily") sumWeights(weights, brandsByDay.get(day));
       else if (mode === "weekly") {
         const week = Math.floor(index / 7) * 7;
-        for (const member of days.slice(week, week + 7)) sumWeights(weights, brandsByDay.get(member));
+        for (const member of days.slice(week, week + 7))
+          sumWeights(weights, brandsByDay.get(member));
       } else {
         sumWeights(runningBrands, brandsByDay.get(day));
         sumWeights(weights, runningBrands);

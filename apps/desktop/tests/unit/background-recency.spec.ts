@@ -82,7 +82,13 @@ test("an empty scheduled-task instruction does not stamp recency", async () => {
 });
 
 test("a remote image reaches the prompt, alone or queued behind a running turn", async () => {
-  const image = { id: "i1", kind: "image" as const, name: "shot.png", mimeType: "image/png", data: "iVBORw0KGgo=" };
+  const image = {
+    id: "i1",
+    kind: "image" as const,
+    name: "shot.png",
+    mimeType: "image/png",
+    data: "iVBORw0KGgo=",
+  };
   const idle = deliveryHost("idle");
   await createConversationOwner(idle.host as never).deliverBackgroundInstruction(
     sessionRef,
@@ -91,7 +97,9 @@ test("a remote image reaches the prompt, alone or queued behind a running turn",
     [image],
   );
   expect(idle.sent).toEqual([""]);
-  expect(idle.sentAttachments).toMatchObject([{ kind: "image", mimeType: "image/png", data: image.data }]);
+  expect(idle.sentAttachments).toMatchObject([
+    { kind: "image", mimeType: "image/png", data: image.data },
+  ]);
 
   const running = deliveryHost("running");
   await createConversationOwner(running.host as never).deliverBackgroundInstruction(

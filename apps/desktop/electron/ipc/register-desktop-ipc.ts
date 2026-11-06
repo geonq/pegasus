@@ -699,7 +699,13 @@ export function registerDesktopIpc({
   );
   ipcMain.handle(
     desktopIpc.answerGenerativeUi,
-    (event, rawWorkspaceId: unknown, rawSessionId: unknown, rawCallId: unknown, rawAnswer: unknown) =>
+    (
+      event,
+      rawWorkspaceId: unknown,
+      rawSessionId: unknown,
+      rawCallId: unknown,
+      rawAnswer: unknown,
+    ) =>
       immediate(event, () =>
         // The answer is checked against the question it answers in the store.
         owners.conversation.answerGenerativeUi(
