@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DEEPSEEK_PATH, ZAI_PATH } from "./model-brand-paths";
 
 function Icon({ children }: { readonly children: ReactNode }) {
   return (
@@ -223,7 +224,29 @@ const GEMINI_PATH =
   "M12 1.5c.55 5.55 4.95 9.95 10.5 10.5-5.55.55-9.95 4.95-10.5 10.5C11.45 16.95 7.05 12.55 1.5 12 7.05 11.45 11.45 7.05 12 1.5Z";
 
 /** The provider's logo for Claude/Anthropic, OpenAI/Codex and Antigravity routes, else a generic model glyph. */
-export function ProviderIcon({ providerId }: { readonly providerId: string }) {
+export function ProviderIcon({
+  providerId,
+  modelId,
+}: {
+  readonly providerId: string;
+  readonly modelId?: string;
+}) {
+  if (/^deepseek\//i.test(modelId ?? providerId)) return <BrandIcon path={DEEPSEEK_PATH} />;
+  if (/^(z-ai\/|glm)/i.test(modelId ?? providerId)) return <BrandIcon path={ZAI_PATH} />;
+  if (providerId === "openscale")
+    return (
+      <svg
+        aria-hidden="true"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.6"
+        viewBox="0 0 32 32"
+      >
+        <rect x="5.5" y="5.5" width="21" height="21" />
+        <rect x="5.5" y="12.5" width="14" height="14" />
+        <rect x="5.5" y="19.5" width="7" height="7" />
+      </svg>
+    );
   if (/claude|anthropic/i.test(providerId)) return <BrandIcon path={CLAUDE_PATH} />;
   if (/openai|codex|gpt/i.test(providerId)) return <BrandIcon path={OPENAI_PATH} />;
   if (/antigravity|gemini|google/i.test(providerId)) return <BrandIcon path={GEMINI_PATH} />;

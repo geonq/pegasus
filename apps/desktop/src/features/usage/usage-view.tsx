@@ -32,6 +32,7 @@ import {
   type BrandWeights,
 } from "./brand-color";
 import { TokenHeatmap } from "./token-heatmap";
+import { ModelAnalytics } from "./model-analytics";
 import { ProviderIcon, RefreshIcon } from "../../ui/icons";
 
 const DAY = 86_400_000;
@@ -65,6 +66,7 @@ function defaultAccountName(provider: string): string {
     "history-claude": "Claude history",
     "history-agy": "AGY history",
     pi: "Compaction & cache",
+    openscale: "OpenScale",
   };
   return known[provider] ?? provider;
 }
@@ -132,6 +134,7 @@ export function UsageView({ workspaces }: { readonly workspaces: readonly Worksp
   // Opens on the full history; shorter periods are one click away.
   const [period, setPeriod] = useState<PeriodId>("all");
   const [account, setAccount] = useState<string>(ALL);
+  const [analytics, setAnalytics] = useState(false);
   const {
     error: limitsError,
     limits,
@@ -398,148 +401,176 @@ export function UsageView({ workspaces }: { readonly workspaces: readonly Worksp
 
           <SignInNotice signIns={signIns} />
 
-          {planLimitsCard}
-
-          <section className="usage-view__stats" aria-label="Totals">
-            <Stat
-              label={
-                period === "all"
-                  ? "Tokens, all time"
-                  : `Tokens, ${PERIODS.find((entry) => entry.id === period)?.label ?? period}`
-              }
-              value={compact.format(view.total)}
-            />
-            {period === "all" ? null : (
-              <Stat label="Tokens, all time" value={compact.format(view.allTimeTokens)} />
-            )}
-            {view.apiCost > 0 ? (
-              <Stat
-                label="API value, all time"
-                title={`What these tokens would cost at public API prices.${view.unpriced ? ` ${compact.format(view.unpriced)} tokens of models without a public price are not included.` : ""}`}
-                value={usd.format(Math.round(view.apiCost))}
-              />
-            ) : null}
-            <Stat label="Requests, all time" value={compact.format(view.requests)} />
-          </section>
-
-          <TokenHeatmap brandsByDay={view.brandsByDay} tokensByDay={view.tokensByDay} />
-
-          <section className="usage-card">
-            <h3>Tokens per day</h3>
-            <AreaChart data={view.series} aspectRatio="3 / 1">
-              <Grid horizontal />
-              <Area
-                dataKey="tokens"
-                fill={view.tint}
-                fillOpacity={0.35}
-                stroke={view.tint}
-                strokeWidth={2}
-              />
-              <XAxis />
-              <ChartTooltip />
-            </AreaChart>
-          </section>
-
-          {view.ranked.length ? (
-            <div className="usage-view__split">
-              <section className="usage-card">
-                <h3>By model</h3>
-                <BarChart
-                  // One series per brand, stacked: each model keeps its own provider's color.
-                  data={view.modelBars.rows}
-                  stacked
-                  xDataKey="model"
-                  aspectRatio="4 / 3"
-                  // Horizontal bars keep long model names readable on the left.
-                  margin={{ left: 120, right: 16 }}
-                  orientation="horizontal"
-                >
-                  <Grid vertical />
-                  {view.modelBars.series.map((label) => (
-                    <Bar dataKey={label} fill={seriesColor(label)} key={label} lineCap="round" />
-                  ))}
-                  <BarYAxis />
-                  <ChartTooltip />
-                </BarChart>
-              </section>
-              <section className="usage-card usage-card--ring">
-                <h3>{account === ALL ? "Share by account" : "Share by model"}</h3>
-                <RingChart
-                  data={view.share.map((entry) => ({
-                    label: entry.label,
-                    value: entry.value,
-                    maxValue: Math.max(1, sumValues(view.share.map((item) => item.value))),
-                  }))}
-                  size={180}
-                >
-                  {view.share.map((entry, index) => (
-                    <Ring color={view.shareColors[index]} index={index} key={entry.key} />
-                  ))}
-                  {/* Compact, so billions fit inside the innermost ring. */}
-                  <RingCenter
-                    defaultLabel="tokens"
-                    formatOptions={{ notation: "compact", maximumFractionDigits: 1 }}
-                  />
-                </RingChart>
-                <ul className="usage-list">
-                  {view.share.map((entry, index) => (
-                    <li key={entry.key}>
-                      <span
-                        className="usage-list__swatch"
-                        style={{ background: view.shareColors[index] }}
-                      />
-                      <ProviderIcon providerId={entry.provider} />
-                      <span className="usage-list__label">{entry.label}</span>
-                      <span className="usage-list__value">{compact.format(entry.value)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </div>
-          ) : (
-            <p className="usage-view__note">No usage for this account in this period.</p>
-          )}
-
-          <div className="usage-view__split">
-            <Breakdown title="Workspaces, all time" rows={view.workspaces} />
-            <Breakdown title="Threads, all time" rows={view.threads} />
+          <div role="group" aria-label="Usage view" className="usage-accounts">
+            <button
+              type="button"
+              className="usage-account"
+              aria-pressed={!analytics}
+              onClick={() => setAnalytics(false)}
+            >
+              Overview
+            </button>
+            <button
+              type="button"
+              className="usage-account"
+              aria-pressed={analytics}
+              onClick={() => setAnalytics(true)}
+            >
+              Model analytics
+            </button>
           </div>
-          {potentialOverlap ? (
-            <section className="usage-card" data-testid="usage-potential-overlap">
-              <h3>{potentialOverlap.label}</h3>
-              <p className="usage-view__note">
-                {compact.format(totalTokens(potentialOverlap.totals))} recorded tokens across{" "}
-                {compact.format(potentialOverlap.sessions)} sessions. Kept separate from combined
-                totals because these events may overlap native Pi usage. Some cache metrics were not
-                recorded; cost is unavailable.
-              </p>
-              {/* Lists sit inside this card, so they drop their own card chrome; empty ones are left out. */}
-              <div className="usage-view__split usage-view__split--bare">
-                {potentialOverlap.models.some((model) => model.label !== "unknown") ? (
-                  <Breakdown
-                    bare
-                    title="Models"
-                    rows={rankBreakdowns(potentialOverlap.models, 6)}
-                  />
-                ) : null}
-                {potentialOverlap.workspaces.length ? (
-                  <Breakdown
-                    bare
-                    title="Historical workspaces"
-                    rows={rankBreakdowns(potentialOverlap.workspaces, 6)}
-                  />
-                ) : null}
-                <Breakdown
-                  bare
-                  title="Largest sessions"
-                  rows={rankBreakdowns(potentialOverlap.threads, 8)}
+          {analytics ? (
+            <ModelAnalytics
+              report={report}
+              account={account}
+              since={period === "all" ? -Infinity : todayStart() - (Number(period) - 1) * DAY}
+            />
+          ) : null}
+          <div className="usage-overview" hidden={analytics}>
+            {planLimitsCard}
+            <section className="usage-view__stats" aria-label="Totals">
+              <Stat
+                label={
+                  period === "all"
+                    ? "Tokens, all time"
+                    : `Tokens, ${PERIODS.find((entry) => entry.id === period)?.label ?? period}`
+                }
+                value={compact.format(view.total)}
+              />
+              {period === "all" ? null : (
+                <Stat label="Tokens, all time" value={compact.format(view.allTimeTokens)} />
+              )}
+              {view.apiCost > 0 ? (
+                <Stat
+                  label="API value, all time"
+                  title={`What these tokens would cost at public API prices.${view.unpriced ? ` ${compact.format(view.unpriced)} tokens of models without a public price are not included.` : ""}`}
+                  value={usd.format(Math.round(view.apiCost))}
                 />
-              </div>
+              ) : null}
+              <Stat label="Requests, all time" value={compact.format(view.requests)} />
             </section>
-          ) : null}
-          {report.unreadable ? (
-            <p className="usage-view__note">{report.unreadable} thread files could not be read.</p>
-          ) : null}
+
+            <TokenHeatmap brandsByDay={view.brandsByDay} tokensByDay={view.tokensByDay} />
+
+            <section className="usage-card">
+              <h3>Tokens per day</h3>
+              <AreaChart data={view.series} aspectRatio="3 / 1">
+                <Grid horizontal />
+                <Area
+                  dataKey="tokens"
+                  fill={view.tint}
+                  fillOpacity={0.35}
+                  stroke={view.tint}
+                  strokeWidth={2}
+                />
+                <XAxis />
+                <ChartTooltip />
+              </AreaChart>
+            </section>
+
+            {view.ranked.length ? (
+              <div className="usage-view__split">
+                <section className="usage-card">
+                  <h3>By model</h3>
+                  <BarChart
+                    // One series per brand, stacked: each model keeps its own provider's color.
+                    data={view.modelBars.rows}
+                    stacked
+                    xDataKey="model"
+                    aspectRatio="4 / 3"
+                    // Horizontal bars keep long model names readable on the left.
+                    margin={{ left: 120, right: 16 }}
+                    orientation="horizontal"
+                  >
+                    <Grid vertical />
+                    {view.modelBars.series.map((label) => (
+                      <Bar dataKey={label} fill={seriesColor(label)} key={label} lineCap="round" />
+                    ))}
+                    <BarYAxis />
+                    <ChartTooltip />
+                  </BarChart>
+                </section>
+                <section className="usage-card usage-card--ring">
+                  <h3>{account === ALL ? "Share by account" : "Share by model"}</h3>
+                  <RingChart
+                    data={view.share.map((entry) => ({
+                      label: entry.label,
+                      value: entry.value,
+                      maxValue: Math.max(1, sumValues(view.share.map((item) => item.value))),
+                    }))}
+                    size={180}
+                  >
+                    {view.share.map((entry, index) => (
+                      <Ring color={view.shareColors[index]} index={index} key={entry.key} />
+                    ))}
+                    {/* Compact, so billions fit inside the innermost ring. */}
+                    <RingCenter
+                      defaultLabel="tokens"
+                      formatOptions={{ notation: "compact", maximumFractionDigits: 1 }}
+                    />
+                  </RingChart>
+                  <ul className="usage-list">
+                    {view.share.map((entry, index) => (
+                      <li key={entry.key}>
+                        <span
+                          className="usage-list__swatch"
+                          style={{ background: view.shareColors[index] }}
+                        />
+                        <ProviderIcon providerId={entry.provider} />
+                        <span className="usage-list__label">{entry.label}</span>
+                        <span className="usage-list__value">{compact.format(entry.value)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              </div>
+            ) : (
+              <p className="usage-view__note">No usage for this account in this period.</p>
+            )}
+
+            <div className="usage-view__split">
+              <Breakdown title="Workspaces, all time" rows={view.workspaces} />
+              <Breakdown title="Threads, all time" rows={view.threads} />
+            </div>
+            {potentialOverlap ? (
+              <section className="usage-card" data-testid="usage-potential-overlap">
+                <h3>{potentialOverlap.label}</h3>
+                <p className="usage-view__note">
+                  {compact.format(totalTokens(potentialOverlap.totals))} recorded tokens across{" "}
+                  {compact.format(potentialOverlap.sessions)} sessions. Kept separate from combined
+                  totals because these events may overlap native Pi usage. Some cache metrics were
+                  not recorded; cost is unavailable.
+                </p>
+                {/* Lists sit inside this card, so they drop their own card chrome; empty ones are left out. */}
+                <div className="usage-view__split usage-view__split--bare">
+                  {potentialOverlap.models.some((model) => model.label !== "unknown") ? (
+                    <Breakdown
+                      bare
+                      title="Models"
+                      rows={rankBreakdowns(potentialOverlap.models, 6)}
+                    />
+                  ) : null}
+                  {potentialOverlap.workspaces.length ? (
+                    <Breakdown
+                      bare
+                      title="Historical workspaces"
+                      rows={rankBreakdowns(potentialOverlap.workspaces, 6)}
+                    />
+                  ) : null}
+                  <Breakdown
+                    bare
+                    title="Largest sessions"
+                    rows={rankBreakdowns(potentialOverlap.threads, 8)}
+                  />
+                </div>
+              </section>
+            ) : null}
+            {report.unreadable ? (
+              <p className="usage-view__note">
+                {report.unreadable} thread files could not be read.
+              </p>
+            ) : null}
+          </div>
         </>
       )}
     </section>

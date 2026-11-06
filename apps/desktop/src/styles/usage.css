@@ -1,4 +1,47 @@
 /* Top-level Usage view: one centred column like the other views. */
+.usage-overview:not([hidden]) {
+  display: grid;
+  gap: 16px;
+}
+.usage-model-analytics__scroll {
+  overflow-x: auto;
+}
+.usage-model-analytics table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.usage-model-analytics th,
+.usage-model-analytics td {
+  padding: 12px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+}
+.usage-model-analytics th:first-child {
+  text-align: left;
+}
+.usage-model-analytics th span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.usage-model-analytics small {
+  display: block;
+  color: var(--muted-strong);
+  font-weight: normal;
+}
+.usage-model-analytics svg,
+.model-selector__item-label svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  vertical-align: middle;
+}
+.model-selector__item-label svg {
+  margin-right: 8px;
+}
+
 .usage-view {
   display: grid;
   align-content: start;

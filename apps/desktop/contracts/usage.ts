@@ -113,6 +113,9 @@ export interface AccountLimits {
 
 /** App-wide usage across every saved pi session, all models and workspaces. */
 export interface UsageReport {
+  /** Local Pi request/task timings; imported CLI history has no comparable timing data. */
+  readonly performance?: readonly ModelPerformance[];
+  readonly openscalePlan?: boolean;
   readonly refreshedAt: number;
   readonly totals: UsageTokens;
   /** Ascending by day; only days with usage. */
@@ -125,6 +128,22 @@ export interface UsageReport {
   readonly unreadable: number;
   /** Present on collectors that attempted to load the private CLI-history summary. */
   readonly history?: UsageHistorySummary;
+}
+
+export interface ModelPerformance {
+  readonly dayStart: number;
+  readonly key: string;
+  readonly requests: number;
+  readonly requestMs: number;
+  readonly outputTokens: number;
+  readonly tasks: number;
+  readonly taskMs: number;
+  readonly pricedTasks: number;
+  readonly taskApiCost: number;
+  readonly taskTokens: number;
+  readonly promptTokens: number;
+  readonly cachedTokens: number;
+  readonly replyTokens: number;
 }
 
 /** pi's total: input + output + cache read + cache write. */

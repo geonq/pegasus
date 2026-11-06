@@ -1,5 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
+import { modelPerformance } from "./model-performance";
 import { setImmediate as nextTurn } from "node:timers/promises";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { resolveAgentDir } from "../application/app-store";
@@ -9,6 +10,7 @@ import {
   type UsageBreakdown,
   type UsageReport,
   type UsageTokens,
+  type ModelPerformance,
 } from "../../contracts/usage";
 import {
   mergeHistoricalUsage,
@@ -114,6 +116,7 @@ export async function collectUsage(
   const models = new Map<string, Tally>();
   const workspaces = new Map<string, Tally>();
   const threads: Tally[] = [];
+  const performance: ModelPerformance[] = [];
   let unreadable = 0;
 
   for (const info of infos) {
@@ -124,6 +127,7 @@ export async function collectUsage(
       unreadable += 1;
       continue;
     }
+    performance.push(...modelPerformance(entries, apiCostUsd));
     const cwd = info.cwd || "";
     const workspace = tally(workspaces, cwd, () => ({
       key: cwd,
@@ -148,7 +152,7 @@ export async function collectUsage(
     ) => {
       const recordedTokens = toTokens(recorded);
       const amount = totalTokens(recordedTokens);
-      const apiCost = model ? apiCostUsd(model.model, recordedTokens) : null;
+      const apiCost = model ? apiCostUsd(model.model, recordedTokens, model.provider) : null;
       const usage: UsageTokens =
         apiCost === null
           ? { ...recordedTokens, unpricedTokens: amount }
@@ -201,6 +205,8 @@ export async function collectUsage(
       .filter((value) => totalTokens(value.tokens))
       .sort(byTotal);
   const native: UsageReport = {
+    performance,
+    openscalePlan: await readOpenScalePlan(),
     refreshedAt: Date.now(),
     totals,
     days: [...days].sort(([a], [b]) => a - b).map(([dayStart, byModel]) => ({ dayStart, byModel })),
@@ -211,4 +217,16 @@ export async function collectUsage(
     unreadable,
   };
   return mergeHistoricalUsage(native, historical);
+}
+
+async function readOpenScalePlan(): Promise<boolean> {
+  try {
+    const config = JSON.parse(await readFile(join(resolveAgentDir(), "models.json"), "utf8")) as {
+      providers?: { openscale?: { apiKey?: unknown } };
+    };
+    const key = config.providers?.openscale?.apiKey;
+    return typeof key === "string" && key.startsWith("sk-openscale-plan-");
+  } catch {
+    return false;
+  }
 }

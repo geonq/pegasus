@@ -98,7 +98,7 @@ export function ModelSelector({
   const modelBadgeLabel =
     provider && modelId ? (
       <>
-        <ProviderIcon providerId={provider} />
+        <ProviderIcon providerId={provider} modelId={modelId} />
         <span>{activeModel ? modelName(activeModel) : modelId}</span>
       </>
     ) : hasAvailableModelOptions ? (
@@ -201,7 +201,15 @@ export function ModelSelector({
                             closeDropdown();
                           }}
                         >
-                          <span className="model-selector__item-label">{modelName(option)}</span>
+                          <span className="model-selector__item-label">
+                            {option.providerId === "openscale" ? (
+                              <ProviderIcon
+                                providerId={option.providerId}
+                                modelId={option.modelId}
+                              />
+                            ) : null}
+                            {modelName(option)}
+                          </span>
                           {isActive ? (
                             <span className="model-selector__item-meta">active</span>
                           ) : null}
