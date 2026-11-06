@@ -30,8 +30,8 @@ export interface LoadOptions {
   cwd: string;
   signal: AbortSignal;
   env: NodeJS.ProcessEnv;
-  /** Executable name or path; tests pass a fake. */
-  gh?: string;
+  /** Executable, optionally with fixed arguments (for example a Node-based fixture). */
+  gh?: string | readonly [string, ...string[]];
 }
 
 /** Reads the folder's repository, open and recent closed PRs and issues through `gh`. */
@@ -74,10 +74,12 @@ async function run(
   describeFailure: (stderr: string) => string,
 ): Promise<string> {
   options.signal.throwIfAborted();
+  const command: readonly [string, ...string[]] =
+    typeof options.gh === "string" ? [options.gh] : (options.gh ?? ["gh"]);
   return new Promise((resolve, reject) => {
     execFile(
-      options.gh ?? "gh",
-      args,
+      command[0],
+      [...command.slice(1), ...args],
       {
         cwd: options.cwd,
         env: { ...options.env, GH_PROMPT_DISABLED: "1", NO_COLOR: "1", GIT_OPTIONAL_LOCKS: "0" },

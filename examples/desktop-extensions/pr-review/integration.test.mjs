@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -60,15 +60,26 @@ test(
       baseRefOid: base,
     };
     // The process-local fixture executable cannot contact GitHub or read user credentials.
-    const gh = join(bin, "gh");
-    await writeFile(
-      gh,
-      `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(JSON.stringify(metadata))});\n`,
-    );
-    await chmod(gh, 0o755);
+    if (process.platform === "win32") {
+      const source = join(bin, "gh.cs");
+      const literal = JSON.stringify(metadata).replaceAll('"', '""');
+      await writeFile(
+        source,
+        `class Fixture { static void Main() { System.Console.Write(@"${literal}"); } }`,
+      );
+      const compiler = join(process.env.WINDIR, "Microsoft.NET/Framework64/v4.0.30319/csc.exe");
+      await execute(compiler, ["/nologo", "/target:exe", `/out:${join(bin, "gh.exe")}`, source]);
+    } else {
+      const gh = join(bin, "gh");
+      await writeFile(
+        gh,
+        `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(JSON.stringify(metadata))});\n`,
+      );
+      await chmod(gh, 0o755);
+    }
 
     const previousPath = process.env.PATH;
-    process.env.PATH = `${bin}:${previousPath ?? ""}`;
+    process.env.PATH = `${bin}${delimiter}${previousPath ?? ""}`;
     const bus = createEventBus();
     const declarations = [];
     bus.on(DESKTOP_VIEW_REGISTER, (event) => {
@@ -92,6 +103,7 @@ test(
     let session;
     let facetHost;
     try {
+      assert.deepEqual(JSON.parse((await execute("gh", ["--version"])).stdout), metadata);
       await loader.reload();
       const loaded = loader.getExtensions();
       assert.deepEqual(loaded.errors, []);

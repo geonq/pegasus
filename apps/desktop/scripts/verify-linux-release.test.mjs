@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { getShellConfig } from "@earendil-works/pi-coding-agent";
 
 const verifier = fileURLToPath(new URL("./verify-linux-release.sh", import.meta.url));
 
 function normalize(version) {
-  return execFileSync("bash", [verifier, "--normalize-debian-version", version], {
+  return execFileSync(getShellConfig().shell, [verifier, "--normalize-debian-version", version], {
     encoding: "utf8",
     env: { ...process.env, HOME: "/home/runner" },
   }).trimEnd();
