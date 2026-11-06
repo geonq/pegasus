@@ -229,6 +229,8 @@ interface ManagedSessionRecord {
   cancellationRequested: boolean;
   /** A prompt is in Pi's pre-run steps (input handlers, auth, before_agent_start). */
   promptStarting: boolean;
+  /** prompt() can still be returning after Pi has emitted agent_settled. */
+  promptPending: boolean;
   /** Stop arrived before agent_start; abort again when the provider run starts. */
   abortOnRunStart: boolean;
   pendingRunOutcome: RunOutcome | undefined;
@@ -1266,12 +1268,14 @@ export class SessionSupervisor {
           source: "interactive",
         });
       } else {
+        record.promptPending = true;
         try {
           await session.prompt(promptText, {
             ...(images && images.length > 0 ? { images } : {}),
             source: "interactive",
           });
         } finally {
+          record.promptPending = false;
           record.promptStarting = false;
           if (record.abortOnRunStart) {
             // Pi never started a run for this prompt, so nothing is left to stop.
@@ -1893,6 +1897,7 @@ export class SessionSupervisor {
       runningRunId: undefined,
       cancellationRequested: false,
       promptStarting: false,
+      promptPending: false,
       abortOnRunStart: false,
       pendingRunOutcome: undefined,
       queuedMessages: [],
@@ -4002,6 +4007,7 @@ function isRecordBusy(record: ManagedSessionRecord): boolean {
   return (
     record.runningRunId !== undefined ||
     record.promptStarting ||
+    record.promptPending ||
     record.session?.isStreaming === true ||
     record.session?.isCompacting === true ||
     record.extensionCommandsRunning > 0

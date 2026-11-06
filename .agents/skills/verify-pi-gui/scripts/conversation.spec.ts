@@ -105,6 +105,8 @@ test("real conversation: stream, switch, tool, stop, archive, restart", async ()
           alt: event instanceof KeyboardEvent ? event.altKey : undefined,
           meta: event instanceof KeyboardEvent ? event.metaKey : undefined,
           value: target.value,
+          selectionStart: target.selectionStart,
+          selectionEnd: target.selectionEnd,
         });
       };
       document.addEventListener("input", record, true);
@@ -225,10 +227,26 @@ test("real conversation: stream, switch, tool, stop, archive, restart", async ()
         const draftPrefix =
           "First line\nSecond line\nThird line\nFourth line\nFifth line\nTyping: ";
         await composer.fill(draftPrefix);
+        const filledCaret = await composer.evaluate(
+          (el) => (el as HTMLTextAreaElement).selectionStart,
+        );
         await expect
           .poll(() => pane.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop))
           .toBeLessThanOrEqual(2);
+        const settledCaret = await composer.evaluate(
+          (el) => (el as HTMLTextAreaElement).selectionStart,
+        );
+        await writeFile(
+          join(evidence, "caret-setup.json"),
+          JSON.stringify({ filledCaret, settledCaret, length: draftPrefix.length }),
+        );
+        expect(settledCaret, "Draft acknowledgements must not move the caret").toBe(filledCaret);
         await composer.focus();
+        // fill() supplies text without promising an end-of-text caret for multiline input.
+        await composer.press(process.platform === "darwin" ? "Meta+ArrowDown" : "Control+End");
+        await expect
+          .poll(() => composer.evaluate((el) => (el as HTMLTextAreaElement).selectionStart))
+          .toBe(draftPrefix.length);
         await pane.hover();
         const scrollTops: number[] = [];
         await Promise.all([
@@ -433,16 +451,21 @@ test("real conversation: stream, switch, tool, stop, archive, restart", async ()
       }
     });
     await test.step("Archive and restore Bravo through the sidebar", async () => {
+      await harness!.focusWindow();
       await row(bravo).hover();
-      await row(bravo)
-        .getByLabel(/^Archive /)
-        .click();
+      const archive = row(bravo).getByLabel(/^Archive /);
+      await archive.focus();
+      await expect(archive).toBeVisible();
+      await expect(archive).toBeFocused();
+      await archive.press("Enter");
       await expect(page.locator(".session-row--active")).toHaveAttribute("data-session-id", alpha);
       await page.locator(".archived-thread-group__toggle").click();
       await row(bravo).hover();
-      await row(bravo)
-        .getByLabel(/^Unarchive /)
-        .click();
+      const unarchive = row(bravo).getByLabel(/^Unarchive /);
+      await unarchive.focus();
+      await expect(unarchive).toBeVisible();
+      await expect(unarchive).toBeFocused();
+      await unarchive.press("Enter");
       await expect(page.locator(".archived-thread-group")).toHaveCount(0);
       await select(bravo);
       await expect
