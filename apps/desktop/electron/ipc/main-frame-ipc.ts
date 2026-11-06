@@ -54,6 +54,24 @@ export function isMainFrameSender(event: IpcMainEvent, contents: WebContents): b
   return event.sender === contents && event.senderFrame === contents.mainFrame;
 }
 
+/** One-way reports are ignored unless they come from an owned window's main frame. */
+export function mainFrameListener(
+  windows: Pick<WindowOwner, "windowForSender">,
+  channel: string,
+  listener: (raw: unknown) => void,
+): void {
+  ipcMain.on(channel, (event, raw: unknown) => {
+    let window: BrowserWindow;
+    try {
+      window = windows.windowForSender(event.sender);
+    } catch {
+      return;
+    }
+    if (window.isDestroyed() || !isMainFrameSender(event, window.webContents)) return;
+    listener(raw);
+  });
+}
+
 function mainFrameRequest(
   windows: Pick<WindowOwner, "windowForSender">,
   channel: string,

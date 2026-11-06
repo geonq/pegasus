@@ -1,7 +1,8 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { Session } from "node:inspector";
 import path from "node:path";
-import { ipcMain } from "electron";
+import { mainFrameListener } from "../ipc/main-frame-ipc";
+import type { WindowOwner } from "../windows/window-owner";
 import { desktopIpc } from "../../contracts/ipc";
 
 const TICK_MS = 100;
@@ -88,10 +89,10 @@ export function watchMainThreadStalls(logDirectory: string): void {
  * Slow window frames the preload reports (100 ms or more), written next to the main-thread log so
  * a freeze shows on whichever side caused it.
  */
-export function watchRendererStalls(logDirectory: string): void {
+export function watchRendererStalls(logDirectory: string, windows: WindowOwner): void {
   const file = path.join(logDirectory, "renderer-stalls.log");
   let written = 0;
-  ipcMain.on(desktopIpc.reportRendererStall, (_event, report: unknown) => {
+  mainFrameListener(windows, desktopIpc.reportRendererStall, (report: unknown) => {
     if (typeof report !== "string" || written >= MAX_LINES) return;
     written += 1;
     mkdir(logDirectory, { recursive: true })

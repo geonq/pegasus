@@ -3,10 +3,53 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const electronDir = "apps/desktop/electron";
 const helper = `${electronDir}/ipc/main-frame-ipc.ts`;
+
+test("one-way reports reject foreign, destroyed and child frames before delivering data", () => {
+  let receive;
+  const exported = {};
+  const source = ts.transpileModule(readFileSync(path.join(root, helper), "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  runInNewContext(source, {
+    exports: exported,
+    require: (name) => {
+      assert.equal(name, "electron");
+      return {
+        ipcMain: {
+          on: (_channel, listener) => {
+            receive = listener;
+          },
+        },
+      };
+    },
+  });
+  const mainFrame = {};
+  const contents = { mainFrame };
+  let destroyed = false;
+  const windows = {
+    windowForSender: (sender) => {
+      if (sender !== contents) throw new Error("Foreign window");
+      return { isDestroyed: () => destroyed, webContents: contents };
+    },
+  };
+  const reports = [];
+  exported.mainFrameListener(windows, "report", (value) => reports.push(value));
+  receive({ sender: {}, senderFrame: mainFrame }, "foreign");
+  receive({ sender: contents, senderFrame: {} }, "child");
+  receive({ sender: contents, senderFrame: undefined }, "missing");
+  destroyed = true;
+  receive({ sender: contents, senderFrame: mainFrame }, "destroyed");
+  assert.deepEqual(reports, []);
+  destroyed = false;
+  receive({ sender: contents, senderFrame: mainFrame }, "allowed");
+  assert.deepEqual(reports, ["allowed"]);
+});
 
 // Modules that may use ipcMain directly, and why.
 const rawIpcAllowlist = new Map([

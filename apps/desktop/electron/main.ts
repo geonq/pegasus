@@ -45,7 +45,11 @@ import {
 } from "./extensions/extension-view-owner";
 import { performExtensionViewHostAction } from "./extensions/extension-view-actions";
 import { extensionFrameDocument } from "./extensions/extension-frame-document";
-import { findTouchedRepositories, ReviewOwner, taskTreeTouchedFiles } from "./workbench/review-owner";
+import {
+  findTouchedRepositories,
+  ReviewOwner,
+  taskTreeTouchedFiles,
+} from "./workbench/review-owner";
 import { promptTitle } from "./conversation/thread-title-constants";
 import { assertComposerAttachmentPixels } from "./ipc/composer-attachment-pixels";
 import { mainFrameHandler } from "./ipc/main-frame-ipc";
@@ -1326,7 +1330,6 @@ app
     }
     traceStartup("electron ready");
     watchMainThreadStalls(path.join(configuredUserDataDir, "logs"));
-    watchRendererStalls(path.join(configuredUserDataDir, "logs"));
     if (process.platform === "win32" && windowTestMode !== "background") {
       launchWindow = createWindow({ deferContent: true });
       const startupHtml = `<!doctype html><html><head><meta charset="utf-8"><title>Pegasus startup</title><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><style>html,body{height:100%;margin:0}body{display:grid;place-items:center;background:#111;color:#bbb;font:14px system-ui;color-scheme:dark}.status{display:flex;align-items:center;gap:12px}.spinner{width:16px;height:16px;border:2px solid #444;border-top-color:#ddd;border-radius:50%;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.spinner{animation:none}}</style></head><body><div class="status" role="status"><span class="spinner" aria-hidden="true"></span><span>Opening your workspace...</span></div></body></html>`;
@@ -1410,7 +1413,8 @@ app
         {
           name: "pi-gui-generative-ui",
           displayName: "Interactive cards",
-          description: "Lets pi show checklists, tables and diagrams, and ask with clickable options",
+          description:
+            "Lets pi show checklists, tables and diagrams, and ask with clickable options",
           factory: createGenerativeUiRuntimeExtension({
             questions: () => store.generativeUiQuestions,
             sessionRef: sessionRefFromExtensionContext,
@@ -1464,6 +1468,7 @@ app
         notificationPermissionService?.trackWindow(window);
       },
     });
+    watchRendererStalls(path.join(configuredUserDataDir, "logs"), windowOwner);
     traceStartup("store initialization started");
     if (!remoteDesktopClientMode) {
       await store.initialize();
@@ -1962,8 +1967,7 @@ app
               assertComposerAttachmentPixels(attachments);
               return store.deliverRemoteInstruction(sessionRef, text, deliverAs, attachments);
             },
-            getActiveRuns: () =>
-              mapActiveRuns(store.readState()),
+            getActiveRuns: () => mapActiveRuns(store.readState()),
           });
           brokers.set(client.id, broker);
           remoteDesktopBrokers.add(broker);
