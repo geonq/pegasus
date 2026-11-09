@@ -98,6 +98,18 @@ export interface UsageLimitWindow {
   readonly resetsAt?: number;
 }
 
+/** One Claude CLI slot: whether it holds a sign-in, and who it is signed in as. */
+export interface ClaudeSlot {
+  readonly slot: number;
+  readonly signedIn: boolean;
+  /** Profile name, or email when the profile has no name. */
+  readonly name?: string;
+  /** Subscription plan the sign-in was granted, e.g. "pro" or "max". */
+  readonly plan?: string;
+  /** Two slots with the same uuid are the same Claude account. */
+  readonly accountUuid?: string;
+}
+
 /** How much of each plan window one signed-in account has used. Only windows the plan has appear. */
 export interface AccountLimits {
   /** Provider id, e.g. `claude-code-account-1` or `openai`. */

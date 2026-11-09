@@ -68,6 +68,7 @@ import {
 import { getChangedFiles, getFileDiff, stageFile } from "./platform/files/app-store-diff";
 import { listWorkspaceFiles, readWorkspaceFile } from "./platform/files/app-store-files";
 import { readAccountLimits } from "./usage/account-limits";
+import { readClaudeSlots } from "./usage/claude-slots";
 import { readAccountStates } from "./usage/account-states";
 import { limitResumeAt } from "./usage/limit-resume";
 import { startSignInMonitor } from "./usage/sign-ins";
@@ -1823,6 +1824,7 @@ app
         getAccountStates: () => readAccountStates(),
         getAccountLimits: (cachedOnly) =>
           readAccountLimits(path.join(path.dirname(resolveAgentDir()), "claude"), { cachedOnly }),
+        getClaudeSlots: () => readClaudeSlots(path.join(path.dirname(resolveAgentDir()), "claude")),
         getSignIns: () => signIns?.current() ?? [],
         revealWorkspaceFile: async (workspacePath, filePath) => {
           const resolved = await resolveExistingWorkspacePath(workspacePath, filePath);

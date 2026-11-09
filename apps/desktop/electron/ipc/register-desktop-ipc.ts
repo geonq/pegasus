@@ -18,6 +18,7 @@ import {
 } from "../../contracts/ipc";
 import type {
   AccountLimits,
+  ClaudeSlot,
   AccountStatus,
   SignInStatus,
   UsageReport,
@@ -223,6 +224,7 @@ export interface DesktopIpcCapabilities {
   readonly getUsageReport: () => Promise<UsageReport>;
   readonly getAccountStates: () => Promise<readonly AccountStatus[]>;
   readonly getAccountLimits: (cachedOnly: boolean) => Promise<readonly AccountLimits[]>;
+  readonly getClaudeSlots: () => Promise<readonly ClaudeSlot[]>;
   readonly getSignIns: () => readonly SignInStatus[];
   readonly revealWorkspaceFile: (workspacePath: string, filePath: string) => Promise<void>;
   readonly getChangedFiles: (workspacePath: string) => Promise<ChangedFilesResult>;
@@ -1170,6 +1172,10 @@ function registerWorkspaceFileIpc(
   ipcMain.handle(desktopIpc.getAccountLimits, async (event, options?: { cachedOnly?: unknown }) => {
     windows.windowForSender(event.sender);
     return capabilities.getAccountLimits(options?.cachedOnly === true);
+  });
+  ipcMain.handle(desktopIpc.getClaudeSlots, async (event) => {
+    windows.windowForSender(event.sender);
+    return capabilities.getClaudeSlots();
   });
   ipcMain.handle(desktopIpc.getSignIns, async (event) => {
     windows.windowForSender(event.sender);

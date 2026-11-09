@@ -3,7 +3,7 @@ import type { RuntimeProviderRecord, RuntimeSnapshot } from "@pi-gui/session-dri
 import { SearchIcon } from "../../ui/icons";
 import type { CustomProviderConfig } from "../../../contracts/ipc";
 import { SettingsCustomEndpointsSection } from "./settings-custom-endpoints-section";
-import { filterProviders, ProviderRow, SettingsGroup } from "./settings-utils";
+import { ClaudeAccountRow, filterProviders, ProviderRow, SettingsGroup } from "./settings-utils";
 
 interface SettingsProvidersSectionProps {
   readonly runtime?: RuntimeSnapshot;
@@ -15,7 +15,8 @@ interface SettingsProvidersSectionProps {
   readonly onDeleteCustomProvider: (providerId: string) => Promise<string | undefined>;
 }
 
-import { subscriptionAccount, subscriptionGroups } from "./subscription-accounts";
+import { claudeRowView, subscriptionAccount, subscriptionGroups } from "./subscription-accounts";
+import type { ClaudeSlot } from "../../../contracts/usage";
 
 const COLLAPSED_AVAILABLE_COUNT = 8;
 
@@ -46,8 +47,34 @@ export function SettingsProvidersSection({
   const [apiKeyError, setApiKeyError] = useState<string | undefined>();
   const [apiKeyPending, setApiKeyPending] = useState(false);
 
+  const [claudeSlots, setClaudeSlots] = useState<readonly ClaudeSlot[] | undefined>();
+  // Re-read after every runtime change: signing in or out updates the snapshot.
+  useEffect(() => {
+    let current = true;
+    void (async () => {
+      try {
+        const slots = await window.piApp?.getClaudeSlots?.();
+        if (current) setClaudeSlots(slots);
+      } catch (error) {
+        console.error("[renderer] getClaudeSlots failed", error);
+      }
+    })();
+    return () => {
+      current = false;
+    };
+  }, [runtime]);
+
   const providers = runtime?.providers ?? [];
-  const accountGroups = subscriptionGroups(providers);
+  const accountGroups = subscriptionGroups(
+    providers.map((provider) =>
+      subscriptionAccount(provider.id)?.family === "anthropic"
+        ? {
+            ...provider,
+            hasAuth: claudeRowView(provider.id, provider.hasAuth, claudeSlots).signedIn,
+          }
+        : provider,
+    ),
+  );
   const accountIds = new Set(
     accountGroups.flatMap((group) => group.accounts.map((provider) => provider.id)),
   );
@@ -204,23 +231,27 @@ export function SettingsProvidersSection({
                     <span className="subscription-account-card__complete">All connected</span>
                   )}
                 </header>
-                {group.id === "anthropic" ? (
-                  <p className="subscription-account-card__billing-note">
-                    Native Claude OAuth may require paid extra usage. Included subscription access
-                    is unverified; paid usage is blocked by default in this setup.
-                  </p>
-                ) : null}
                 <div className="subscription-account-card__rows">
-                  {group.accounts.map((provider) => (
-                    <ProviderRow
-                      key={provider.id}
-                      provider={{
-                        ...provider,
-                        name: `Account ${subscriptionAccount(provider.id)!.number}`,
-                      }}
-                      {...rowHandlers}
-                    />
-                  ))}
+                  {group.accounts.map((provider) =>
+                    group.id === "anthropic" ? (
+                      <ClaudeAccountRow
+                        key={provider.id}
+                        providerId={provider.id}
+                        view={claudeRowView(provider.id, provider.hasAuth, claudeSlots)}
+                        onLoginProvider={onLoginProvider}
+                        onLogoutProvider={onLogoutProvider}
+                      />
+                    ) : (
+                      <ProviderRow
+                        key={provider.id}
+                        provider={{
+                          ...provider,
+                          name: `Account ${subscriptionAccount(provider.id)!.number}`,
+                        }}
+                        {...rowHandlers}
+                      />
+                    ),
+                  )}
                 </div>
               </section>
             ))}

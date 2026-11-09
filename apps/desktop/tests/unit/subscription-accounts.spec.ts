@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  claudeRowView,
   subscriptionAccount,
   subscriptionGroups,
 } from "../../src/features/settings/subscription-accounts";
@@ -40,4 +41,27 @@ test("stock providers without registered account aliases keep their original set
     subscriptionGroups([provider("anthropic"), provider("anthropic-account-2", false, false)])[0]
       .next?.id,
   ).toBe("anthropic");
+});
+
+test("Claude rows show real names and plain state, and flag two slots on one account", () => {
+  const slots = [
+    { slot: 1, signedIn: true, name: "homer", plan: "max", accountUuid: "u1" },
+    { slot: 2, signedIn: true, name: "homer", plan: "max", accountUuid: "u1" },
+    { slot: 3, signedIn: false },
+  ];
+  expect(claudeRowView("anthropic", true, slots)).toEqual({
+    title: "homer · Account 1",
+    status: "Signed in · Max",
+    signedIn: true,
+  });
+  expect(claudeRowView("anthropic-account-2", true, slots).warning).toMatch(
+    /Same Claude account as Account 1/,
+  );
+  expect(claudeRowView("anthropic-account-3", true, slots)).toEqual({
+    title: "Account 3",
+    status: "Not signed in",
+    signedIn: false,
+  });
+  // No slot data: the runtime decides.
+  expect(claudeRowView("anthropic-account-4", true, undefined).signedIn).toBe(true);
 });

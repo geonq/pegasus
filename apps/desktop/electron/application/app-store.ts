@@ -5,7 +5,8 @@ import type { BrowserWindow } from "electron";
 import { randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { homedir, hostname } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
+import { signOutClaudeSlot } from "../usage/claude-slots";
 import {
   applyHostUiRequestToExtensionUiState,
   type GenerateThreadTitleOptions,
@@ -1743,6 +1744,8 @@ export class DesktopAppStore {
   }
 
   async logoutProvider(workspaceId: string, providerId: string): Promise<DesktopAppState> {
+    // A Claude account is usable through its CLI slot, so signing out must clear that slot too.
+    await signOutClaudeSlot(join(dirname(resolveAgentDir()), "claude"), providerId);
     return this.withRuntimeUpdate(workspaceId, (ws) =>
       this.driver.runtimeSupervisor.logout(ws, providerId),
     );

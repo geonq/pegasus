@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { ClaudeRowView } from "./subscription-accounts";
 import type {
   RuntimeSettingsSnapshot,
   RuntimeSnapshot,
@@ -208,4 +209,49 @@ function resolveProviderActions(
   }
 
   return [{ disabled: true, label: "Configure externally" }];
+}
+
+/** A Claude account row: real name, plain state, and always Sign in or Sign out. */
+export function ClaudeAccountRow({
+  view,
+  providerId,
+  onLoginProvider,
+  onLogoutProvider,
+}: {
+  readonly view: ClaudeRowView;
+  readonly providerId: string;
+  readonly onLoginProvider: (providerId: string) => void;
+  readonly onLogoutProvider: (providerId: string) => void;
+}) {
+  return (
+    <div className="settings-row">
+      <div className="settings-row__label">
+        <div className="settings-row__title" style={{ overflowWrap: "anywhere" }}>
+          {view.title}
+        </div>
+        <div className="settings-row__description">{view.status}</div>
+        {view.warning ? (
+          <div
+            className="settings-row__description"
+            role="alert"
+            style={{ color: "var(--warning-ink)" }}
+          >
+            {view.warning}
+          </div>
+        ) : null}
+      </div>
+      <div className="settings-row__actions">
+        <button
+          aria-label={`${view.signedIn ? "Sign out" : "Sign in"} ${view.title}`}
+          className="button button--secondary"
+          type="button"
+          onClick={() =>
+            view.signedIn ? onLogoutProvider(providerId) : onLoginProvider(providerId)
+          }
+        >
+          {view.signedIn ? "Sign out" : "Sign in"}
+        </button>
+      </div>
+    </div>
+  );
 }

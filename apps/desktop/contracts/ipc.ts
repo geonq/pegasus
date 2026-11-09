@@ -15,7 +15,7 @@ import type {
 } from "@pi-gui/session-driver/types";
 import type { ClipboardImageRead } from "./composer-attachments";
 import type { SessionRef } from "@pi-gui/session-driver/types";
-import type { AccountLimits, AccountStatus, SignInStatus, UsageReport } from "./usage";
+import type { AccountLimits, AccountStatus, ClaudeSlot, SignInStatus, UsageReport } from "./usage";
 import type { SaveTaskWorkbenchTemplateInput, TaskWorkbenchTemplate } from "./workbench";
 import type {
   TurnChangesInput,
@@ -232,6 +232,7 @@ export const desktopIpc = {
   getUsageReport: "pi-gui:get-usage-report",
   getAccountStates: "pi-gui:get-account-states",
   getAccountLimits: "pi-gui:get-account-limits",
+  getClaudeSlots: "pi-gui:get-claude-slots",
   getSignIns: "pi-gui:get-sign-ins",
   revealWorkspaceFile: "pi-gui:reveal-workspace-file",
   getChangedFiles: "pi-gui:get-changed-files",
@@ -924,6 +925,8 @@ export interface PiDesktopApi {
   getAccountStates(): Promise<readonly AccountStatus[]>;
   /** Plan windows (5-hour, weekly) per signed-in account; re-read from the providers at most every 2 min. */
   getAccountLimits(options?: { readonly cachedOnly?: boolean }): Promise<readonly AccountLimits[]>;
+  /** Who each Claude CLI slot is signed in as (a local file read, no network). */
+  getClaudeSlots(): Promise<readonly ClaudeSlot[]>;
   /** The latest hourly sign-in check for every provider (a memory read). */
   getSignIns(): Promise<readonly SignInStatus[]>;
   revealWorkspaceFile(workspaceId: string, filePath: string): Promise<void>;
