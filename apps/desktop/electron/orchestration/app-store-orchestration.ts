@@ -27,7 +27,7 @@ import type {
 } from "../../contracts/desktop-state";
 import { latestSessionActivityAt, previewFromTranscript } from "../application/app-store-utils";
 import type { RefreshStateOptions } from "../application/refresh-state-options";
-import { promptTitle } from "../conversation/thread-title-constants";
+import { isPreamble, promptTitle } from "../conversation/thread-title-constants";
 import { findTouchedRepositories } from "../workbench/review-owner";
 import { sessionAgentActivity } from "../../contracts/agent-activity";
 import {
@@ -1187,7 +1187,7 @@ function projectOrchestrationChild(
 
   return {
     ...child,
-    title: session?.title || child.title,
+    title: readableTitle(session?.title || child.title, child.goal),
     status,
     latestTranscript,
     transcript,
@@ -2284,6 +2284,11 @@ function transcriptRole(message: TranscriptMessage): OrchestrationChildTranscrip
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** Children stored before role lines were skipped carry "You are a ... worker" titles; re-derive them from the goal. */
+function readableTitle(title: string, goal: string): string {
+  return isPreamble(title) ? titleFromPrompt(goal) : title;
 }
 
 function titleFromPrompt(prompt: string): string {

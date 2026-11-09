@@ -236,6 +236,40 @@
   pointer-events: none;
 }
 
+/* Shared drag handle on the left edge of the file explorer and changed-files trees. */
+.tree-resize-handle {
+  -webkit-app-region: no-drag;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  z-index: 20;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.tree-resize-handle:hover,
+.tree-resize-handle:focus-visible,
+.tree-resize-handle[data-resizing="true"] {
+  background: var(--surface-muted);
+  box-shadow: inset 2px 0 var(--accent);
+}
+
+.main:has(.tree-resize-handle[data-resizing="true"]) {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.main:has(.tree-resize-handle[data-resizing="true"]) iframe {
+  pointer-events: none;
+}
+
+/* While dragging, keep reflow inside the side panel instead of the whole window. */
+.main:has(.workbench__resize-handle[data-resizing="true"]) .workbench {
+  contain: layout;
+}
+
 /* Agents tool: one row per parallel agent or busy thread. */
 .agents-panel {
   min-height: 0;
@@ -365,6 +399,43 @@
 
 .agents-panel__stop:hover {
   color: var(--error-ink);
+}
+
+.agents-panel__group {
+  margin-bottom: 14px;
+}
+
+.agents-panel__heading {
+  margin: 0 8px 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: var(--font-medium);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.agents-panel__done > summary {
+  padding: 4px 8px;
+  color: var(--muted-strong);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.agents-panel__done > summary:hover {
+  color: var(--text-strong);
+}
+
+.agents-panel__more {
+  margin: 4px 8px 0;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  color: var(--muted-strong);
+  font-size: 12px;
+}
+
+.agents-panel__more:hover {
+  background: var(--overlay-hover);
 }
 
 .agents-panel__areas {

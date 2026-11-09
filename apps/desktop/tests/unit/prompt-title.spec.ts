@@ -15,4 +15,11 @@ test("prompt titles read like the task, without machine markup", () => {
   ).toBe("Reply with only the exact word: ok");
   expect(promptTitle("<!-- HERMES_NATIVE_CHILD role=planner task=a lease=b")).toBe("New thread");
   expect(promptTitle("fix the **login** bug in `auth.ts`")).toBe("Fix the login bug in auth.ts");
+  expect(promptTitle("You are a Seher worker. Review the LifeOS goals page. Be brief.")).toBe(
+    "Review the LifeOS goals page",
+  );
+  expect(
+    promptTitle("You are a Seher worker.\n\nAct as the reviewer.\n\nFix the login bug."),
+  ).toBe("Fix the login bug");
+  expect(promptTitle("You are a Seher worker.")).toBe("You are a Seher worker");
 });

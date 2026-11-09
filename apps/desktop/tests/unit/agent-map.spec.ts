@@ -110,11 +110,47 @@ test("the map nests agents under their chat and flags an area two agents changed
     ["w/c2", "w/lead", "reviewer", undefined],
   ]);
   expect(
-    agentAreas(cards).map(({ area, agents }) => [area, agents.map((agent) => agent.title)]),
+    agentAreas(cards).map(({ area, agents, active }) => [
+      area,
+      agents.map((agent) => agent.title),
+      active,
+    ]),
   ).toEqual([
-    ["src/ui", ["Docs", "Tests"]],
-    ["docs", ["Docs"]],
+    ["src/ui", ["Docs", "Tests"], 2],
+    ["docs", ["Docs"], 1],
   ]);
+});
+
+test("areas are relative to the project and ignore finished agents", () => {
+  const session = (id: string, status: string, touchedFiles: string[]) => ({
+    id,
+    title: id,
+    status,
+    updatedAt: "",
+    preview: "",
+    hasUnseenUpdate: false,
+    touchedFiles,
+  });
+  const state = {
+    ...createEmptyDesktopAppState(),
+    workspaces: [
+      {
+        id: "w",
+        name: "Pi",
+        path: "D:/Pi",
+        sessions: [
+          session("a", "running", ["D:/Pi/pi-gui/src/x.ts"]),
+          session("b", "running", [String.raw`D:\Pi\pi-gui\src\y.ts`]),
+          session("done", "idle", ["D:/Pi/pi-gui/src/z.ts"]),
+          session("old", "complete", ["D:/Pi/other/z.ts"]),
+        ],
+      } as never,
+    ],
+  };
+  const areas = agentAreas(agentCards(state));
+  expect(areas.map(({ area, agents, active }) => [area, agents.map((a) => a.title), active])).toEqual(
+    [["pi-gui/src", ["a", "b"], 2]],
+  );
 });
 
 test("the Mac client may stop one of its allowed chats by name", () => {
