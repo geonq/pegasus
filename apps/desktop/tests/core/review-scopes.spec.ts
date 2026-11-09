@@ -61,8 +61,11 @@ async function openFile(panel: Locator, path: string): Promise<void> {
 
 async function chooseBranch(window: Page, baseRef: string): Promise<void> {
   await chooseReviewScope(window, "Branch");
-  await window.getByLabel("Base branch", { exact: true }).fill(baseRef);
-  await window.getByRole("button", { name: "Compare", exact: true }).click();
+  await window.getByRole("button", { name: "Compare against branch", exact: true }).click();
+  await window
+    .getByRole("menu", { name: "Compare against branch", exact: true })
+    .getByText(baseRef, { exact: true })
+    .click();
 }
 
 test("Uncommitted preserves staged and unstaged changes that cancel each other", async () => {
@@ -133,7 +136,7 @@ test("Uncommitted keeps a reviewed mark through stage and unstage until the file
   }
 });
 
-test("Branch compares committed revisions and reports a missing base explicitly", async () => {
+test("Branch compares committed revisions and names its base as a picker of real branches", async () => {
   const workspacePath = await makeWorkspace("review-branch");
   await initGitRepo(workspacePath);
   await writeFile(join(workspacePath, "result.txt"), "base revision\n");
@@ -165,13 +168,6 @@ test("Branch compares committed revisions and reports a missing base explicitly"
     await expect(panel.getByRole("region", { name: "Diff", exact: true })).toContainText(
       "unsaved working revision",
     );
-
-    await chooseBranch(window, "missing-review-base");
-    await expect(panel.getByTestId("changed-files-unavailable")).toContainText(
-      /base reference.*unavailable/i,
-    );
-    await expect(panel.getByText("No changes", { exact: true })).toHaveCount(0);
-    await expect(panel.getByTestId("diff-panel-counter")).toHaveCount(0);
   } finally {
     await harness.close();
   }

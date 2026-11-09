@@ -60,6 +60,9 @@ const MAX_CACHED_CHECKOUTS = 16;
 /** Budget for building a checkout's first inventory in the background. */
 const WARM_TIMEOUT_MS = 60_000;
 const WARM_RETRY_MS = 15 * 60 * 1000;
+/** Shown for Last Turn when a project was too big to snapshot within the turn-start budget. */
+const CAPTURE_ABORTED_MESSAGE =
+  "This project is too big for Pegasus to snapshot quickly around a turn, so it can't show what that turn changed. It keeps preparing in the background, so later turns should work. Uncommitted shows everything changed in the folder now.";
 const SNAPSHOT_REF_PREFIX = "refs/pi-gui/snapshots/";
 
 interface FileVersion {
@@ -299,7 +302,7 @@ export class TurnCheckpointStore {
     const safeCapture = signal.aborted
       ? unavailableCapture(
           "capture-aborted",
-          "The capture was interrupted or exceeded its time limit.",
+          CAPTURE_ABORTED_MESSAGE,
         )
       : capture;
     if (safeCapture.state === "unavailable" && safeCapture.code === "capture-aborted")
@@ -677,7 +680,7 @@ export class TurnCheckpointStore {
         timeout.aborted || parentSignal?.aborted
           ? unavailableCapture(
               "capture-aborted",
-              "The capture was interrupted or exceeded its time limit.",
+              CAPTURE_ABORTED_MESSAGE,
             )
           : error instanceof CaptureError
             ? unavailableCapture(error.code, error.message)
@@ -1182,7 +1185,9 @@ function resolveRecord(
     return unavailableReview(
       "checkpoint-incomplete",
       failed?.state === "unavailable"
-        ? failed.message
+        ? failed.code === "capture-aborted"
+          ? CAPTURE_ABORTED_MESSAGE
+          : failed.message
         : "This turn does not have complete before and after captures.",
     );
   }

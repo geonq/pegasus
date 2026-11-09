@@ -232,6 +232,8 @@ export class ReviewOwner {
         headOid: snapshot.headOid,
         baseOid: snapshot.baseOid,
         ...(capturedAt ? { capturedAt } : {}),
+        ...(snapshot.branchName ? { branchName: snapshot.branchName } : {}),
+        ...(snapshot.baseOptions ? { baseOptions: snapshot.baseOptions } : {}),
         coverage: snapshot.coverage,
         // `repository` is set only when Git ran somewhere other than the checkout itself.
         ...(repositories.length ? { repositories } : {}),

@@ -582,7 +582,25 @@
 }
 
 .diff-panel__unavailable {
-  color: var(--error-ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 360px;
+  margin: 0 auto;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.diff-panel__unavailable p {
+  margin: 0;
+}
+
+.diff-panel__unavailable-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 
 .diff-panel__file-list {

@@ -2049,9 +2049,18 @@ export default function App() {
                           <DiagramView node={pinned} inPanel />
                         </GenerativeUiContext.Provider>
                       ) : (
-                        <p className="diagram-panel__empty">
-                          Open a diagram from the chat with "Open in side panel" to keep it here.
-                        </p>
+                        <div className="diagram-panel__empty" data-testid="diagram-panel-empty">
+                          <p className="diagram-panel__empty-title">No diagram pinned</p>
+                          <p>
+                            When the agent draws a diagram or chart in the chat, it appears there
+                            with an "Open in side panel" button. Press it to keep the diagram here
+                            while you keep talking.
+                          </p>
+                          <p>
+                            To get one, ask the agent to draw it, for example "diagram how this app
+                            is structured".
+                          </p>
+                        </div>
                       )}
                     </div>
                   );

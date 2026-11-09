@@ -839,18 +839,22 @@
 }
 
 .diff-line__number {
-  display: inline-block;
-  min-width: 40px;
-  padding: 0 8px;
+  box-sizing: border-box;
+  flex: 0 0 52px;
+  width: 52px;
+  padding: 0 10px 0 0;
   text-align: right;
+  font-variant-numeric: tabular-nums;
   color: var(--muted-soft);
   user-select: none;
-  flex-shrink: 0;
 }
 
+/* The code column is its own flex item, so wrapped lines stay under the code, not the gutter. */
 .diff-line__content {
+  flex: 1 1 0;
+  min-width: 0;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* ---- Message markdown --------------------------------------------------- */

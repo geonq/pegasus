@@ -15,6 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type {
+  ReviewBaseOption,
   ChangeReviewFileStageResult,
   ReviewCoverage,
   ReviewFileEntry,
@@ -90,6 +91,9 @@ export interface GitReviewSnapshot {
   readonly baseOid: string | null;
   readonly coverage: ReviewCoverage;
   readonly files: readonly GitReviewFile[];
+  /** Branch comparisons only: the checked-out branch and the branches it can be compared to. */
+  readonly branchName?: string;
+  readonly baseOptions?: readonly ReviewBaseOption[];
 }
 
 export interface GitReviewFileContent {
@@ -413,12 +417,48 @@ async function defaultBase(cwd: string): Promise<string | null> {
   const preferred = remoteHeads.find((line) => line.startsWith(`refs/remotes/${remote}/HEAD `));
   const chosen = preferred ?? (remoteHeads.length === 1 ? remoteHeads[0] : undefined);
   if (chosen) return chosen.slice(chosen.indexOf(" ") + 1).trim() || null;
-  if (!branch) return null;
-  return (
-    (
-      await gitText(cwd, ["rev-parse", "--symbolic-full-name", "@{upstream}"]).catch(() => "")
-    ).trim() || null
-  );
+  const upstream = branch
+    ? (
+        await gitText(cwd, ["rev-parse", "--symbolic-full-name", "@{upstream}"]).catch(() => "")
+      ).trim()
+    : "";
+  if (upstream) return upstream;
+  // No tracking branch: fall back to the conventional trunk, so Branch still opens on something.
+  for (const candidate of ["origin/main", "origin/master", "main", "master"]) {
+    if (candidate === branch) continue;
+    const full = (
+      await gitText(cwd, ["rev-parse", "--symbolic-full-name", candidate]).catch(() => "")
+    ).trim();
+    if (full) return full;
+  }
+  return null;
+}
+
+/** A ref's readable name: `refs/remotes/origin/main` becomes `origin/main`. */
+export function shortRefName(ref: string): string {
+  return ref.replace(/^refs\/(?:heads|remotes|tags)\//, "");
+}
+
+/** Local and remote branches other than the checked-out one, for the Base picker. */
+async function listBaseOptions(
+  cwd: string,
+  current: string,
+  chosen: string,
+): Promise<readonly ReviewBaseOption[]> {
+  const refs = (
+    await gitText(cwd, [
+      "for-each-ref",
+      "--sort=-committerdate",
+      "--format=%(refname)",
+      "refs/heads",
+      "refs/remotes",
+    ]).catch(() => "")
+  )
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((ref) => ref && !ref.endsWith("/HEAD") && shortRefName(ref) !== current);
+  const unique = [...new Set([chosen, ...refs])].slice(0, 100);
+  return unique.map((ref) => ({ ref, label: shortRefName(ref) }));
 }
 
 export async function createGitReview(
@@ -628,7 +668,7 @@ export async function createGitReview(
       return issue(
         "unavailable",
         "missing-base",
-        "No repository default or tracking branch is configured. Choose a base reference.",
+        "This branch has no upstream and the repository has no main branch to compare against, so there is nothing to show yet.",
       );
     let baseOid = await resolveRevision(
       checkoutPath,
@@ -743,11 +783,24 @@ export async function createGitReview(
         scope.kind === "turn"
           ? { kind: "turn", checkpointId: scope.checkpointId }
           : { kind: "branch", baseRef },
-      baseLabel: scope.kind === "turn" ? "Captured turn" : baseRef,
+      baseLabel: scope.kind === "turn" ? "Captured turn" : shortRefName(baseRef),
       headOid,
       baseOid,
       coverage,
       files,
+      ...(scope.kind === "branch"
+        ? await (async () => {
+            const branchName = (
+              await gitText(checkoutPath, ["symbolic-ref", "--quiet", "--short", "HEAD"]).catch(
+                () => "",
+              )
+            ).trim();
+            return {
+              ...(branchName ? { branchName } : {}),
+              baseOptions: await listBaseOptions(checkoutPath, branchName, baseRef),
+            };
+          })()
+        : {}),
     };
   } catch (error) {
     return issue(

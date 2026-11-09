@@ -48,6 +48,12 @@ export interface ReviewFileEntry {
   readonly lines: ReviewLineCounts | null;
 }
 
+/** One branch a branch comparison can start from; `ref` is what Git resolves, `label` what people read. */
+export interface ReviewBaseOption {
+  readonly ref: string;
+  readonly label: string;
+}
+
 export interface AvailableReview {
   readonly state: "available";
   readonly reviewId: string;
@@ -58,6 +64,9 @@ export interface AvailableReview {
   readonly headOid: string | null;
   readonly baseOid: string | null;
   readonly capturedAt?: string;
+  /** Branch comparisons: the checked-out branch and the branches it can be compared to. */
+  readonly branchName?: string;
+  readonly baseOptions?: readonly ReviewBaseOption[];
   readonly files: readonly ReviewFileEntry[];
   readonly coverage: ReviewCoverage;
   /**

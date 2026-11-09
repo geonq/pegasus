@@ -275,6 +275,15 @@ test("uses configured remote HEAD and reports missing or unrelated branch bases"
     state: "available",
     scope: { kind: "branch", baseRef: "refs/remotes/upstream/trunk" },
   });
+  expect(resolved).toMatchObject({
+    baseLabel: "upstream/trunk",
+    baseOptions: [{ ref: "refs/remotes/upstream/trunk", label: "upstream/trunk" }],
+  });
+  await git(cwd, "branch", "feature-x");
+  const options = await createGitReview(cwd, { kind: "branch" });
+  if (options.state !== "available") throw new Error(options.message);
+  expect(options.baseOptions?.map((option) => option.label)).toContain("feature-x");
+  expect(options.baseOptions?.map((option) => option.label)).not.toContain(options.branchName);
   expect(await createGitReview(cwd, { kind: "branch", baseRef: "does-not-exist" })).toMatchObject({
     state: "unavailable",
     code: "missing-base",

@@ -129,33 +129,55 @@
 }
 
 .review-panel__base {
-  display: grid;
+  display: flex;
   flex-shrink: 0;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.5;
 }
 
-.review-panel__base input {
-  width: 100%;
-  min-width: 0;
-  height: 28px;
-  padding: 4px 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--main);
+.review-panel__base-text {
+  margin: 0;
+}
+
+.review-panel__base-text strong {
   color: var(--text-strong);
-  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* A long branch name shortens inside the button; the list shows it in full. */
+.review-panel__base-pick {
+  max-width: 100%;
+}
+
+.review-panel__base-pick > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.review-panel__base .review-menu {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.review-panel__base .review-menu__popover {
+  max-height: 280px;
+  max-width: min(360px, 80vw);
+  overflow-y: auto;
 }
 
 .review-panel__body {
   display: grid;
   flex: 1 1 0;
-  grid-template-columns: minmax(0, 1fr) clamp(180px, 38%, 300px);
+  grid-template-columns: minmax(0, 1fr) auto;
+  container-type: inline-size;
   min-height: 0;
 }
 
@@ -220,18 +242,18 @@
 }
 
 .review-panel .diff-line--unmodified {
-  margin: 4px 8px;
-  padding: 0;
-  border-radius: var(--radius-md);
+  margin: 4px 0;
+  padding: 0 12px 0 0;
   background: var(--surface-muted);
   color: var(--muted);
   font-family: var(--font-ui);
   font-size: 12px;
 }
 
-.review-panel .diff-line--unmodified .diff-line__number {
-  min-width: 0;
-  padding: 0 4px;
+.review-panel .diff-line--unmodified .diff-line__content {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .review-panel__issue,

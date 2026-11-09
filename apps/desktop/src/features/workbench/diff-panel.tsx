@@ -74,9 +74,6 @@ export function DiffPanel({
   const [fileLoading, setFileLoading] = useState(false);
   const [actionIssue, setActionIssue] = useState<ReviewIssue | null>(null);
   const [busyFiles, setBusyFiles] = useState<ReadonlySet<string>>(new Set());
-  const [baseDraft, setBaseDraft] = useState(
-    selection.scope.kind === "branch" ? (selection.scope.baseRef ?? "") : "",
-  );
   const requestNonce = useRef(0);
   // A focus that arrives while other work is running is kept and re-read once that work ends.
   const quietPending = useRef(false);
@@ -101,10 +98,6 @@ export function DiffPanel({
     [review, selection.selectedPath, shownFallback],
   );
   const stale = actionIssue?.state === "stale" || fileResult?.state === "stale";
-
-  useEffect(() => {
-    setBaseDraft(requestedScope.kind === "branch" ? (requestedScope.baseRef ?? "") : "");
-  }, [requestedScope]);
 
   const refresh = useCallback(() => {
     const nonce = ++requestNonce.current;
@@ -531,37 +524,32 @@ export function DiffPanel({
           <SidePanelIcon />
         </button>
       </div>
-      {requestedScope.kind === "branch" ? (
-        <form
-          className="review-panel__base"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const baseRef = baseDraft.trim();
-            if (baseRef === (requestedScope.baseRef ?? "")) refresh();
-            else
+      {requestedScope.kind === "branch" && review && !loading && review.baseOptions ? (
+        <div className="review-panel__base" data-testid="review-branch-base">
+          <p className="review-panel__base-text">
+            Changes on <strong>{review.branchName ?? "this branch"}</strong> since it branched from
+          </p>
+          <ReviewMenu
+            label="Compare against branch"
+            value={review.baseLabel}
+            buttonClassName="review-panel__scope review-panel__base-pick"
+            buttonContent={<ChevronDownIcon />}
+            align="start"
+            options={review.baseOptions.map((option) => ({
+              id: option.ref,
+              label: option.label,
+              checked:
+                review.scope.kind === "branch" ? option.ref === review.scope.baseRef : false,
+            }))}
+            onSelect={(baseRef) =>
               onSelectionChange({
                 ...selection,
                 selectedPath: null,
-                scope: baseRef ? { kind: "branch", baseRef } : { kind: "branch" },
-              });
-          }}
-        >
-          <label htmlFor="review-base-ref">Base</label>
-          <input
-            id="review-base-ref"
-            aria-label="Base branch"
-            value={baseDraft}
-            onChange={(event) => setBaseDraft(event.target.value)}
-            placeholder={
-              review?.scope.kind === "branch"
-                ? (review.scope.baseRef ?? "Repository default")
-                : "Repository default"
+                scope: { kind: "branch", baseRef },
+              })
             }
           />
-          <button type="submit" className="button" disabled={loading}>
-            Compare
-          </button>
-        </form>
+        </div>
       ) : null}
       {actionIssue ? <ReviewIssueBanner issue={actionIssue} onRefresh={refresh} /> : null}
       {review && !loading ? <CoverageNotice coverage={review.coverage} /> : null}
@@ -578,9 +566,20 @@ export function DiffPanel({
               role="status"
             >
               <p>{result.message}</p>
-              <button className="button" type="button" onClick={refresh}>
-                Retry
-              </button>
+              <div className="diff-panel__unavailable-actions">
+                {requestedScope.kind === "turn" ? (
+                  <button
+                    className="button"
+                    type="button"
+                    onClick={() => chooseScope("uncommitted")}
+                  >
+                    Show uncommitted changes
+                  </button>
+                ) : null}
+                <button className="button" type="button" onClick={refresh}>
+                  Retry
+                </button>
+              </div>
             </div>
           ) : result.files.length === 0 ? (
             <div className="diff-panel__empty">

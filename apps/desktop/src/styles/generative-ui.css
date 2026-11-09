@@ -465,8 +465,27 @@
 }
 
 .diagram-panel__empty {
-  color: var(--muted-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 320px;
+  min-height: 100%;
+  margin: 0 auto;
+  text-align: center;
+  color: var(--muted);
   font-size: 13px;
+  line-height: 1.5;
+}
+
+.diagram-panel__empty p {
+  margin: 0;
+}
+
+.diagram-panel__empty-title {
+  color: var(--text-strong);
+  font-weight: 600;
 }
 
 .generative-ui__agent {
