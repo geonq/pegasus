@@ -81,6 +81,13 @@ import { createRemoteNotificationStore } from "./platform/remote-notification-so
 import { NotificationPermissionService } from "./platform/notification-permission";
 import { openReleasesPage } from "./platform/update-checker";
 import { AppUpdater } from "./platform/update-installer";
+import {
+  consumeResume,
+  resumeMessage,
+  selfUpdateDir,
+  watchQuitRequest,
+  writeHealthy,
+} from "./platform/self-update";
 import { watchMainThreadStalls, watchRendererStalls } from "./platform/main-thread-stalls";
 import { installAppTray } from "./platform/app-tray";
 import { registerUpdateIpc } from "./platform/register-update-ipc";
@@ -1991,6 +1998,32 @@ app
       createAppWindow(undefined, launchWindow);
     }
     launchWindow = undefined;
+    // Agent-driven self-update (platform/self-update.ts): quit when the helper waits, and once this
+    // start is up, tell the helper and continue the chat that scheduled the update.
+    if (!remoteDesktopClientMode && !appTestMode) {
+      const updateDir = selfUpdateDir(configuredUserDataDir);
+      watchQuitRequest(updateDir, () => app.quit());
+      void (async () => {
+        const pending = await consumeResume(updateDir);
+        await writeHealthy(updateDir, app.getVersion());
+        if (!pending) return;
+        const thread = store
+          .snapshot()
+          .workspaces.flatMap((workspace) =>
+            workspace.sessions.map((session) => ({
+              workspaceId: workspace.id,
+              sessionId: session.id,
+            })),
+          )
+          .find((ref) => ref.sessionId === pending.marker.sessionId);
+        if (!thread) return;
+        await runWindowScopedForWindow(windowOwner.foreground(), () => store.selectSession(thread));
+        await store.submitComposer(
+          thread,
+          resumeMessage(pending.marker, pending.result, app.getVersion()),
+        );
+      })().catch((error: unknown) => console.error("[self-update] resume failed", error));
+    }
     void notificationPermissionService.getCurrentStatus().catch((error: unknown) => {
       console.error("[main] getCurrentStatus failed", error);
     });
