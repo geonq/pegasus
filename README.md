@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://github.com/geonq/pi-gui/releases"><img src="https://img.shields.io/github/v/release/geonq/pi-gui?include_prereleases&label=release" alt="Latest release"></a>
+  <a href="https://github.com/geonq/pegasus/releases"><img src="https://img.shields.io/github/v/release/geonq/pegasus?include_prereleases&label=release" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey.svg" alt="Platform: Windows and macOS">
 </p>
 
@@ -52,7 +52,7 @@ fork and rewind, and themes.
 
 ## Install
 
-Download the latest build from the [Releases page](https://github.com/geonq/pi-gui/releases).
+Download the latest build from the [Releases page](https://github.com/geonq/pegasus/releases).
 
 - **Windows (x64):** run `Pegasus-<version>-x64-setup.exe`. The installer is not code-signed,
   so SmartScreen asks you to confirm: choose **More info → Run anyway**.
@@ -60,8 +60,8 @@ Download the latest build from the [Releases page](https://github.com/geonq/pi-g
   Applications. The app is signed ad hoc, not notarized, so open it the first time with
   right-click → **Open**, or run `xattr -dr com.apple.quarantine /Applications/Pegasus.app`.
 
-Pegasus works on its own like pi-gui. The Windows-backend/Mac-client link, CLI history import
-and managed launch need my private Pi setup; without it they simply stay off.
+Pegasus works standalone. The Windows-backend/Mac-client link and CLI history import are
+optional and stay off until configured.
 
 ## Quickstart
 
@@ -98,11 +98,13 @@ The app is an Electron shell with a typed IPC boundary between the React rendere
 `packages/pi-sdk-driver` adapts the pi coding agent without forking it, and pi's own session
 files stay the source of truth. See [docs/architecture.md](docs/architecture.md).
 
-GitHub Actions is turned off for this repository; `pnpm check` (formatting, lint, architecture,
-types and unit tests) runs locally before every release, and the release builds are packaged on
-Windows and macOS directly. The workflow files from pi-gui stay in `.github/workflows` for
-reference. The end-to-end UI suite inherited from pi-gui still targets the old pi-gui screens and
-is being moved over to the Pegasus shell.
+## Roadmap
+
+- **Rust core.** Moving the runtime, terminal, file and update layers to Rust, with a
+  GPU-rendered desktop UI on [Rune](https://github.com/anomalyco/rune).
+- **iOS companion.** Follow and answer running agents from the phone.
+- **Self-update from inside.** A Pegasus agent can change, rebuild and restart Pegasus, then
+  pick its own chat back up.
 
 ## Credits
 
