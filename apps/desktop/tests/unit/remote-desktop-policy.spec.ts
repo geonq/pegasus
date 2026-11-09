@@ -175,6 +175,11 @@ test("remote usage reads allow only the documented cachedOnly metadata option", 
     );
   }
 
+  expect(validateRemoteDesktopInvocation("getClaudeSlots", [], workspaceScope)).toEqual({
+    method: "getClaudeSlots",
+    args: [],
+  });
+  expect(() => validateRemoteDesktopInvocation("getClaudeSlots", [1], workspaceScope)).toThrow();
   expect(validateRemoteDesktopInvocation("getAccountLimits", [], workspaceScope)).toEqual({
     method: "getAccountLimits",
     args: [],

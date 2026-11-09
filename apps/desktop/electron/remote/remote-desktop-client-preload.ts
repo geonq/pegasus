@@ -47,6 +47,7 @@ const REMOTE_METHODS = new Set<PropertyKey>([
   "getSignIns",
   "getAccountStates",
   "getAccountLimits",
+  "getClaudeSlots",
   "getUsageReport",
   "loadWorkspaceRuntime",
   "setActiveView",
@@ -278,6 +279,8 @@ export function createRemoteDesktopClientApi(
           case "getAccountLimits":
             return (options?: { readonly cachedOnly?: boolean }) =>
               invokeRemote("getAccountLimits", options === undefined ? [] : [options]);
+          case "getClaudeSlots":
+            return () => invokeRemote("getClaudeSlots", []);
           case "getUsageReport":
             return () => invokeRemote("getUsageReport", []);
           case "selectWorkspace":

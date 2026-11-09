@@ -61,7 +61,7 @@ export type RemoteDesktopInvocation =
         readonly [] | readonly [{ readonly workspaceId: string; readonly sessionId: string }];
     }
   | {
-      readonly method: "getSignIns" | "getAccountStates" | "getUsageReport";
+      readonly method: "getSignIns" | "getAccountStates" | "getClaudeSlots" | "getUsageReport";
       readonly args: readonly [];
     }
   | {
@@ -217,6 +217,7 @@ export function validateRemoteDesktopInvocation(
     }
     case "getSignIns":
     case "getAccountStates":
+    case "getClaudeSlots":
     case "getUsageReport":
     // Read-only; the broker also limits it to the Seher server's client.
     case "getActiveRuns": {

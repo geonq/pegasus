@@ -9,6 +9,7 @@ export const REMOTE_DESKTOP_PI_METHODS = [
   "getSignIns",
   "getAccountStates",
   "getAccountLimits",
+  "getClaudeSlots",
   "getUsageReport",
   "loadWorkspaceRuntime",
   "setActiveView",

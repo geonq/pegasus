@@ -135,6 +135,7 @@ test("remote client sends usage metadata reads to Windows and returns their real
   const invocations: Array<{ method: RemoteDesktopMethod; args: readonly unknown[] }> = [];
   const signIns = [{ id: "openai", name: "OpenAI", state: "ok" as const }];
   const accountStates = [{ id: "claude-code-account-1", state: "ready" as const }];
+  const slots = [{ slot: 1, signedIn: true, name: "homer", plan: "max" }];
   const accountLimits = [
     {
       id: "openai",
@@ -148,12 +149,14 @@ test("remote client sends usage metadata reads to Windows and returns their real
       getSignIns: async () => [],
       getAccountStates: async () => [],
       getAccountLimits: async () => [],
+      getClaudeSlots: async () => [],
     } as unknown as PiDesktopApi,
     async (method, args) => {
       invocations.push({ method, args });
       if (method === "getSignIns") return signIns;
       if (method === "getAccountStates") return accountStates;
       if (method === "getAccountLimits") return accountLimits;
+      if (method === "getClaudeSlots") return slots;
       return createEmptyDesktopAppState();
     },
     () => () => undefined,
@@ -165,11 +168,13 @@ test("remote client sends usage metadata reads to Windows and returns their real
   await expect(api.getAccountStates()).resolves.toEqual(accountStates);
   await expect(api.getAccountLimits()).resolves.toEqual(accountLimits);
   await expect(api.getAccountLimits({ cachedOnly: true })).resolves.toEqual(accountLimits);
+  await expect(api.getClaudeSlots()).resolves.toEqual(slots);
   expect(invocations).toEqual([
     { method: "getSignIns", args: [] },
     { method: "getAccountStates", args: [] },
     { method: "getAccountLimits", args: [] },
     { method: "getAccountLimits", args: [{ cachedOnly: true }] },
+    { method: "getClaudeSlots", args: [] },
   ]);
 });
 
