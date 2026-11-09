@@ -5,7 +5,7 @@
   "author": "geonq",
   "license": "MIT",
   "description": "Pegasus, geonq's desktop app for coding agents, built on pi",
-  "homepage": "https://github.com/geonq/pi-gui",
+  "homepage": "https://github.com/geonq/pegasus",
   "main": "out/main/main.js",
   "scripts": {
     "build:deps": "pnpm --dir ../.. --filter @pi-gui/session-driver --filter @pi-gui/pi-sdk-driver --filter @pi-gui/extension-ui --filter @pi-gui/catalogs run build",

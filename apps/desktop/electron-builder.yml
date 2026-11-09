@@ -214,4 +214,4 @@ dmg:
 publish:
   provider: github
   owner: geonq
-  repo: pi-gui
+  repo: pegasus
