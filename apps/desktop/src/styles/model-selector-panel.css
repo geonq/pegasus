@@ -91,6 +91,7 @@
 
 /* With a filter, only the list scrolls; the filter sits on the dropdown's own surface. */
 .model-selector__dropdown--filtered {
+  width: 300px;
   overflow: hidden;
 }
 
@@ -174,6 +175,16 @@
 
 .model-selector__item-label {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-selector__item > svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
 }
 
 .model-selector__item-meta {

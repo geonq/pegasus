@@ -308,15 +308,8 @@ export function isModelSelectable(
   providerId: string | undefined,
   modelId: string | undefined,
 ): boolean {
-  if (!runtime) return false;
-  const patterns = runtime.settings.enabledModelPatterns;
-  const pattern = String(providerId) + "/" + String(modelId);
-  return runtime.models.some(
-    (model) =>
-      model.available &&
-      model.providerId === providerId &&
-      model.modelId === modelId &&
-      (patterns.length === 0 || patterns.includes(pattern)),
+  return buildModelOptions(runtime).some(
+    (option) => option.providerId === providerId && option.modelId === modelId,
   );
 }
 
@@ -330,13 +323,22 @@ export function buildModelOptions(
   const enabledPatterns = runtime.settings.enabledModelPatterns;
   const allAvailable = enabledPatterns.length === 0;
   const enabledSet = allAvailable ? undefined : new Set(enabledPatterns);
+  const available = runtime.models.filter((model) => model.available);
+  // Newest version per provider + family, so an enabled gpt-6-sol shows as gpt-6.1-sol once that ships.
+  const newest = new Map<string, RuntimeSnapshot["models"][number]>();
+  for (const model of available) {
+    const key = `${model.providerId}\u0000${modelFamily(model.modelId).family}`;
+    const current = newest.get(key);
+    if (!current || compareVersions(modelFamily(model.modelId).version, modelFamily(current.modelId).version) > 0)
+      newest.set(key, model);
+  }
+  const shown = new Set<RuntimeSnapshot["models"][number]>();
+  for (const model of available) {
+    if (enabledSet && !enabledSet.has(`${model.providerId}/${model.modelId}`)) continue;
+    shown.add(newest.get(`${model.providerId}\u0000${modelFamily(model.modelId).family}`) ?? model);
+  }
 
-  return [...runtime.models]
-    .filter((model) => {
-      if (!model.available) return false;
-      if (!enabledSet) return true;
-      return enabledSet.has(`${model.providerId}/${model.modelId}`);
-    })
+  return [...shown]
     .sort((left: RuntimeSnapshot["models"][number], right: RuntimeSnapshot["models"][number]) => {
       const providerCompare =
         providerRankForId(runtime.providers, left.providerId) -
@@ -355,6 +357,29 @@ export function buildModelOptions(
       providerId: model.providerId,
       modelId: model.modelId,
     }));
+}
+
+/**
+ * `gpt-6.1-sol` → family `gpt-sol`, version [6, 1]; `claude-opus-5-5` → `claude-opus`, [5, 5].
+ * Only 1–2 digit tokens count as versions, so dated snapshots (`-1017`) stay their own entry.
+ */
+export function modelFamily(modelId: string): { family: string; version: number[] } {
+  const version: number[] = [];
+  const family: string[] = [];
+  for (const token of modelId.split(/[-_]/)) {
+    const match = /^v?(\d{1,2}(?:\.\d{1,2})*)$/.exec(token);
+    if (match) version.push(...match[1]!.split(".").map(Number));
+    else family.push(token);
+  }
+  return { family: family.join("-"), version };
+}
+
+function compareVersions(left: readonly number[], right: readonly number[]): number {
+  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return 0;
 }
 
 export function slashOptionsForCommand(

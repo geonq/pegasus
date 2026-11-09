@@ -6,7 +6,7 @@ import {
   THINKING_OPTIONS,
   type ComposerModelOption,
 } from "./composer-commands";
-import { ProviderIcon, ReasoningIcon } from "../../ui/icons";
+import { CheckIcon, ProviderIcon, ReasoningIcon } from "../../ui/icons";
 import { ProviderStatusBadge, useProviderStatuses } from "../usage/account-state";
 
 /** The provider logo stands in for the brand, so labels drop "Claude", "GPT", "(Claude Code)" etc. */
@@ -201,18 +201,11 @@ export function ModelSelector({
                             closeDropdown();
                           }}
                         >
-                          <span className="model-selector__item-label">
-                            {option.providerId === "openscale" ? (
-                              <ProviderIcon
-                                providerId={option.providerId}
-                                modelId={option.modelId}
-                              />
-                            ) : null}
+                          <ProviderIcon providerId={option.providerId} modelId={option.modelId} />
+                          <span className="model-selector__item-label" title={option.modelId}>
                             {modelName(option)}
                           </span>
-                          {isActive ? (
-                            <span className="model-selector__item-meta">active</span>
-                          ) : null}
+                          {isActive ? <CheckIcon /> : null}
                         </button>
                       );
                     })}
