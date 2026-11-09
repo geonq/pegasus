@@ -34,17 +34,17 @@ test("release assets are used only from this repository's release downloads", ()
       {
         name: "SHA256SUMS.txt",
         browser_download_url:
-          "https://github.com/geonq/pi-gui/releases/download/v1.0.9/SHA256SUMS.txt",
+          "https://github.com/geonq/pegasus/releases/download/v1.0.9/SHA256SUMS.txt",
         size: 200,
       },
       { name: "evil.exe", browser_download_url: "https://example.com/evil.exe", size: 1 },
-      { name: 3, browser_download_url: "https://github.com/geonq/pi-gui/releases/download/x" },
+      { name: 3, browser_download_url: "https://github.com/geonq/pegasus/releases/download/x" },
     ],
   });
   expect(assets).toEqual([
     {
       name: "SHA256SUMS.txt",
-      url: "https://github.com/geonq/pi-gui/releases/download/v1.0.9/SHA256SUMS.txt",
+      url: "https://github.com/geonq/pegasus/releases/download/v1.0.9/SHA256SUMS.txt",
       size: 200,
     },
   ]);

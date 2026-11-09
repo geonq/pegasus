@@ -6,7 +6,7 @@ import { app, net, Notification, shell } from "electron";
 
 const RELEASES_URL = "https://api.github.com/repos/geonq/pegasus/releases/latest";
 
-const RELEASES_PAGE = "https://github.com/geonq/pi-gui/releases";
+const RELEASES_PAGE = "https://github.com/geonq/pegasus/releases";
 
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
