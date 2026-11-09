@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { FitAddon } from "@xterm/addon-fit";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import type { WorkspaceRecord } from "../../../contracts/desktop-state";
 import { CloseIcon, PlusIcon, RefreshIcon } from "../../ui/icons";
@@ -15,6 +17,9 @@ import type {
 import { appendTerminalReplay } from "../../../contracts/terminal-model";
 import { getActiveTheme, useActiveTheme } from "../../ui/active-theme";
 import { terminalThemeFor } from "./terminal-theme";
+
+const TERMINAL_FONT_FAMILY =
+  "'Cascadia Mono', 'Cascadia Code', Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', 'Segoe UI Symbol', 'Segoe UI Emoji', 'Apple Symbols', monospace";
 
 interface TerminalPanelProps {
   readonly workspace: WorkspaceRecord;
@@ -219,8 +224,14 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
       allowTransparency: true,
       convertEol: true,
       cursorBlink: true,
-      fontFamily: "Menlo, Monaco, Consolas, 'Liberation Mono', monospace",
-      fontSize: 12,
+      // Cascadia first (ships with Windows Terminal); the symbol/emoji tail covers glyphs
+      // (⚠ ◐ ✻) that the mono faces lack, instead of rendering tofu boxes.
+      fontFamily: TERMINAL_FONT_FAMILY,
+      fontSize: 13,
+      cursorStyle: "bar",
+      customGlyphs: true,
+      drawBoldTextInBrightColors: true,
+      minimumContrastRatio: 1,
       scrollback: 2_000,
       theme: terminalThemeFor(getActiveTheme()),
     });
@@ -297,7 +308,22 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
         })),
       );
     });
+    terminal.loadAddon(new Unicode11Addon());
+    terminal.unicode.activeVersion = "11";
     terminal.open(container);
+    // GPU renderer: draws box/block characters itself and handles truecolor exactly. Automated
+    // runs (navigator.webdriver) keep the DOM renderer: a WebGL canvas has no .xterm-rows text
+    // for specs to assert on.
+    if (!navigator.webdriver) {
+      try {
+        const webglAddon = new WebglAddon();
+        webglAddon.onContextLoss(() => webglAddon.dispose());
+        terminal.loadAddon(webglAddon);
+      } catch (error) {
+        // Blocklisted GPU or no WebGL: the DOM renderer still works.
+        console.warn("Terminal WebGL renderer unavailable", error);
+      }
+    }
     if (activeSession.replay) {
       terminal.write(activeSession.replay);
     }

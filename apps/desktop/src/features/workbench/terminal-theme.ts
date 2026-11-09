@@ -1,44 +1,60 @@
 import type { ITheme } from "@xterm/xterm";
-import { mix } from "../../../contracts/theme";
 import type { ActiveTheme } from "../../ui/active-theme";
-import { syntaxThemes } from "../../ui/syntax-highlight";
-
-const ANSI_NAMES = ["Black", "Red", "Green", "Yellow", "Blue", "Magenta", "Cyan", "White"] as const;
 
 /**
- * The terminal sits on the app's main surface and takes its 16 ANSI colours
- * from the preset's VS Code theme file, like the syntax colours. Themes
- * without terminal colours fall back to the seed's semantic colours.
+ * Windows Terminal's stock schemes: "Campbell" for dark UIs and "One Half Light"
+ * for light ones. CLIs hard-code assumptions about these vivid 16 colours (Claude
+ * Code's orange, git's red/green); deriving them from the app preset washed them
+ * out to near-monochrome.
  */
+const CAMPBELL = {
+  black: "#0c0c0c",
+  red: "#c50f1f",
+  green: "#13a10e",
+  yellow: "#c19c00",
+  blue: "#0037da",
+  magenta: "#881798",
+  cyan: "#3a96dd",
+  white: "#cccccc",
+  brightBlack: "#767676",
+  brightRed: "#e74856",
+  brightGreen: "#16c60c",
+  brightYellow: "#f9f1a5",
+  brightBlue: "#3b78ff",
+  brightMagenta: "#b4009e",
+  brightCyan: "#61d6d6",
+  brightWhite: "#f2f2f2",
+} as const;
+
+const ONE_HALF_LIGHT = {
+  black: "#383a42",
+  red: "#e45649",
+  green: "#50a14f",
+  yellow: "#c18401",
+  blue: "#0184bc",
+  magenta: "#a626a4",
+  cyan: "#0997b3",
+  white: "#fafafa",
+  brightBlack: "#4f525d",
+  brightRed: "#df6c75",
+  brightGreen: "#98c379",
+  brightYellow: "#e4c07a",
+  brightBlue: "#61afef",
+  brightMagenta: "#c577dd",
+  brightCyan: "#56b5c1",
+  brightWhite: "#ffffff",
+} as const;
+
+/** The terminal sits on the app's main surface; only the 16 ANSI colours are fixed. */
 export function terminalThemeFor(theme: ActiveTheme): ITheme {
   const { tokens } = theme;
   const token = (name: `--${string}`): string => tokens[name] ?? "";
-  const main = token("--main");
-  const ink = token("--text-strong");
-  const colors = syntaxThemes[theme.syntaxTheme].colors ?? {};
-  const fallback: Record<(typeof ANSI_NAMES)[number], string> = {
-    Black: theme.variant === "light" ? ink : mix(main, "#000000", 0.3),
-    Red: token("--error"),
-    Green: token("--success"),
-    Yellow: token("--warning"),
-    Blue: token("--accent"),
-    Magenta: mix(token("--accent"), token("--error"), 0.5),
-    Cyan: mix(token("--accent"), token("--success"), 0.5),
-    White: theme.variant === "light" ? token("--muted") : ink,
-  };
-  const ansi: Record<string, string> = {};
-  for (const name of ANSI_NAMES) {
-    const key = name.charAt(0).toLowerCase() + name.slice(1);
-    ansi[key] = colors[`terminal.ansi${name}`] ?? fallback[name];
-    ansi[`bright${name}`] =
-      colors[`terminal.ansiBright${name}`] ?? colors[`terminal.ansi${name}`] ?? fallback[name];
-  }
   return {
-    ...ansi,
+    ...(theme.variant === "light" ? ONE_HALF_LIGHT : CAMPBELL),
     background: "#00000000",
     foreground: token("--text"),
-    cursor: ink,
-    cursorAccent: main,
+    cursor: token("--text-strong"),
+    cursorAccent: token("--main"),
     selectionBackground: token("--terminal-selection"),
   };
 }

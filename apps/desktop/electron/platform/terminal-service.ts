@@ -310,6 +310,8 @@ export class TerminalService {
         rows: session.size.rows,
         cwd: session.cwd,
         env: buildTerminalEnv(),
+        // Windows: always ConPTY (never winpty) so CLIs see a real console and keep colour.
+        ...(process.platform === "win32" ? { useConpty: true } : {}),
       });
     } catch (error) {
       session.status = "error";
@@ -508,6 +510,12 @@ function buildTerminalEnv(): Record<string, string> {
     }
   }
   env.TERM = "xterm-256color";
+  // xterm.js renders 24-bit colour; CLIs (Claude Code, etc.) only emit it when told.
+  env.COLORTERM = "truecolor";
+  // Inherited NO_COLOR / FORCE_COLOR (FORCE_COLOR=1 caps Node CLIs at 16 colours, =0 disables
+  // colour) must not leak from whatever launched Pegasus; the pty is a real colour terminal.
+  delete env.NO_COLOR;
+  delete env.FORCE_COLOR;
   delete env.TERMINFO;
   delete env.TERMINFO_DIRS;
   return env;
