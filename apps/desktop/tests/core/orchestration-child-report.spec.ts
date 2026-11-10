@@ -1,5 +1,3 @@
-import { createServer } from "node:http";
-import type { AddressInfo, Socket } from "node:net";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
@@ -12,75 +10,12 @@ import {
   makeWorkspace,
   runOrchestrationRuntimeTool,
   seedAgentDir,
+  startAnsweringModelServer,
 } from "../helpers/electron-app";
-
-// An OpenAI-compatible server that answers every turn at once and keeps each request body.
-type ServerReply = { readonly text: string } | { readonly toolCall: string };
-
-async function answeringServer(
-  reply: string,
-  plan: (body: string) => Promise<ServerReply> | ServerReply = () => ({ text: reply }),
-) {
-  const bodies: string[] = [];
-  const sockets = new Set<Socket>();
-  const server = createServer((request, response) => {
-    let body = "";
-    request.on("data", (chunk: Buffer) => (body += chunk.toString("utf8")));
-    request.on("end", async () => {
-      bodies.push(body);
-      const planned = await plan(body);
-      response.writeHead(200, { "Content-Type": "text/event-stream" });
-      const chunk = (delta: object, finish: string | null) =>
-        `data: ${JSON.stringify({
-          id: "chatcmpl-test",
-          object: "chat.completion.chunk",
-          created: 0,
-          model: "fast",
-          choices: [{ index: 0, delta, finish_reason: finish }],
-        })}\n\n`;
-      if ("toolCall" in planned) {
-        response.write(
-          chunk(
-            {
-              role: "assistant",
-              tool_calls: [
-                {
-                  index: 0,
-                  id: "call_lead_1",
-                  type: "function",
-                  function: { name: planned.toolCall, arguments: "{}" },
-                },
-              ],
-            },
-            null,
-          ),
-        );
-        response.write(chunk({}, "tool_calls"));
-      } else {
-        response.write(chunk({ role: "assistant", content: planned.text }, null));
-        response.write(chunk({}, "stop"));
-      }
-      response.end("data: [DONE]\n\n");
-    });
-  });
-  server.on("connection", (socket) => {
-    sockets.add(socket);
-    socket.on("close", () => sockets.delete(socket));
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  return {
-    baseUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`,
-    bodies,
-    close: async () => {
-      for (const socket of sockets) socket.destroy();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    },
-  };
-}
 
 test("a finished child reports to its parent thread without the parent polling", async () => {
   test.setTimeout(90_000);
-  const server = await answeringServer("Child done: committed the fix.");
+  const server = await startAnsweringModelServer("Child done: committed the fix.");
   const userDataDir = await makeUserDataDir();
   const agentDir = join(userDataDir, "agent");
   const workspacePath = await makeWorkspace("orchestration-child-report");
@@ -168,7 +103,7 @@ test("a child that finishes while the lead is mid-turn reaches the lead in that 
   let releaseLead: () => void = () => undefined;
   const leadHeld = new Promise<void>((resolve) => (releaseLead = resolve));
   const events: string[] = [];
-  const server = await answeringServer("Child done.", async (body) => {
+  const server = await startAnsweringModelServer("Child done.", async (body) => {
     if (body.includes("[Child thread report]")) {
       events.push("report");
       return { text: "Noted." };

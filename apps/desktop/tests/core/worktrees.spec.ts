@@ -95,12 +95,12 @@ test("creates and selects a worktree-backed workspace from the desktop UI", asyn
     }
 
     await expect(window.locator(".topbar__session")).toContainText(worktreeWorkspace.name);
-    await expect(window.locator(".empty-panel")).toContainText("Create a thread for this folder");
-    await expect(window.locator(".empty-panel")).not.toContainText("/Users/");
+    // A folder without chats opens its project page; New chat reaches the composer.
+    await expect(window.getByText("No active chats in this project yet.")).toBeVisible();
 
     await window
       .getByRole("complementary")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
     await expect(window.getByTestId("new-thread-composer")).toBeVisible();
     await expect(window.getByLabel("Environment", { exact: true })).toHaveValue("local");
@@ -126,7 +126,7 @@ test("scopes worktree creation and startup collection to the active profile", as
     const profileAHarness = await launchDesktop(profileA, {
       initialWorkspaces: [workspacePath],
       testMode: "background",
-      envOverrides: { HOME: fakeHome },
+      envOverrides: { HOME: fakeHome, USERPROFILE: fakeHome },
     });
     try {
       const window = await profileAHarness.firstWindow();
@@ -167,7 +167,7 @@ test("scopes worktree creation and startup collection to the active profile", as
     const profileBHarness = await launchDesktop(profileB, {
       initialWorkspaces: [],
       testMode: "background",
-      envOverrides: { HOME: fakeHome },
+      envOverrides: { HOME: fakeHome, USERPROFILE: fakeHome },
     });
     try {
       await profileBHarness.firstWindow();
@@ -181,7 +181,7 @@ test("scopes worktree creation and startup collection to the active profile", as
     const profileACompatibilityHarness = await launchDesktop(profileA, {
       initialWorkspaces: [],
       testMode: "background",
-      envOverrides: { HOME: fakeHome },
+      envOverrides: { HOME: fakeHome, USERPROFILE: fakeHome },
     });
     try {
       const window = await profileACompatibilityHarness.firstWindow();
@@ -204,7 +204,7 @@ test("scopes worktree creation and startup collection to the active profile", as
     const profileAReconcileHarness = await launchDesktop(profileA, {
       initialWorkspaces: [],
       testMode: "background",
-      envOverrides: { HOME: fakeHome },
+      envOverrides: { HOME: fakeHome, USERPROFILE: fakeHome },
     });
     try {
       await profileAReconcileHarness.firstWindow();

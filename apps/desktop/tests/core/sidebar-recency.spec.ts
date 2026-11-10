@@ -14,6 +14,8 @@ import {
   makeUserDataDir,
   makeWorkspace,
   seedAgentDir,
+  seedLocalModelAgentDir,
+  startAnsweringModelServer,
   waitForWorkspaceByPath,
 } from "../helpers/electron-app";
 
@@ -93,11 +95,14 @@ test("bumps a sent thread to the top of Today", async () => {
   test.setTimeout(90_000);
   const userDataDir = await makeUserDataDir("pi-app-user-data-recency-send-");
   const agentDir = join(userDataDir, "agent");
-  await seedAgentDir(agentDir);
+  // A local model answers sends at once; a failed provider call would move the thread to Needs you.
+  const modelServer = await startAnsweringModelServer("Done.");
+  await seedLocalModelAgentDir(agentDir, modelServer.baseUrl);
   const workspacePath = await makeWorkspace("recency-send");
   const harness = await launchDesktop(userDataDir, {
     agentDir,
     initialWorkspaces: [workspacePath],
+    scrubProviderEnv: true,
     testMode: "background",
   });
 
@@ -127,6 +132,7 @@ test("bumps a sent thread to the top of Today", async () => {
     await captureSidebarProof(window, "send-bumps-today.png");
   } finally {
     await harness.close();
+    await modelServer.close();
   }
 });
 
@@ -134,11 +140,14 @@ test("selects pinned threads first with 1-9 and paints badges while the modifier
   test.setTimeout(120_000);
   const userDataDir = await makeUserDataDir("pi-app-user-data-recency-shortcut-");
   const agentDir = join(userDataDir, "agent");
-  await seedAgentDir(agentDir);
+  // A local model answers sends at once; a failed provider call would move the thread to Needs you.
+  const modelServer = await startAnsweringModelServer("Done.");
+  await seedLocalModelAgentDir(agentDir, modelServer.baseUrl);
   const workspacePath = await makeWorkspace("recency-shortcut");
   const harness = await launchDesktop(userDataDir, {
     agentDir,
     initialWorkspaces: [workspacePath],
+    scrubProviderEnv: true,
     testMode: "background",
   });
 
@@ -213,6 +222,7 @@ test("selects pinned threads first with 1-9 and paints badges while the modifier
     }
   } finally {
     await harness.close();
+    await modelServer.close();
   }
 });
 
@@ -222,9 +232,11 @@ test("groups seeded Last 7 Days, Last 30 Days, and Older threads", async () => {
   const workspaceAPath = await makeWorkspace("recency-buckets-a");
   const workspaceBPath = await makeWorkspace("recency-buckets-b");
   const agentDir = join(userDataDir, "agent");
-  await seedAgentDir(agentDir);
+  const modelServer = await startAnsweringModelServer("Done.");
+  await seedLocalModelAgentDir(agentDir, modelServer.baseUrl);
   const firstRun = await launchDesktop(userDataDir, {
     agentDir,
+    scrubProviderEnv: true,
     initialWorkspaces: [workspaceAPath, workspaceBPath],
     testMode: "background",
   });
@@ -286,7 +298,11 @@ test("groups seeded Last 7 Days, Last 30 Days, and Older threads", async () => {
     selectedSessionId: seeded!.selectedSessionId,
   });
 
-  const secondRun = await launchDesktop(userDataDir, { testMode: "background" });
+  const secondRun = await launchDesktop(userDataDir, {
+    agentDir,
+    scrubProviderEnv: true,
+    testMode: "background",
+  });
   try {
     const window = await secondRun.firstWindow();
     await waitForWorkspaceByPath(window, workspaceAPath);
@@ -334,6 +350,7 @@ test("groups seeded Last 7 Days, Last 30 Days, and Older threads", async () => {
     await captureSidebarProof(window, "send-bumps-week-to-today.png");
   } finally {
     await secondRun.close();
+    await modelServer.close();
   }
 });
 
@@ -414,7 +431,7 @@ test("caps a long Last 7 Days bucket and sorts the folder by last send", async (
       "Week 3",
       "Week 2",
     ]);
-    await expect(window.locator(".workspace-row")).toHaveCount(0);
+    await expect(window.locator(".workspace-row")).toHaveCount(1);
     await week.getByRole("button", { name: "Show more Last 7 Days" }).click();
     await expect(week.locator(".session-row__title")).toHaveText([
       "Sent later",
@@ -511,6 +528,31 @@ async function sendComposerPrompt(window: Page, text: string): Promise<void> {
       { timeout: 15_000 },
     )
     .toContain(text);
+  // The hidden test window is never "looked at", so the finished reply would park the chat in
+  // Needs you. Mark it read like an owner who watched it finish.
+  const target = await window.evaluate(async () => {
+    const state = await globalThis.window.piApp.getState();
+    return { workspaceId: state.selectedWorkspaceId, sessionId: state.selectedSessionId };
+  });
+  await expect
+    .poll(async () => {
+      const transcript = await getSelectedTranscript(window);
+      return transcript?.transcript.some(
+        (entry) => entry.kind === "message" && entry.role === "assistant" && entry.text.includes("Done."),
+      );
+    })
+    .toBe(true);
+  await expect
+    .poll(async () => {
+      const state = await getDesktopState(window);
+      return state.workspaces
+        .flatMap((workspace) => workspace.sessions)
+        .find((session) => session.id === target.sessionId)?.status;
+    })
+    .not.toBe("running");
+  await window.evaluate(async (ref) => {
+    await globalThis.window.piApp.markSessionRead(ref);
+  }, target as { workspaceId: string; sessionId: string });
 }
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";

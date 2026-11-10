@@ -183,7 +183,9 @@ export function useWorkspaceMenu(params: UseWorkspaceMenuParams): WorkspaceMenuS
     if (!api) {
       return;
     }
-    if (api.workspaceFolders) {
+    // The in-app picker browses folders that are already open; with none open it has no locations,
+    // so the very first folder (and any folder it cannot reach) comes from the system dialog.
+    if (api.workspaceFolders && workspaces.length > 0) {
       setWorkspaceMenuId(null);
       setFolderPickerCreateMode(createNew);
       setFolderPickerOpen(true);

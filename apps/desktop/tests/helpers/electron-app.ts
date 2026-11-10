@@ -1,5 +1,7 @@
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { copyFile, mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import type { AddressInfo, Socket } from "node:net";
 import { createRequire } from "node:module";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -2255,4 +2257,98 @@ export async function rejectIpcInvokes(
   sentinel = HYDRATE_TEST_SENTINEL,
 ): Promise<void> {
   await installIpcInvokeControl(harness, channel, { mode: "reject", sentinel });
+}
+
+// An OpenAI-compatible server that answers every turn at once and keeps each request body.
+export type ModelServerReply = { readonly text: string } | { readonly toolCall: string };
+
+export async function startAnsweringModelServer(
+  reply: string,
+  plan: (body: string) => Promise<ModelServerReply> | ModelServerReply = () => ({ text: reply }),
+) {
+  const bodies: string[] = [];
+  const sockets = new Set<Socket>();
+  const server = createServer((request, response) => {
+    let body = "";
+    request.on("data", (chunk: Buffer) => (body += chunk.toString("utf8")));
+    request.on("end", async () => {
+      bodies.push(body);
+      const planned = await plan(body);
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      const chunk = (delta: object, finish: string | null) =>
+        `data: ${JSON.stringify({
+          id: "chatcmpl-test",
+          object: "chat.completion.chunk",
+          created: 0,
+          model: "fast",
+          choices: [{ index: 0, delta, finish_reason: finish }],
+        })}\n\n`;
+      if ("toolCall" in planned) {
+        response.write(
+          chunk(
+            {
+              role: "assistant",
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "call_lead_1",
+                  type: "function",
+                  function: { name: planned.toolCall, arguments: "{}" },
+                },
+              ],
+            },
+            null,
+          ),
+        );
+        response.write(chunk({}, "tool_calls"));
+      } else {
+        response.write(chunk({ role: "assistant", content: planned.text }, null));
+        response.write(chunk({}, "stop"));
+      }
+      response.end("data: [DONE]\n\n");
+    });
+  });
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return {
+    baseUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`,
+    bodies,
+    close: async () => {
+      for (const socket of sockets) socket.destroy();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  };
+}
+
+/** Points the agent dir at a local OpenAI-compatible server so a sent prompt never reaches the network. */
+export async function seedLocalModelAgentDir(agentDir: string, baseUrl: string): Promise<void> {
+  await seedAgentDir(agentDir, {
+    withOpenAiAuth: false,
+    withDefaultModel: false,
+    enabledModels: ["fast-test/fast"],
+  });
+  await writeFile(
+    join(agentDir, "settings.json"),
+    JSON.stringify({
+      defaultProvider: "fast-test",
+      defaultModel: "fast",
+      enabledModels: ["fast-test/fast"],
+    }),
+  );
+  await writeFile(
+    join(agentDir, "models.json"),
+    JSON.stringify({
+      providers: {
+        "fast-test": {
+          baseUrl,
+          api: "openai-completions",
+          apiKey: "unused",
+          models: [{ id: "fast" }],
+        },
+      },
+    }),
+  );
 }
