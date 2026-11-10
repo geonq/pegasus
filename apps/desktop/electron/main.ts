@@ -15,6 +15,12 @@ import {
   type MessageBoxOptions,
 } from "electron";
 import { isValidHttpBaseUrl } from "@pi-gui/pi-sdk-driver";
+import {
+  pairPhone,
+  readPhoneAccess,
+  revokePhone,
+  type PhoneAccessOptions,
+} from "./remote/phone-access";
 import { onSharedHostEvent, sharedHost } from "@pi-gui/host-protocol/shared";
 import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
@@ -217,6 +223,28 @@ let windowOwner: WindowOwner;
 let remoteDesktopClient: RemoteDesktopHttpClient | undefined;
 let remoteDesktopHost: RemoteDesktopHttpHost | undefined;
 let remoteDesktopHostConfig: RemoteDesktopHostFileConfig | undefined;
+
+/**
+ * The remote desktop host config: PI_REMOTE_DESKTOP_HOST_CONFIG when set (owner setups), else
+ * the profile's own file, which Settings › Phone creates when the first phone is paired.
+ */
+function remoteHostConfigPath(): string {
+  return (
+    process.env.PI_REMOTE_DESKTOP_HOST_CONFIG?.trim() ||
+    path.join(app.getPath("userData"), "remote-desktop-host.json")
+  );
+}
+
+const phoneAccessOptions = (): PhoneAccessOptions => ({
+  configPath: remoteHostConfigPath(),
+  workspaceIds: () => store.getWorkspaceRecords().map((record) => record.id),
+  servedPhoneIds: () =>
+    remoteDesktopHost
+      ? (remoteDesktopHostConfig?.clients ?? [])
+          .map((client) => client.id)
+          .filter((id) => id.startsWith("phone-"))
+      : [],
+});
 let macWorkspaceFolderAdapter: WorkspaceFolderAdapter | undefined;
 // Stand-ins for Mac folders opened as Pi projects (beside the Mac discovery file in .state).
 let macProjectsPath: string | undefined;
@@ -1505,8 +1533,8 @@ app
       traceStartup("remote client skipped local store initialization");
     }
     if (!remoteDesktopClientMode && process.platform === "win32") {
-      const hostConfigPath = process.env.PI_REMOTE_DESKTOP_HOST_CONFIG?.trim();
-      if (hostConfigPath) {
+      const hostConfigPath = remoteHostConfigPath();
+      if (existsSync(hostConfigPath)) {
         remoteDesktopHostConfig = await readPrivateRemoteDesktopConfig(
           hostConfigPath,
           process.platform,
@@ -1854,6 +1882,13 @@ app
         getAccountLimits: (cachedOnly) =>
           readAccountLimits(path.join(path.dirname(resolveAgentDir()), "claude"), { cachedOnly }),
         getClaudeSlots: () => readClaudeSlots(path.join(path.dirname(resolveAgentDir()), "claude")),
+        getPhoneAccess: () => readPhoneAccess(phoneAccessOptions()),
+        pairPhone: (label) => pairPhone(phoneAccessOptions(), label),
+        revokePhone: (phoneId) => revokePhone(phoneAccessOptions(), phoneId),
+        restartApp: () => {
+          app.relaunch();
+          app.quit();
+        },
         getSignIns: () => signIns?.current() ?? [],
         revealWorkspaceFile: async (workspacePath, filePath) => {
           const resolved = await resolveExistingWorkspacePath(workspacePath, filePath);
@@ -1934,7 +1969,8 @@ app
       remoteDesktopClient.startEvents();
     }
 
-    if (remoteDesktopHostConfig) {
+    // No clients (the last phone was revoked) means the remote desktop API stays off.
+    if (remoteDesktopHostConfig && remoteDesktopHostConfig.clients.length > 0) {
       const remoteDesktopBrokerStarted = performance.now();
       if (process.platform !== "win32") {
         throw new Error("Remote desktop host mode is supported only on Windows.");

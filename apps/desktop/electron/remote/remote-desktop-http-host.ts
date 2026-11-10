@@ -4,6 +4,7 @@ import { onSharedHostEvent, sharedHost } from "@pi-gui/host-protocol/shared";
 import type { RemoteDesktopBroker } from "./remote-desktop-broker";
 import { isRemoteDesktopMethod, type RemoteDesktopEvent } from "./remote-desktop-protocol";
 import { RemoteWorkspaceFolderError } from "./remote-workspace-folders";
+import { tailscaleAddress } from "./phone-access";
 
 /**
  * The remote desktop API (the Mac client today, the phone next) is served by the Rust host
@@ -22,6 +23,8 @@ export interface RemoteDesktopHostClient {
   readonly folderRootWorkspaceIds?: readonly string[];
   readonly initialWorkspaceId?: string;
   readonly initialSessionId?: string;
+  /** Shown in Settings › Phone for paired phones. */
+  readonly label?: string;
 }
 
 export interface RemoteDesktopHttpHostConfig {
@@ -29,6 +32,8 @@ export interface RemoteDesktopHttpHostConfig {
   readonly allowedOrigins: readonly string[];
   readonly clients: readonly RemoteDesktopHostClient[];
   readonly brokers: ReadonlyMap<string, RemoteDesktopBroker>;
+  /** Also listen on this PC's Tailscale address (paired phones). */
+  readonly phoneAccess?: { readonly bind: "tailscale" };
 }
 
 export interface RemoteDesktopHttpHost {
@@ -180,10 +185,17 @@ export async function startRemoteDesktopHttpHost(
       });
     }),
   );
+  const tailscale = config.phoneAccess ? tailscaleAddress() : null;
+  if (config.phoneAccess && !tailscale) {
+    console.warn(
+      "[remote] phone access is on but this PC has no Tailscale address; phones cannot connect",
+    );
+  }
   try {
     await host.call("remote.serve", {
       port: config.port,
       allowedOrigins: [...config.allowedOrigins],
+      ...(tailscale ? { extraBinds: [tailscale] } : {}),
       clients: config.clients.map((client) => ({
         id: client.id,
         tokenSha256: tokenDigest(client.token),

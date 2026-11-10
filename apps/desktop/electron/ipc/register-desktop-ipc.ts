@@ -1,3 +1,4 @@
+import type { PhoneAccessState, PhonePairing } from "../../contracts/phone-access";
 import { ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from "electron";
 import path from "node:path";
 import type { SessionRef } from "@pi-gui/session-driver";
@@ -226,6 +227,10 @@ export interface DesktopIpcCapabilities {
   readonly getAccountStates: () => Promise<readonly AccountStatus[]>;
   readonly getAccountLimits: (cachedOnly: boolean) => Promise<readonly AccountLimits[]>;
   readonly getClaudeSlots: () => Promise<readonly ClaudeSlot[]>;
+  readonly getPhoneAccess: () => Promise<PhoneAccessState>;
+  readonly pairPhone: (label: string) => Promise<PhonePairing>;
+  readonly revokePhone: (phoneId: string) => Promise<void>;
+  readonly restartApp: () => void;
   readonly getSignIns: () => readonly SignInStatus[];
   readonly revealWorkspaceFile: (workspacePath: string, filePath: string) => Promise<void>;
   readonly getChangedFiles: (workspacePath: string) => Promise<ChangedFilesResult>;
@@ -1180,6 +1185,22 @@ function registerWorkspaceFileIpc(
   ipcMain.handle(desktopIpc.getClaudeSlots, async (event) => {
     windows.windowForSender(event.sender);
     return capabilities.getClaudeSlots();
+  });
+  ipcMain.handle(desktopIpc.getPhoneAccess, async (event) => {
+    windows.windowForSender(event.sender);
+    return capabilities.getPhoneAccess();
+  });
+  ipcMain.handle(desktopIpc.pairPhone, async (event, rawLabel: unknown) => {
+    windows.windowForSender(event.sender);
+    return capabilities.pairPhone(expectString(rawLabel, "label").slice(0, 64));
+  });
+  ipcMain.handle(desktopIpc.revokePhone, async (event, rawPhoneId: unknown) => {
+    windows.windowForSender(event.sender);
+    return capabilities.revokePhone(expectNonEmptyString(rawPhoneId, "phoneId"));
+  });
+  ipcMain.handle(desktopIpc.restartApp, (event) => {
+    windows.windowForSender(event.sender);
+    capabilities.restartApp();
   });
   ipcMain.handle(desktopIpc.getSignIns, async (event) => {
     windows.windowForSender(event.sender);

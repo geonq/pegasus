@@ -255,3 +255,56 @@ fn process_alive(pid: u32) -> bool {
         Command::new("kill").args(["-0", &pid.to_string()]).status().is_ok_and(|s| s.success())
     }
 }
+
+fn sha256_hex(s: &str) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(s.as_bytes()).iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// One raw HTTP/1.1 request; returns (status, body).
+async fn http(port: u16, head: &str, body: &str) -> (u16, String) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+    let req = format!("{head}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+    s.write_all(req.as_bytes()).await.unwrap();
+    let mut out = String::new();
+    s.read_to_string(&mut out).await.unwrap();
+    let status = out.split(' ').nth(1).and_then(|c| c.parse().ok()).unwrap_or(0);
+    (status, out.split("\r\n\r\n").nth(1).unwrap_or("").to_string())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn remote_api_serves_native_clients_without_origin_and_only_binds_tailscale() {
+    let root = std::env::temp_dir().join(format!("pegasus-host-remote-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let ep = endpoint("remote");
+    let _host = spawn(&ep, &root, 600);
+    let mut c = connect(&ep).await;
+    let port = { let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap(); l.local_addr().unwrap().port() };
+    let token = "t".repeat(40);
+    let bad = call(&mut c, 1, "remote.serve", json!({"port": port, "allowedOrigins": ["file://"],
+        "clients": [{"id": "phone", "tokenSha256": sha256_hex(&token)}], "extraBinds": ["192.168.1.5"]})).await;
+    assert_eq!(bad["error"]["code"], "bad_params", "a LAN address must be refused: {bad}");
+    let ok = call(&mut c, 2, "remote.serve", json!({"port": port, "allowedOrigins": ["file://"],
+        "clients": [{"id": "phone", "tokenSha256": sha256_hex(&token)}]})).await;
+    assert!(ok.get("result").is_some(), "{ok}");
+
+    // The phone's request: no Origin. The provider (this connection) answers the relayed call.
+    let head = format!("POST /v1/invoke HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\n");
+    let request = tokio::spawn(async move { http(port, &head, r#"{"method":"getState","args":[]}"#).await });
+    let ev = loop {
+        let v = recv(&mut c).await;
+        if v["event"] == "remoteInvoke" { break v; }
+    };
+    assert_eq!(ev["data"]["clientId"], "phone");
+    assert_eq!(ev["data"]["method"], "getState");
+    let rid = ev["data"]["requestId"].clone();
+    send(&mut c, json!({"v":2,"id":3,"method":"remote.reply","params":{"requestId": rid, "ok": true, "value": {"workspaces": []}}})).await;
+    let (status, body) = request.await.unwrap();
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(serde_json::from_str::<Value>(&body).unwrap(), json!({"version": 1, "result": {"workspaces": []}}));
+
+    // Without a token it is refused before anything reaches the provider.
+    let head = format!("POST /v1/invoke HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\n");
+    assert_eq!(http(port, &head, "{}").await.0, 401);
+}

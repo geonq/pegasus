@@ -1,3 +1,4 @@
+import type { PhoneAccessState, PhonePairing } from "./phone-access";
 import type {
   ExtensionViewOpenFile,
   DesktopExtensionViewInfo,
@@ -243,6 +244,10 @@ export const desktopIpc = {
   getAccountStates: "pi-gui:get-account-states",
   getAccountLimits: "pi-gui:get-account-limits",
   getClaudeSlots: "pi-gui:get-claude-slots",
+  getPhoneAccess: "pi-gui:get-phone-access",
+  pairPhone: "pi-gui:pair-phone",
+  revokePhone: "pi-gui:revoke-phone",
+  restartApp: "pi-gui:restart-app",
   getSignIns: "pi-gui:get-sign-ins",
   revealWorkspaceFile: "pi-gui:reveal-workspace-file",
   getChangedFiles: "pi-gui:get-changed-files",
@@ -943,6 +948,12 @@ export interface PiDesktopApi {
   getAccountLimits(options?: { readonly cachedOnly?: boolean }): Promise<readonly AccountLimits[]>;
   /** Who each Claude CLI slot is signed in as (a local file read, no network). */
   getClaudeSlots(): Promise<readonly ClaudeSlot[]>;
+  /** Settings › Phone: paired phones and this PC's Tailscale address. */
+  getPhoneAccess?(): Promise<PhoneAccessState>;
+  pairPhone?(label: string): Promise<PhonePairing>;
+  revokePhone?(phoneId: string): Promise<void>;
+  /** Relaunch Pegasus (applies phone pairing changes). */
+  restartApp?(): Promise<void>;
   /** The latest hourly sign-in check for every provider (a memory read). */
   getSignIns(): Promise<readonly SignInStatus[]>;
   revealWorkspaceFile(workspaceId: string, filePath: string): Promise<void>;

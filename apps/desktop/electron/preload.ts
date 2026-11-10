@@ -1,3 +1,4 @@
+import type { PhoneAccessState, PhonePairing } from "../contracts/phone-access";
 import type {
   ExtensionViewOpenFile,
   DesktopExtensionViewInfo,
@@ -663,6 +664,12 @@ const localPiDesktopApi = {
     ipcRenderer.invoke(desktopIpc.getAccountLimits, options) as Promise<readonly AccountLimits[]>,
   getClaudeSlots: () =>
     ipcRenderer.invoke(desktopIpc.getClaudeSlots) as Promise<readonly ClaudeSlot[]>,
+  getPhoneAccess: () => ipcRenderer.invoke(desktopIpc.getPhoneAccess) as Promise<PhoneAccessState>,
+  pairPhone: (label: string) =>
+    ipcRenderer.invoke(desktopIpc.pairPhone, label) as Promise<PhonePairing>,
+  revokePhone: (phoneId: string) =>
+    ipcRenderer.invoke(desktopIpc.revokePhone, phoneId) as Promise<void>,
+  restartApp: () => ipcRenderer.invoke(desktopIpc.restartApp) as Promise<void>,
   getSignIns: () => ipcRenderer.invoke(desktopIpc.getSignIns) as Promise<readonly SignInStatus[]>,
   readWorkspaceFile: (workspaceId: string, filePath: string) =>
     ipcRenderer.invoke(

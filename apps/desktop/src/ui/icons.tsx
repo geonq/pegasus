@@ -719,6 +719,15 @@ export function SunIcon() {
   );
 }
 
+export function PhoneIcon() {
+  return (
+    <Icon>
+      <rect x="6" y="2.8" width="8" height="14.4" rx="2" stroke="currentColor" strokeWidth="1.35" />
+      <path d="M9 14.6h2" stroke="currentColor" strokeLinecap="round" strokeWidth="1.35" />
+    </Icon>
+  );
+}
+
 export function BellIcon() {
   return (
     <Icon>

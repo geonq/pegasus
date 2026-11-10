@@ -2150,6 +2150,46 @@
   overflow-wrap: anywhere;
 }
 
+.settings-phone__pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-phone__pair .settings-text-input {
+  width: 160px;
+}
+
+.settings-phone__qr {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 12px 16px 16px;
+}
+
+/* A QR code needs dark modules on a light field in every theme, so its card is always light. */
+.settings-phone__qr img {
+  width: 208px;
+  height: 208px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.settings-phone__qr p {
+  margin: 0;
+  max-width: 420px;
+  font-size: 12.5px;
+  color: var(--muted-soft);
+}
+
+.settings-phone__error {
+  margin: 0;
+  padding: 8px 16px 12px;
+  font-size: 12.5px;
+  color: var(--error-ink);
+}
+
 /* ── Settings controls ──────────────────────────────────── */
 
 .settings-switch {

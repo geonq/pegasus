@@ -272,6 +272,10 @@ pub struct RemoteServeParams {
     pub port: u16,
     pub allowed_origins: Vec<String>,
     pub clients: Vec<RemoteClientConfig>,
+    /// More IPv4 addresses to listen on besides 127.0.0.1 (the PC's Tailscale address for the phone).
+    #[serde(default)]
+    #[ts(optional)]
+    pub extra_binds: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

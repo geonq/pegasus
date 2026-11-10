@@ -82,7 +82,8 @@ impl SseStream {
 }
 
 struct Server {
-    port: u16,
+    /// Host headers this server answers to: `127.0.0.1:port` and each extra bind.
+    hosts: HashSet<String>,
     origins: HashSet<String>,
     /// sha256(token) hex -> client id
     clients: HashMap<String, String>,
@@ -155,25 +156,53 @@ impl Remote {
                 return Err(host_err("Remote desktop tokens must be unique."));
             }
         }
+        let mut addrs: Vec<std::net::Ipv4Addr> = vec![std::net::Ipv4Addr::LOCALHOST];
+        for b in p.extra_binds.iter().flatten() {
+            let ip: std::net::Ipv4Addr = b.parse().map_err(|_| host_err(format!("not an IPv4 address: {b}")))?;
+            // Only the Tailscale range (100.64.0.0/10): never every interface, never the LAN by accident.
+            let o = ip.octets();
+            if !(o[0] == 100 && (64..128).contains(&o[1])) {
+                return Err(host_err(format!("{b} is not a Tailscale address (100.64.0.0/10)")));
+            }
+            if !addrs.contains(&ip) {
+                addrs.push(ip);
+            }
+        }
         self.stop();
-        let listener = tokio::net::TcpListener::bind(("127.0.0.1", p.port))
-            .await
-            .map_err(|e| HostError::new(ErrorCode::Io, format!("remote port {}: {e}", p.port)))?;
+        let mut listeners = Vec::new();
+        for ip in &addrs {
+            let l = tokio::net::TcpListener::bind((*ip, p.port))
+                .await
+                .map_err(|e| HostError::new(ErrorCode::Io, format!("remote {ip}:{}: {e}", p.port)))?;
+            listeners.push(l);
+        }
         let server = Arc::new(Server {
-            port: p.port,
+            hosts: addrs.iter().map(|ip| format!("{ip}:{}", p.port)).collect(),
             origins: p.allowed_origins.into_iter().collect(),
             clients,
             stop: Arc::new(Notify::new()),
         });
         *lock(&self.server) = Some(server.clone());
         *lock(&self.provider) = Some(conn);
+        for listener in listeners {
+            self.accept_loop(host, server.clone(), listener);
+        }
+        Ok(())
+    }
+
+    fn accept_loop(self: &Arc<Self>, host: &Arc<Host>, server: Arc<Server>, listener: tokio::net::TcpListener) {
         let (me, host) = (self.clone(), host.clone());
         tokio::spawn(async move {
-            crate::info!("remote desktop API on 127.0.0.1:{}", server.port);
+            let at = listener.local_addr().map(|a| a.to_string()).unwrap_or_default();
+            crate::info!("remote desktop API on {at}");
             loop {
                 let accepted = tokio::select! {
                     a = listener.accept() => a,
-                    _ = server.stop.notified() => break,
+                    _ = server.stop.notified() => {
+                        // Wake the other listeners of this server too.
+                        server.stop.notify_waiters();
+                        break;
+                    }
                 };
                 let Ok((tcp, _)) = accepted else { continue };
                 let (me, server, host) = (me.clone(), server.clone(), host.clone());
@@ -206,14 +235,13 @@ impl Remote {
                     drop(reset_handle);
                 });
             }
-            crate::info!("remote desktop API on 127.0.0.1:{} stopped", server.port);
+            crate::info!("remote desktop API on {at} stopped");
         });
-        let _ = host; // keep the signature symmetric with other host features
-        Ok(())
     }
 
     pub fn stop(&self) {
         if let Some(s) = lock(&self.server).take() {
+            s.stop.notify_waiters();
             s.stop.notify_one();
         }
         for s in lock(&self.streams).drain(..) {
@@ -310,13 +338,15 @@ impl Remote {
                 Routed::Drain(body, $r)
             };
         }
-        let expected_host = format!("127.0.0.1:{}", server.port);
-        if header(&headers, "host") != Some(expected_host.as_str()) {
+        if !header(&headers, "host").is_some_and(|h| server.hosts.contains(h)) {
             return early!(error(400, "invalid_host", "The loopback Host header is invalid.", None));
         }
-        let origin = header(&headers, "origin").map(str::to_string);
-        let Some(origin) = origin.filter(|o| server.origins.contains(o)) else {
-            return early!(error(403, "origin_denied", "The request origin is not allowed.", None));
+        // Browsers always send Origin on these requests, so a present one must be allowed. A native
+        // app (the phone) sends none; it still needs its bearer token.
+        let origin = match header(&headers, "origin") {
+            None => String::new(),
+            Some(o) if server.origins.contains(o) => o.to_string(),
+            Some(_) => return early!(error(403, "origin_denied", "The request origin is not allowed.", None)),
         };
         let Some(client_id) = authenticate(&headers, &server.clients) else {
             return early!(error(401, "unauthorized", "A valid bearer token is required.", Some(&origin)));
@@ -741,6 +771,9 @@ fn authenticate(h: &HeaderMap, clients: &HashMap<String, String>) -> Option<Stri
 }
 
 fn cors(h: &mut HeaderMap, origin: &str) {
+    if origin.is_empty() {
+        return;
+    }
     if let Ok(v) = HeaderValue::from_str(origin) {
         h.insert("access-control-allow-origin", v);
         h.insert("vary", HeaderValue::from_static("Origin"));

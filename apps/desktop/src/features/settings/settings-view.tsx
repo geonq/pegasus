@@ -18,6 +18,7 @@ import { SettingsGeneralSection } from "./settings-general-section";
 import { type McpSettingsActions, SettingsMcpSection } from "./settings-mcp-section";
 import { SettingsModelsSection } from "./settings-models-section";
 import { SettingsNotificationsSection } from "./settings-notifications-section";
+import { SettingsPhoneSection } from "./settings-phone-section";
 import { SettingsProvidersSection } from "./settings-providers-section";
 import { type SettingsSection, settingsSectionDefinition } from "./settings-sections";
 import { SettingsShortcutsSection } from "./settings-shortcuts-section";
@@ -164,6 +165,8 @@ export function SettingsView({
           ) : null}
 
           {section === "shortcuts" ? <SettingsShortcutsSection platform={platform} /> : null}
+
+          {section === "phone" ? <SettingsPhoneSection /> : null}
 
           {section === "providers" && runtimeLoadStatus && runtimeLoadStatus !== "ready" ? (
             <div

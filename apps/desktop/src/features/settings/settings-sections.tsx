@@ -4,6 +4,7 @@ import {
   ExtensionIcon,
   KeyboardIcon,
   ModelIcon,
+  PhoneIcon,
   PlugIcon,
   SettingsIcon,
   SkillIcon,
@@ -49,6 +50,15 @@ export const SETTINGS_SECTIONS = [
     icon: <BellIcon />,
     keywords: ["alerts", "background", "completion", "failures", "approval", "macos"],
     description: () => "Choose which background events alert you.",
+    needsWorkspace: false,
+  },
+  {
+    id: "phone",
+    title: "Phone",
+    group: "App",
+    icon: <PhoneIcon />,
+    keywords: ["iphone", "ios", "mobile", "pair", "qr", "tailscale", "remote"],
+    description: () => "Pair a phone to follow and steer your chats from anywhere.",
     needsWorkspace: false,
   },
   {

@@ -106,7 +106,11 @@ export type RemoteClientConfig = { id: string,
  */
 tokenSha256: string, };
 
-export type RemoteServeParams = { port: number, allowedOrigins: Array<string>, clients: Array<RemoteClientConfig>, };
+export type RemoteServeParams = { port: number, allowedOrigins: Array<string>, clients: Array<RemoteClientConfig>, 
+/**
+ * More IPv4 addresses to listen on besides 127.0.0.1 (the PC's Tailscale address for the phone).
+ */
+extraBinds?: Array<string>, };
 
 export type RemoteError = { 
 /**

@@ -9,8 +9,11 @@ export interface RemoteDesktopHostFileConfig {
   readonly version: 1;
   readonly port: number;
   readonly allowedOrigins: readonly string[];
+  /** No clients means the remote desktop API stays off (for example after revoking the last phone). */
   readonly clients: readonly RemoteDesktopHostClient[];
   readonly macFolders?: RemoteDesktopMacFoldersConfig;
+  /** Also listen on this PC's Tailscale address, for paired phones. */
+  readonly phoneAccess?: { readonly bind: "tailscale" };
 }
 
 export interface RemoteDesktopMacFoldersConfig {
@@ -43,7 +46,7 @@ function isIdentifier(value: unknown): value is string {
 export function parseRemoteDesktopHostConfig(value: unknown): RemoteDesktopHostFileConfig {
   if (
     !isRecord(value) ||
-    !exactKeys(value, ["version", "port", "allowedOrigins", "clients", "macFolders"])
+    !exactKeys(value, ["version", "port", "allowedOrigins", "clients", "macFolders", "phoneAccess"])
   ) {
     throw new Error("Remote desktop host configuration is invalid.");
   }
@@ -56,7 +59,10 @@ export function parseRemoteDesktopHostConfig(value: unknown): RemoteDesktopHostF
     value.allowedOrigins.length === 0 ||
     value.allowedOrigins.some((origin) => typeof origin !== "string") ||
     !Array.isArray(value.clients) ||
-    value.clients.length === 0
+    (value.phoneAccess !== undefined &&
+      (!isRecord(value.phoneAccess) ||
+        !exactKeys(value.phoneAccess, ["bind"]) ||
+        value.phoneAccess.bind !== "tailscale"))
   ) {
     throw new Error("Remote desktop host configuration is invalid.");
   }
@@ -71,7 +77,10 @@ export function parseRemoteDesktopHostConfig(value: unknown): RemoteDesktopHostF
         "folderRootWorkspaceIds",
         "initialWorkspaceId",
         "initialSessionId",
+        "label",
       ]) ||
+      (candidate.label !== undefined &&
+        (typeof candidate.label !== "string" || candidate.label.length > 64)) ||
       !isIdentifier(candidate.id) ||
       clientIds.has(candidate.id) ||
       typeof candidate.token !== "string" ||
@@ -113,6 +122,7 @@ export function parseRemoteDesktopHostConfig(value: unknown): RemoteDesktopHostF
       ...(candidate.initialSessionId !== undefined
         ? { initialSessionId: candidate.initialSessionId }
         : {}),
+      ...(typeof candidate.label === "string" ? { label: candidate.label } : {}),
     };
   });
   return {
@@ -123,6 +133,7 @@ export function parseRemoteDesktopHostConfig(value: unknown): RemoteDesktopHostF
     ...(value.macFolders !== undefined
       ? { macFolders: parseMacFoldersConfig(value.macFolders) }
       : {}),
+    ...(value.phoneAccess !== undefined ? { phoneAccess: { bind: "tailscale" as const } } : {}),
   };
 }
 
