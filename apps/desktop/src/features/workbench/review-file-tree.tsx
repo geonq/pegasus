@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { TreeResizeHandle, useTreeWidth } from "./tree-resize";
 import type { ReviewFileEntry, ReviewFileStatus } from "../../../contracts/review";
 import { ChevronDownIcon, ChevronRightIcon, MinusIcon, PlusIcon, SearchIcon } from "../../ui/icons";
 import { buildFileTree, filterWorkspaceFiles, type FileTreeNode } from "./file-tree";
@@ -28,6 +29,7 @@ export function ReviewFileTree({
   onToggleReviewed,
   onStage,
 }: ReviewFileTreeProps) {
+  const treeWidth = useTreeWidth("pi-gui.review-tree-width");
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -149,7 +151,19 @@ export function ReviewFileTree({
   };
 
   return (
-    <section className="review-tree" aria-label="Changed files">
+    <section
+      className="review-tree"
+      id="review-file-tree"
+      aria-label="Changed files"
+      style={treeWidth.style}
+    >
+      <TreeResizeHandle
+        label="Changed files width"
+        controls="review-file-tree"
+        reserve={360}
+        onResize={treeWidth.setWidth}
+        onReset={treeWidth.reset}
+      />
       <div className="review-tree__header">
         <label className="review-tree__filter">
           <SearchIcon />

@@ -7,6 +7,7 @@ import {
   RefreshIcon,
 } from "../../ui/icons";
 import { ancestorDirectoryPaths } from "./file-workbench-state";
+import { TreeResizeHandle, useTreeWidth } from "./tree-resize";
 import { buildFileTree, filterWorkspaceFiles, type FileTreeNode } from "./file-tree";
 
 interface FileExplorerProps {
@@ -26,6 +27,7 @@ export function FileExplorer({
   onSelect,
   onRefresh,
 }: FileExplorerProps) {
+  const treeWidth = useTreeWidth("pi-gui.file-tree-width");
   const [filter, setFilter] = useState("");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const filterActive = filter.trim().length > 0;
@@ -63,7 +65,20 @@ export function FileExplorer({
           : null;
 
   return (
-    <section className="file-explorer" data-testid="file-explorer" aria-label="File explorer">
+    <section
+      className="file-explorer"
+      data-testid="file-explorer"
+      id="file-explorer"
+      aria-label="File explorer"
+      style={treeWidth.style}
+    >
+      <TreeResizeHandle
+        label="File tree width"
+        controls="file-explorer"
+        reserve={200}
+        onResize={treeWidth.setWidth}
+        onReset={treeWidth.reset}
+      />
       <div className="file-explorer__toolbar">
         <input
           aria-label="Filter files"

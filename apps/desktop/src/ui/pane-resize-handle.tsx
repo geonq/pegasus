@@ -18,6 +18,8 @@ export function PaneResizeHandle({
   bounds,
   onResize,
   onReset,
+  cssVar,
+  cssVarOn = "container",
 }: {
   readonly className: string;
   readonly label: string;
@@ -26,11 +28,20 @@ export function PaneResizeHandle({
   readonly bounds: (pane: HTMLElement, container: HTMLElement) => PaneWidthBounds;
   readonly onResize: (width: number) => void;
   readonly onReset?: () => void;
+  /**
+   * CSS custom property that carries this pane's width. When set, a pointer drag writes it straight
+   * to the DOM (one write per animation frame) and calls `onResize` once on release, so the app
+   * does not re-render on every pointermove. `cssVarOn` is the element React sets it on.
+   */
+  readonly cssVar?: string;
+  readonly cssVarOn?: "pane" | "container";
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<{ pointerId: number; x: number; width: number } | null>(null);
   const boundsRef = useRef(bounds);
   boundsRef.current = bounds;
+  const frame = useRef<{ raf: number; width: number } | null>(null);
+  const remeasure = useRef<() => void>(() => {});
   const [size, setSize] = useState({ width: 0, min: 0, max: 0 });
   const [resizing, setResizing] = useState(false);
 
@@ -39,6 +50,8 @@ export function PaneResizeHandle({
     const container = pane?.parentElement;
     if (!pane || !container) return;
     const measure = () => {
+      // A live drag moves the pane every frame; the readout catches up when it ends.
+      if (drag.current) return;
       const { min, max } = boundsRef.current(pane, container);
       setSize({
         width: Math.round(pane.getBoundingClientRect().width),
@@ -50,9 +63,27 @@ export function PaneResizeHandle({
     observer.observe(pane);
     observer.observe(container);
     measure();
+    remeasure.current = measure;
     return () => observer.disconnect();
   }, []);
 
+  const liveTarget = () => {
+    const pane = ref.current?.parentElement;
+    return cssVarOn === "pane" ? pane : pane?.parentElement;
+  };
+  const applyLive = (width: number) => liveTarget()?.style.setProperty(cssVar!, `${width}px`);
+  // Ends a drag: stops the pending frame and commits the last previewed width to app state.
+  const commit = () => {
+    drag.current = null;
+    setResizing(false);
+    window.requestAnimationFrame(() => remeasure.current());
+    const pending = frame.current;
+    if (!pending) return;
+    if (pending.raf) window.cancelAnimationFrame(pending.raf);
+    frame.current = null;
+    applyLive(pending.width);
+    onResize(pending.width);
+  };
   const widen = edge === "right" ? 1 : -1;
   const resize = (width: number) => onResize(Math.max(size.min, Math.min(size.max, width)));
   // `size.width` follows the pane through a ResizeObserver, so it can lag a resize that has just
@@ -77,29 +108,34 @@ export function PaneResizeHandle({
         event.preventDefault();
         if (document.activeElement === event.currentTarget) event.currentTarget.blur();
         event.currentTarget.setPointerCapture(event.pointerId);
-        drag.current = { pointerId: event.pointerId, x: event.clientX, width: currentWidth() };
+        const startWidth = currentWidth();
+        drag.current = { pointerId: event.pointerId, x: event.clientX, width: startWidth };
+        // A live variable left from the last drag must not show before the first frame.
+        if (cssVar) applyLive(startWidth);
         setResizing(true);
       }}
       onPointerMove={(event) => {
         const start = drag.current;
-        if (start && start.pointerId === event.pointerId)
-          resize(start.width + widen * (event.clientX - start.x));
+        if (!start || start.pointerId !== event.pointerId) return;
+        const width = start.width + widen * (event.clientX - start.x);
+        if (!cssVar) return resize(width);
+        const clamped = Math.max(size.min, Math.min(size.max, width));
+        const live = frame.current ?? (frame.current = { raf: 0, width: clamped });
+        live.width = clamped;
+        if (!live.raf)
+          live.raf = window.requestAnimationFrame(() => {
+            live.raf = 0;
+            applyLive(live.width);
+          });
       }}
       onPointerUp={(event) => {
         if (drag.current?.pointerId !== event.pointerId) return;
-        drag.current = null;
-        setResizing(false);
+        commit();
         if (event.currentTarget.hasPointerCapture(event.pointerId))
           event.currentTarget.releasePointerCapture(event.pointerId);
       }}
-      onPointerCancel={() => {
-        drag.current = null;
-        setResizing(false);
-      }}
-      onLostPointerCapture={() => {
-        drag.current = null;
-        setResizing(false);
-      }}
+      onPointerCancel={commit}
+      onLostPointerCapture={commit}
       onDoubleClick={onReset}
       onKeyDown={(event) => {
         const next =

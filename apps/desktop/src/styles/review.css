@@ -315,11 +315,21 @@
 /* Changed-file tree */
 
 .review-tree {
+  position: relative;
+  width: var(--tree-width, 220px);
+  /* The diff keeps 360px; below 520px there is no room for both, so the tree steps aside. */
+  max-width: calc(100cqw - 360px);
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   border-left: 1px solid var(--border);
+}
+
+@container (max-width: 519px) {
+  .review-tree {
+    display: none;
+  }
 }
 
 .review-tree__header {

@@ -265,9 +265,15 @@
   pointer-events: none;
 }
 
-/* While dragging, keep reflow inside the side panel instead of the whole window. */
-.main:has(.workbench__resize-handle[data-resizing="true"]) .workbench {
-  contain: layout;
+/* While dragging, the panel floats over the chat at the live width and the chat column keeps its
+   width, so the transcript is laid out once on release instead of on every frame. */
+.main:has(.workbench__resize-handle[data-resizing="true"]) > .workbench {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--workbench-live-width, var(--workbench-width, 440px));
+  z-index: 25;
 }
 
 /* Agents tool: one row per parallel agent or busy thread. */

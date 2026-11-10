@@ -48,6 +48,10 @@ test("Review shows the diff beside a filterable file tree with Staged and Unstag
     await createNamedThread(window, "Review layout task", { workspaceName: workspace.name });
     await selectSidePanel(window, "Review");
     const panel = window.getByRole("region", { name: "Review", exact: true });
+    // The default panel is too narrow for the diff plus the tree, so the tree steps aside;
+    // widening the panel brings it back.
+    await window.getByRole("separator", { name: "Side panel width" }).focus();
+    await window.keyboard.press("End");
     await expect(reviewScopeButton(window)).toHaveText("Uncommitted");
     await expect(panel.getByTestId("review-line-totals")).toHaveText("+5-1");
 

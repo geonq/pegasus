@@ -193,7 +193,9 @@
 
 .file-workbench--split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  /* Lets the tree's max-width follow this column, so a stored width cannot crowd out the editor. */
+  container-type: inline-size;
   min-height: 0;
   overflow: hidden;
 }
@@ -354,6 +356,9 @@
 }
 
 .file-explorer {
+  position: relative;
+  width: var(--tree-width, 220px);
+  max-width: calc(100cqw - 200px);
   display: flex;
   flex-direction: column;
   min-width: 0;

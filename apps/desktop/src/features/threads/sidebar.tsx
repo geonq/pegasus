@@ -436,6 +436,8 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
         bounds={sidebarWidthBounds}
         onResize={setSidebarWidth}
         onReset={() => setSidebarWidth(undefined)}
+        cssVar="--sidebar-width"
+        cssVarOn="pane"
       />
       <div className="sidebar__top">
         <AppBrand />
