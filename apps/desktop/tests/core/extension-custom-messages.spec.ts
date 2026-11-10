@@ -137,6 +137,7 @@ test("extension custom messages show like terminal pi, live and after relaunch",
   );
   await writeProjectExtension(workspacePath, "custom-messages.ts", extensionSource);
 
+  let threadTitle = "";
   const firstRun = await launchDesktop(userDataDir, {
     agentDir,
     initialWorkspaces: [workspacePath],
@@ -169,6 +170,7 @@ test("extension custom messages show like terminal pi, live and after relaunch",
     await composer.press("Enter");
     await expect(customRows(window)).toHaveCount(2);
     await expectConversation(window);
+    threadTitle = (await window.locator(".chat-header__title").innerText()).trim();
   } finally {
     await firstRun.close();
   }
@@ -177,7 +179,7 @@ test("extension custom messages show like terminal pi, live and after relaunch",
   const secondRun = await launchDesktop(userDataDir, { agentDir, scrubProviderEnv: true });
   try {
     const window = await secondRun.firstWindow();
-    await selectSession(window, "New thread");
+    await selectSession(window, threadTitle);
     await expectConversation(window);
   } finally {
     await secondRun.close();
