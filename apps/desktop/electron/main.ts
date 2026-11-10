@@ -854,11 +854,16 @@ function createWindow({ deferContent = false }: { deferContent?: boolean } = {})
   if (deferContent) {
     // Windows only lets a fresh launch take the foreground until the user acts
     // elsewhere, so show the empty frame now instead of after startup finishes.
-    window.show();
-    window.focus();
+    if (windowTestMode === "inactive") window.showInactive();
+    else {
+      window.show();
+      window.focus();
+    }
   } else {
     window.once("ready-to-show", () => {
-      if (!backgroundTestMode) {
+      if (windowTestMode === "inactive") {
+        window.showInactive();
+      } else if (!backgroundTestMode) {
         window.show();
         app.focus({ steal: true });
         window.focus();
@@ -1023,8 +1028,12 @@ function canPublishToWindow(window: BrowserWindow): boolean {
   );
 }
 
-function resolveAppTestMode(value: string | undefined): "foreground" | "background" | undefined {
-  return value === "foreground" || value === "background" ? value : undefined;
+// "inactive": visible and painting (frame and input timings are real) but never takes focus, so
+// perf runs on the owner's PC do not pull them out of a fullscreen app.
+function resolveAppTestMode(
+  value: string | undefined,
+): "foreground" | "background" | "inactive" | undefined {
+  return value === "foreground" || value === "background" || value === "inactive" ? value : undefined;
 }
 
 function resolveDialogWindow(parentWindow?: BrowserWindow | null): BrowserWindow | undefined {

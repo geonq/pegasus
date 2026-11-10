@@ -66,7 +66,7 @@ function isProviderAuthEnvVar(key: string): boolean {
   );
 }
 export type PiAppWindow = Window & { piApp?: PiDesktopApi };
-export type DesktopTestMode = "foreground" | "background";
+export type DesktopTestMode = "foreground" | "background" | "inactive";
 
 export interface DesktopHarness {
   electronApp: ElectronApplication;
