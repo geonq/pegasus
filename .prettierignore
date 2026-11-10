@@ -59,3 +59,6 @@ patches/
 
 # Checked-in browser builds for the installable extension examples.
 /examples/desktop-extensions/*/dist/
+
+# Rust build output
+target/
