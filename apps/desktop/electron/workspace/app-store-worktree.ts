@@ -193,15 +193,23 @@ export async function startThread(
     // Set selection eagerly so that any subscription replay events
     // (fired by ensureSessionReady inside refreshState) read the new
     // session ID instead of the stale one.
-    store.setActiveSession(session.ref);
-    const state = await store.refreshState({
-      selectedWorkspaceId: session.ref.workspaceId,
-      selectedSessionId: session.ref.sessionId,
-      composerDraft: "",
-      clearLastError: true,
-      refreshWorktrees: input.environment === "worktree",
-      activeView: "threads",
-    });
+    // A background start leaves the selection and view alone; the chat shows up in the sidebar.
+    const state = input.background
+      ? await store.refreshState({
+          clearLastError: true,
+          refreshWorktrees: input.environment === "worktree",
+        })
+      : await (async () => {
+          store.setActiveSession(session.ref);
+          return store.refreshState({
+            selectedWorkspaceId: session.ref.workspaceId,
+            selectedSessionId: session.ref.sessionId,
+            composerDraft: "",
+            clearLastError: true,
+            refreshWorktrees: input.environment === "worktree",
+            activeView: "threads",
+          });
+        })();
 
     // Fire message in background — assistantDelta events flow through
     // handleSessionEvent → emit() and update React while on the thread view

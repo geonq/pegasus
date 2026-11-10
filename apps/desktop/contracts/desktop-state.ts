@@ -323,6 +323,8 @@ export type StartThreadInput = {
    * the flags the workspace's extensions registered before pi sees them.
    */
   readonly extensionFlags?: ExtensionFlagValues;
+  /** Start without switching to the new chat (Ctrl/Cmd+Enter, and the extra chats of a compare). */
+  readonly background?: boolean;
 };
 
 export type ForkThreadPosition = "before" | "at" | "after";

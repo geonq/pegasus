@@ -1727,7 +1727,7 @@ export default function App() {
                 onEnableMentionExtension={newThread.mentionMenu.enableMentionExtension}
                 onAddAttachments={newThread.addAttachments}
                 onRemoveAttachment={newThread.removeAttachment}
-                onSubmit={newThread.startThread}
+                onSubmit={() => newThread.startThread()}
               />
             ) : (
               <section className="canvas canvas--empty">

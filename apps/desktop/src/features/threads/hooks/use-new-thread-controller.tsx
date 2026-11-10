@@ -298,7 +298,8 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
     onEnableExtension: enableMentionExtension,
   });
 
-  const startThread = useCallback(() => {
+  const startThread = useCallback((options?: { readonly background?: boolean }) => {
+    const background = options?.background === true;
     // The prompt clears only once the thread exists, so a second Enter or click before
     // then would otherwise start the same thread again (a worktree start takes seconds).
     const generation = surfaceGenerationRef.current;
@@ -337,12 +338,17 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
     startingGenerationRef.current = generation;
     recordSentPrompt(prompt);
     void updateSnapshot(setSnapshot, async () => {
-      const first = await api.startThread(input);
-      let last = first;
+      let state = await api.startThread(background ? { ...input, background } : input);
+      // The extra models start behind the main one, which stays open.
       for (const entry of comparing) {
-        last = await api.startThread({ ...input, provider: entry.provider, modelId: entry.modelId });
+        state = await api.startThread({
+          ...input,
+          provider: entry.provider,
+          modelId: entry.modelId,
+          background: true,
+        });
       }
-      return last;
+      return state;
     })
       .then(() => {
         if (surfaceGenerationRef.current !== generation) {
@@ -378,6 +384,7 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
     resolvedThinkingLevel,
     rootWorkspaceId,
     setSnapshot,
+    compareModels,
   ]);
 
   const handleComposerPaste = useCallback(
@@ -441,7 +448,8 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
         return;
       }
 
-      startThread();
+      // Ctrl/Cmd+Enter: start it and stay here to write the next one.
+      startThread({ background: event.ctrlKey || event.metaKey });
     },
     [
       api,

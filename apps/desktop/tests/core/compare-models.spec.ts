@@ -74,9 +74,31 @@ test("shift-click in the new-chat model picker starts one worktree chat per mode
     expect(state.workspaces.find((workspace) => workspace.id === root.id)?.sessions).toHaveLength(
       0,
     );
+    // The main model's chat is the one that opens; the extra one started behind it.
+    const selected = worktrees
+      .flatMap((workspace) => workspace.sessions)
+      .find((session) => session.id === state.selectedSessionId);
+    expect(selected?.config?.modelId).toBe("gpt-6.1-sol");
+
     // The picker resets for the next chat.
     await openNewThread(window);
     await expect(window.getByTestId("compare-models")).toHaveCount(0);
+
+    // Ctrl+Enter starts a chat without leaving the new-chat view.
+    const composer = window.getByTestId("new-thread-composer");
+    const countSessions = async () =>
+      (await getDesktopState(window)).workspaces.reduce(
+        (total, workspace) => total + workspace.sessions.length,
+        0,
+      );
+    const before = (await getDesktopState(window)).selectedSessionId;
+    const sessionsBefore = await countSessions();
+    await composer.fill("Background chat please");
+    await composer.press("Control+Enter");
+    await expect.poll(countSessions, { timeout: 30_000 }).toBe(sessionsBefore + 1);
+    await expect(composer).toHaveValue("");
+    await expect(composer).toBeVisible();
+    expect((await getDesktopState(window)).selectedSessionId).toBe(before);
   } finally {
     await harness.close();
   }

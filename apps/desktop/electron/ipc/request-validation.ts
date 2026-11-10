@@ -260,6 +260,7 @@ export function expectStartThreadInput(value: unknown): StartThreadInput {
       record.extensionFlags === undefined
         ? undefined
         : expectExtensionFlags(record.extensionFlags, "input.extensionFlags"),
+    ...(expectOptionalBoolean(record.background, "input.background") ? { background: true } : {}),
   };
 }
 
