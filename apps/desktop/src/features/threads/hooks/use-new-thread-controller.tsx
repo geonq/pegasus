@@ -1,3 +1,4 @@
+import type { ComparedModel } from "../../conversation/model-selector";
 import {
   useCallback,
   useEffect,
@@ -70,6 +71,17 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
   const [attachments, setAttachments] = useState<readonly ComposerAttachment[]>([]);
   const [provider, setProvider] = useState<string | undefined>();
   const [modelId, setModelId] = useState<string | undefined>();
+  // More models that get the same prompt, each in its own worktree (Shift-click in the picker).
+  const [compareModels, setCompareModels] = useState<readonly ComparedModel[]>([]);
+  const toggleCompareModel = useCallback((nextProvider: string, nextModelId: string) => {
+    setCompareModels((current) =>
+      current.some((entry) => entry.provider === nextProvider && entry.modelId === nextModelId)
+        ? current.filter(
+            (entry) => !(entry.provider === nextProvider && entry.modelId === nextModelId),
+          )
+        : [...current, { provider: nextProvider, modelId: nextModelId }].slice(0, 4),
+    );
+  }, []);
   const [thinkingLevel, setThinkingLevel] = useState<string | undefined>();
   // Flag edits on this surface, laid over the workspace's remembered defaults.
   const [extensionFlagEdits, setExtensionFlagEdits] = useState<ExtensionFlagValues>({});
@@ -308,9 +320,13 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
       setComposerError("/tree is only available inside an existing session.");
       return;
     }
+    // Several models: each chat works in its own worktree so their edits never collide.
+    const comparing = compareModels.filter(
+      (entry) => !(entry.provider === resolvedProvider && entry.modelId === resolvedModelId),
+    );
     const input: StartThreadInput = {
       rootWorkspaceId,
-      environment,
+      environment: comparing.length > 0 ? "worktree" : environment,
       prompt,
       attachments,
       provider: resolvedProvider,
@@ -320,7 +336,14 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
     };
     startingGenerationRef.current = generation;
     recordSentPrompt(prompt);
-    void updateSnapshot(setSnapshot, () => api.startThread(input))
+    void updateSnapshot(setSnapshot, async () => {
+      const first = await api.startThread(input);
+      let last = first;
+      for (const entry of comparing) {
+        last = await api.startThread({ ...input, provider: entry.provider, modelId: entry.modelId });
+      }
+      return last;
+    })
       .then(() => {
         if (surfaceGenerationRef.current !== generation) {
           return;
@@ -329,6 +352,7 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
         setAttachments([]);
         setProvider(undefined);
         setModelId(undefined);
+        setCompareModels([]);
         setThinkingLevel(undefined);
         setExtensionFlagEdits({});
         setEnvironment("local");
@@ -521,6 +545,8 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
       setEnvironment,
       setProvider,
       setModelId,
+      compareModels,
+      toggleCompareModel,
       setThinkingLevel,
       setPendingWorkspaceId,
       selectWorkspace,
@@ -551,6 +577,8 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
       modelOnboarding,
       slashMenu,
       mentionMenu,
+      compareModels,
+      toggleCompareModel,
       selectWorkspace,
       addAttachments,
       removeAttachment,

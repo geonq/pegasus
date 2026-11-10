@@ -2150,6 +2150,41 @@
   overflow-wrap: anywhere;
 }
 
+.model-selector__compared {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.model-selector__hint {
+  padding: 6px 10px 8px;
+  font-size: var(--text-xs);
+  color: var(--muted-soft);
+  border-top: 1px solid var(--line);
+}
+
+.new-thread-compare {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  color: var(--muted-soft);
+}
+
+.new-thread-compare__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-strong);
+  font: inherit;
+  cursor: pointer;
+}
+
 .usage-limits__low {
   margin-left: 6px;
   padding: 1px 7px;

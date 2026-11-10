@@ -39,6 +39,14 @@ interface ModelSelectorProps {
   readonly emptyModelTitle?: string;
   readonly onSetModel: (provider: string, modelId: string) => void;
   readonly onSetThinking: (level: string) => void;
+  /** New chats only: Shift-click adds or removes a model that also gets the prompt. */
+  readonly compareModels?: readonly ComparedModel[];
+  readonly onToggleCompareModel?: (provider: string, modelId: string) => void;
+}
+
+export interface ComparedModel {
+  readonly provider: string;
+  readonly modelId: string;
 }
 
 type OpenDropdown = "none" | "model" | "thinking";
@@ -56,6 +64,8 @@ export function ModelSelector({
   emptyModelTitle = MODEL_OPTIONS_EMPTY_TITLE,
   onSetModel,
   onSetThinking,
+  compareModels,
+  onToggleCompareModel,
 }: ModelSelectorProps) {
   const [open, setOpen] = useState<OpenDropdown>("none");
   const [modelFilter, setModelFilter] = useState("");
@@ -187,14 +197,27 @@ export function ModelSelector({
                     </div>
                     {group.items.map((option) => {
                       const isActive = option.providerId === provider && option.modelId === modelId;
+                      const isCompared = Boolean(
+                        compareModels?.some(
+                          (entry) =>
+                            entry.provider === option.providerId &&
+                            entry.modelId === option.modelId,
+                        ),
+                      );
                       return (
                         <button
                           aria-label={option.label.split(" · ").at(-1)}
                           aria-pressed={isActive}
-                          className={`model-selector__item${isActive ? " model-selector__item--active" : ""}`}
+                          className={`model-selector__item${isActive ? " model-selector__item--active" : ""}${isCompared ? " model-selector__item--compared" : ""}`}
+                          data-compared={isCompared ? "" : undefined}
                           key={`${option.providerId}:${option.modelId}`}
                           type="button"
-                          onClick={() => {
+                          onClick={(event) => {
+                            // Shift-click: also run the prompt with this model; the menu stays open.
+                            if (event.shiftKey && onToggleCompareModel && !isActive) {
+                              onToggleCompareModel(option.providerId, option.modelId);
+                              return;
+                            }
                             if (!isActive) {
                               onSetModel(option.providerId, option.modelId);
                             }
@@ -206,11 +229,21 @@ export function ModelSelector({
                             {modelName(option)}
                           </span>
                           {isActive ? <CheckIcon /> : null}
+                          {isCompared ? (
+                            <span className="model-selector__compared" aria-label="Also runs">
+                              +
+                            </span>
+                          ) : null}
                         </button>
                       );
                     })}
                   </div>
                 ))}
+                {onToggleCompareModel && groupedModels.length > 0 ? (
+                  <div className="model-selector__hint">
+                    Shift-click to also start this chat with another model, each in its own worktree.
+                  </div>
+                ) : null}
                 {groupedModels.length === 0 ? (
                   <>
                     <div className="model-selector__group-title">

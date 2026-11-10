@@ -1708,6 +1708,8 @@ export default function App() {
                   newThread.setModelId(modelId);
                 }}
                 onSetThinking={newThread.setThinkingLevel}
+                compareModels={newThread.compareModels}
+                onToggleCompareModel={newThread.toggleCompareModel}
                 extensionFlags={newThread.extensionFlags}
                 onSetExtensionFlag={newThread.setExtensionFlag}
                 onOpenModelSettings={(section) => openSettings(newThread.workspace?.id, section)}

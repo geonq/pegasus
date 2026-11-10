@@ -1,3 +1,4 @@
+import { ProviderIcon } from "../../ui/icons";
 import {
   useEffect,
   useRef,
@@ -28,7 +29,7 @@ import type {
   ModelOnboardingState,
   ModelOnboardingSettingsSection,
 } from "../settings/model-onboarding";
-import { ModelSelector } from "../conversation/model-selector";
+import { ModelSelector, type ComparedModel } from "../conversation/model-selector";
 import { ExtensionFlagsSelector } from "./extension-flags-selector";
 import { StateOrb } from "../../app/activity-indicator";
 
@@ -63,6 +64,8 @@ interface NewThreadViewProps {
   readonly onSelectWorkspace: (workspaceId: string) => void;
   readonly onSetModel: (provider: string, modelId: string) => void;
   readonly onSetThinking: (level: string) => void;
+  readonly compareModels: readonly ComparedModel[];
+  readonly onToggleCompareModel: (provider: string, modelId: string) => void;
   readonly extensionFlags: ExtensionFlagValues;
   readonly onSetExtensionFlag: (name: string, value: boolean | string) => void;
   readonly onOpenModelSettings: (section: ModelOnboardingSettingsSection) => void;
@@ -111,6 +114,8 @@ export function NewThreadView({
   onSelectEnvironment,
   onSelectWorkspace,
   onSetModel,
+  compareModels,
+  onToggleCompareModel,
   onSetThinking,
   extensionFlags,
   onSetExtensionFlag,
@@ -244,6 +249,8 @@ export function NewThreadView({
                   fileInputRef={fileInputRef}
                   onSelectEnvironment={onSelectEnvironment}
                   onSetModel={onSetModel}
+                  compareModels={compareModels}
+                  onToggleCompareModel={onToggleCompareModel}
                   onSetThinking={onSetThinking}
                   extensionFlags={extensionFlags}
                   onSetExtensionFlag={onSetExtensionFlag}
@@ -271,6 +278,8 @@ interface NewThreadComposerFooterProps {
   readonly onSelectEnvironment: (environment: NewThreadEnvironment) => void;
   readonly onSetModel: (provider: string, modelId: string) => void;
   readonly onSetThinking: (level: string) => void;
+  readonly compareModels: readonly ComparedModel[];
+  readonly onToggleCompareModel: (provider: string, modelId: string) => void;
   readonly extensionFlags: ExtensionFlagValues;
   readonly onSetExtensionFlag: (name: string, value: boolean | string) => void;
   readonly onAddAttachments: (files: File[]) => void;
@@ -288,6 +297,8 @@ function NewThreadComposerFooter({
   fileInputRef,
   onSelectEnvironment,
   onSetModel,
+  compareModels,
+  onToggleCompareModel,
   onSetThinking,
   extensionFlags,
   onSetExtensionFlag,
@@ -327,7 +338,27 @@ function NewThreadComposerFooter({
               emptyModelTitle={modelOnboarding.emptyModelTitle}
               onSetModel={onSetModel}
               onSetThinking={onSetThinking}
+              compareModels={compareModels}
+              onToggleCompareModel={onToggleCompareModel}
             />
+            {compareModels.length > 0 ? (
+              <span className="new-thread-compare" data-testid="compare-models">
+                <span className="new-thread-compare__label">Also with</span>
+                {compareModels.map((entry) => (
+                  <button
+                    key={`${entry.provider}:${entry.modelId}`}
+                    type="button"
+                    className="new-thread-compare__chip"
+                    aria-label={`Stop also running ${entry.modelId}`}
+                    onClick={() => onToggleCompareModel(entry.provider, entry.modelId)}
+                  >
+                    <ProviderIcon providerId={entry.provider} modelId={entry.modelId} />
+                    <span>{entry.modelId.split("/").at(-1)}</span>
+                    <span aria-hidden="true">×</span>
+                  </button>
+                ))}
+              </span>
+            ) : null}
             <ExtensionFlagsSelector
               runtime={runtime}
               values={extensionFlags}
