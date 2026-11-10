@@ -9,6 +9,7 @@
 mod detach;
 mod host;
 mod log;
+mod remote;
 mod review;
 mod terminals;
 
@@ -103,6 +104,19 @@ async fn main() {
     info!("exited");
 }
 
+/// Methods that must take effect in the order a client sent them.
+fn ordered(body: &[u8]) -> bool {
+    #[derive(serde::Deserialize)]
+    struct MethodOnly<'a> {
+        #[serde(borrow)]
+        method: Option<std::borrow::Cow<'a, str>>,
+    }
+    match serde_json::from_slice::<MethodOnly>(body).ok().and_then(|m| m.method) {
+        Some(m) => !(m.starts_with("review.") || m.starts_with("session.") || m == "index.list"),
+        None => true,
+    }
+}
+
 /// Per-connection loop: frames in, dispatched concurrently, responses and events out through one writer.
 async fn connection<S: AsyncRead + AsyncWrite + Send + 'static>(stream: S, host: Arc<Host>) {
     let n = host.client_connected();
@@ -153,16 +167,26 @@ async fn connection<S: AsyncRead + AsyncWrite + Send + 'static>(stream: S, host:
         if r.read_exact(&mut body).await.is_err() {
             break;
         }
-        let (host, tx, conn) = (host.clone(), tx.clone(), conn.clone());
-        tokio::spawn(async move {
+        // Calls whose order matters (keystrokes, published events, replies) run in arrival order on
+        // this connection; slow reads (review, session files) run alongside so they block nothing.
+        if ordered(&body) {
             let out = host.dispatch(&body, &conn).await;
-            let _ = tx.send(out).await;
-        });
+            if tx.send(out).await.is_err() {
+                break;
+            }
+        } else {
+            let (host, tx, conn) = (host.clone(), tx.clone(), conn.clone());
+            tokio::spawn(async move {
+                let out = host.dispatch(&body, &conn).await;
+                let _ = tx.send(out).await;
+            });
+        }
     }
     ev_task.abort();
     drop(tx);
     let _ = writer.await;
     host.terminals.release(conn.id, host.orphan_grace);
+    host.remote.connection_closed(conn.id);
     let left = host.client_left();
     info!("{} disconnected ({left} left)", conn.name());
 }

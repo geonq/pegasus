@@ -29,6 +29,9 @@ export function useIsolatedHost(): void {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
-    if (agentDir) await rm(agentDir, { recursive: true, force: true, maxRetries: 5 });
+    // PEGASUS_KEEP_TEST_HOST_DIR=1 keeps the scratch profile (and the host log in logs/) for debugging.
+    if (process.env.PEGASUS_KEEP_TEST_HOST_DIR === "1")
+      console.info(`[isolated-host] kept ${agentDir}`);
+    else if (agentDir) await rm(agentDir, { recursive: true, force: true, maxRetries: 5 });
   });
 }

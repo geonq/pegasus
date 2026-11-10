@@ -10,8 +10,9 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 pub const PROTOCOL: u32 = 2;
-/// Requests are small; anything bigger is a bug or an attack.
-pub const MAX_REQUEST: usize = 1 << 20;
+/// Largest request frame. Remote replies and published states carry up to the remote API's 24 MB
+/// response cap; the pipe/socket only accepts local connections of the same user.
+pub const MAX_REQUEST: usize = 32 << 20;
 
 /// Every failure has one of these codes. Clients switch on the code, never on the message text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -257,6 +258,55 @@ pub struct TerminalList {
     pub terminals: Vec<TerminalInfo>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RemoteClientConfig {
+    pub id: String,
+    /// sha256 of the device's bearer token, hex; the token itself never reaches the host.
+    pub token_sha256: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RemoteServeParams {
+    pub port: u16,
+    pub allowed_origins: Vec<String>,
+    pub clients: Vec<RemoteClientConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct RemoteError {
+    /// HTTP status the device receives.
+    pub status: u16,
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RemoteReplyParams {
+    pub request_id: u64,
+    pub ok: bool,
+    /// Passed through as raw JSON: the host never parses or re-encodes a (possibly large) result.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "unknown")]
+    pub value: Option<Box<serde_json::value::RawValue>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub error: Option<RemoteError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RemotePublishParams {
+    pub client_id: String,
+    /// A RemoteDesktopEvent (apps/desktop/electron/remote/remote-desktop-protocol.ts), kept as raw
+    /// JSON so a multi-megabyte state is framed without being parsed and re-encoded.
+    #[ts(type = "unknown")]
+    pub event: Box<serde_json::value::RawValue>,
+}
+
 /// Host -> client pushes.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(tag = "event", content = "data", rename_all = "camelCase")]
@@ -267,6 +317,15 @@ pub enum HostEvent {
     TerminalData { id: String, data: String },
     #[serde(rename_all = "camelCase")]
     TerminalExit { id: String, exit_code: Option<u32>, signal: Option<String> },
+    /// A device called the remote desktop API; only the connection serving it receives this.
+    #[serde(rename_all = "camelCase")]
+    RemoteInvoke {
+        request_id: u64,
+        client_id: String,
+        method: String,
+        #[ts(type = "unknown[]")]
+        args: serde_json::Value,
+    },
 }
 
 /// The method table: name, params type, result type. `ts_bindings` turns it into `HostMethods`.
@@ -305,6 +364,10 @@ methods! {
     "review.read" => crate::review_types::ReviewFileParams => crate::review_types::ReviewReadResult,
     "review.stage" => crate::review_types::ReviewStageParams => crate::review_types::ReviewStageResult,
     "review.treeChanges" => crate::review_types::TreeChangesParams => crate::review_types::TreeChanges,
+    "remote.serve" => RemoteServeParams => Empty,
+    "remote.reply" => RemoteReplyParams => Empty,
+    "remote.publish" => RemotePublishParams => Empty,
+    "remote.stop" => Empty => Empty,
 }
 
 /// The whole generated TypeScript module.
@@ -336,6 +399,11 @@ pub fn ts_bindings() -> String {
         TerminalWriteParams::decl(&cfg),
         TerminalResizeParams::decl(&cfg),
         TerminalList::decl(&cfg),
+        RemoteClientConfig::decl(&cfg),
+        RemoteServeParams::decl(&cfg),
+        RemoteError::decl(&cfg),
+        RemoteReplyParams::decl(&cfg),
+        RemotePublishParams::decl(&cfg),
         HostEvent::decl(&cfg),
     ];
     use crate::review_types as rv;

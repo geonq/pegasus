@@ -100,7 +100,34 @@ export type TerminalResizeParams = { id: string, cols: number, rows: number, };
 
 export type TerminalList = { terminals: Array<TerminalInfo>, };
 
-export type HostEvent = { "event": "shuttingDown", "data": { reason: string, } } | { "event": "terminalData", "data": { id: string, data: string, } } | { "event": "terminalExit", "data": { id: string, exitCode: number | null, signal: string | null, } };
+export type RemoteClientConfig = { id: string, 
+/**
+ * sha256 of the device's bearer token, hex; the token itself never reaches the host.
+ */
+tokenSha256: string, };
+
+export type RemoteServeParams = { port: number, allowedOrigins: Array<string>, clients: Array<RemoteClientConfig>, };
+
+export type RemoteError = { 
+/**
+ * HTTP status the device receives.
+ */
+status: number, code: string, message: string, };
+
+export type RemoteReplyParams = { requestId: number, ok: boolean, 
+/**
+ * Passed through as raw JSON: the host never parses or re-encodes a (possibly large) result.
+ */
+value?: unknown, error?: RemoteError, };
+
+export type RemotePublishParams = { clientId: string, 
+/**
+ * A RemoteDesktopEvent (apps/desktop/electron/remote/remote-desktop-protocol.ts), kept as raw
+ * JSON so a multi-megabyte state is framed without being parsed and re-encoded.
+ */
+event: unknown, };
+
+export type HostEvent = { "event": "shuttingDown", "data": { reason: string, } } | { "event": "terminalData", "data": { id: string, data: string, } } | { "event": "terminalExit", "data": { id: string, exitCode: number | null, signal: string | null, } } | { "event": "remoteInvoke", "data": { requestId: number, clientId: string, method: string, args: unknown[], } };
 
 export type CoverageState = "complete" | "partial";
 
@@ -196,4 +223,8 @@ export interface HostMethods {
   "review.read": { params: ReviewFileParams; result: ReviewReadResult };
   "review.stage": { params: ReviewStageParams; result: ReviewStageResult };
   "review.treeChanges": { params: TreeChangesParams; result: TreeChanges };
+  "remote.serve": { params: RemoteServeParams; result: Empty };
+  "remote.reply": { params: RemoteReplyParams; result: Empty };
+  "remote.publish": { params: RemotePublishParams; result: Empty };
+  "remote.stop": { params: Empty; result: Empty };
 }

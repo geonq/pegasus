@@ -24,6 +24,8 @@ pub const HOST_VERSION: &str = match option_env!("PEGASUS_APP_VERSION") {
 #[derive(Default)]
 pub struct Conn {
     pub id: u64,
+    /// This connection serves the remote desktop API (receives `remoteInvoke`).
+    pub remote_provider: std::sync::atomic::AtomicBool,
     pub name: Mutex<String>,
     pub subs: Mutex<HashSet<String>>,
 }
@@ -39,6 +41,7 @@ impl Conn {
                 self.subs.lock().unwrap_or_else(|p| p.into_inner()).contains(id)
             }
             HostEvent::ShuttingDown { .. } => true,
+            HostEvent::RemoteInvoke { .. } => self.remote_provider.load(std::sync::atomic::Ordering::SeqCst),
         }
     }
     /// Returns whether the set changed.
@@ -52,6 +55,7 @@ pub struct Host {
     sessions: Arc<Mutex<Sessions>>,
     clients: AtomicU32,
     pub terminals: Arc<Terminals>,
+    pub remote: Arc<crate::remote::Remote>,
     /// How long an orphaned terminal waits for a client before it is killed.
     pub orphan_grace: std::time::Duration,
     started: Instant,
@@ -70,14 +74,18 @@ struct Request {
     id: u64,
     method: String,
     #[serde(default)]
-    params: serde_json::Value,
+    params: Option<Box<serde_json::value::RawValue>>,
 }
 
 type Reply = Result<Vec<u8>, HostError>;
 
-fn parse<T: serde::de::DeserializeOwned>(v: serde_json::Value) -> Result<T, HostError> {
-    let v = if v.is_null() { serde_json::json!({}) } else { v };
-    serde_json::from_value(v).map_err(|e| HostError::new(ErrorCode::BadParams, e.to_string()))
+/// Params stay raw JSON until the method knows its type, so large payloads are parsed once.
+type Params = Option<Box<serde_json::value::RawValue>>;
+
+fn parse<T: serde::de::DeserializeOwned>(raw: Params) -> Result<T, HostError> {
+    let text = raw.as_deref().map_or("{}", |r| r.get());
+    let text = if text.trim() == "null" { "{}" } else { text };
+    serde_json::from_str(text).map_err(|e| HostError::new(ErrorCode::BadParams, e.to_string()))
 }
 
 fn to_body<T: serde::Serialize>(v: &T) -> Reply {
@@ -95,6 +103,7 @@ impl Host {
             sessions: Arc::new(Mutex::new(sessions)),
             clients: AtomicU32::new(0),
             terminals: Arc::new(Terminals::new(events.clone())),
+            remote: Arc::new(crate::remote::Remote::default()),
             orphan_grace,
             started: Instant::now(),
             started_ms: now_ms(),
@@ -151,7 +160,7 @@ impl Host {
         envelope(req.id, reply)
     }
 
-    async fn call(self: &Arc<Self>, method: &str, params: serde_json::Value, conn: &Conn) -> Reply {
+    async fn call(self: &Arc<Self>, method: &str, params: Params, conn: &Conn) -> Reply {
         let client = conn.name();
         match method {
             "hello" => {
@@ -197,6 +206,7 @@ impl Host {
                 let method = method.to_string();
                 tokio::task::spawn_blocking(move || {
                     let mut s = sessions.lock().map_err(|_| HostError::new(ErrorCode::Internal, "session store lock poisoned"))?;
+                    let params: serde_json::Value = parse(params)?;
                     s.call(&method, &params).map_err(|(code, msg)| HostError::new(code, msg))
                 })
                 .await
@@ -251,13 +261,40 @@ impl Host {
                     .await
                     .map_err(|e| HostError::new(ErrorCode::Internal, format!("review task failed: {e}")))?
             }
+            "remote.serve" => {
+                let p: pegasus_core::protocol::RemoteServeParams = parse(params)?;
+                self.remote.serve(self, p, conn.id).await?;
+                conn.remote_provider.store(true, std::sync::atomic::Ordering::SeqCst);
+                to_body(&Empty {})
+            }
+            "remote.reply" => {
+                let p: pegasus_core::protocol::RemoteReplyParams = parse(params)?;
+                self.remote.reply(p)?;
+                to_body(&Empty {})
+            }
+            "remote.publish" => {
+                let p: pegasus_core::protocol::RemotePublishParams = parse(params)?;
+                if !self.remote.is_provider(conn.id) {
+                    return Err(HostError::new(ErrorCode::BadParams, "only the serving connection publishes"));
+                }
+                self.remote.publish(&p.client_id, &p.event);
+                to_body(&Empty {})
+            }
+            "remote.stop" => {
+                let _: Empty = parse(params)?;
+                if self.remote.is_provider(conn.id) {
+                    self.remote.stop();
+                }
+                conn.remote_provider.store(false, std::sync::atomic::Ordering::SeqCst);
+                to_body(&Empty {})
+            }
             other => Err(HostError::new(ErrorCode::UnknownMethod, other)),
         }
     }
 }
 
 /// Git review runs blocking Git commands, so it stays off the async workers.
-fn review_call(method: &str, params: serde_json::Value) -> Reply {
+fn review_call(method: &str, params: Params) -> Reply {
     use pegasus_core::review_types::{ReviewCheckResult, ReviewCreateParams, ReviewFileParams, ReviewStageParams, TreeChangesParams};
     match method {
         "review.create" => to_body(&crate::review::create(parse::<ReviewCreateParams>(params)?)),

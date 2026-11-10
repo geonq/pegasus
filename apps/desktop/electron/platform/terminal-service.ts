@@ -19,7 +19,7 @@ import { appendTerminalReplay } from "../../contracts/terminal-model";
  */
 
 const DEFAULT_TERMINAL_SIZE: TerminalSize = { cols: 80, rows: 24 };
-/** Host requests are capped at 1 MiB; stay well below it. */
+/** Keep each terminal write small so one paste never holds the host connection for long. */
 const MAX_WRITE_LENGTH = 128 * 1024;
 const MAX_TERMINAL_SESSIONS_PER_ROOT = 8;
 
@@ -250,7 +250,7 @@ export class TerminalService {
   }
 
   private onHostEvent(event: HostEvent): void {
-    if (event.event === "shuttingDown") return;
+    if (event.event !== "terminalData" && event.event !== "terminalExit") return;
     const session = this.sessionsByHostId.get(event.data.id);
     if (!session) return;
     if (event.event === "terminalData") {

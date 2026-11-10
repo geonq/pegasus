@@ -8,3 +8,7 @@ debug = false
 lto = "thin"
 codegen-units = 4
 panic = "abort"
+
+# Dependencies (brotli, serde_json, sha2) stay fast in dev builds; our own code keeps debug info.
+[profile.dev.package."*"]
+opt-level = 3

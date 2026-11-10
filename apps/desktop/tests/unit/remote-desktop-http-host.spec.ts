@@ -8,6 +8,9 @@ import { RemoteDesktopHttpClient } from "../../electron/remote/remote-desktop-ht
 import type { RemoteDesktopEvent } from "../../electron/remote/remote-desktop-protocol";
 import { validateRemoteDesktopInvocation } from "../../electron/remote/remote-desktop-policy";
 import { answerActiveRuns, type ActiveRun } from "../../electron/usage/active-runs";
+import { useIsolatedHost } from "../helpers/isolated-host";
+
+useIsolatedHost();
 
 async function freeLoopbackPort(): Promise<number> {
   const server = createServer();
@@ -349,8 +352,17 @@ test("paused SSE clients are disconnected when pending frames exceed the byte ca
     for (let index = 0; index < 8; index += 1) {
       fake.emit(makeTranscriptEvent("slow-" + index, padding));
     }
+    // The host must cut this client off rather than buffer 56 MB for it. A paused socket only
+    // learns of the reset once it reads again (Windows), so read now and expect a short stream.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    let received = 0;
+    response.on("data", (chunk: Buffer) => {
+      received += chunk.byteLength;
+    });
+    response.resume();
     await waitUntil(() => streamClosed, 2_000);
     expect(response.statusCode).toBe(200);
+    expect(received).toBeLessThan(8 * padding.length);
   } finally {
     request.destroy();
     await host.close();
