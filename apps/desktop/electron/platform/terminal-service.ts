@@ -1,7 +1,7 @@
 import type { WebContents } from "electron";
-import { createRequire } from "node:module";
-import { accessSync, chmodSync, constants, existsSync, realpathSync, statSync } from "node:fs";
+import { accessSync, constants, realpathSync, statSync } from "node:fs";
 import path from "node:path";
+import type { HostClient, HostEvent } from "@pi-gui/host-protocol";
 import type {
   TerminalPanelSnapshot,
   TerminalSessionSnapshot,
@@ -11,14 +11,15 @@ import type {
 import { desktopIpc } from "../../contracts/ipc";
 import { appendTerminalReplay } from "../../contracts/terminal-model";
 
-type NodePty = typeof import("node-pty");
-type IPty = import("node-pty").IPty;
-type IDisposable = import("node-pty").IDisposable;
-
-const require = createRequire(__filename);
-let nodePty: NodePty | undefined;
+/**
+ * Integrated terminals. The processes live in the Rust host (crates/pegasus-host: ConPTY on
+ * Windows, openpty elsewhere), which batches their output; this service keeps the per-window tab
+ * model, mirrors the replay for instant snapshots, and routes host events to the owning window.
+ * A missing host is a visible terminal error, never a silent no-op.
+ */
 
 const DEFAULT_TERMINAL_SIZE: TerminalSize = { cols: 80, rows: 24 };
+/** Host requests are capped at 1 MiB; stay well below it. */
 const MAX_WRITE_LENGTH = 128 * 1024;
 const MAX_TERMINAL_SESSIONS_PER_ROOT = 8;
 
@@ -39,6 +40,10 @@ interface TerminalSession {
   readonly rootKey: string;
   readonly cwd: string;
   readonly ownerWebContentsId: number;
+  readonly webContents: WebContents;
+  /** Host terminal id; a restart spawns under a fresh one so late events of the old process are ignored. */
+  hostId: string | undefined;
+  generation: number;
   shell: string;
   title: string;
   status: TerminalSessionStatus;
@@ -47,45 +52,48 @@ interface TerminalSession {
   exitCode: number | undefined;
   signal: number | undefined;
   size: TerminalSize;
-  pty: IPty | undefined;
-  dataSubscription: IDisposable | undefined;
-  exitSubscription: IDisposable | undefined;
 }
 
 export interface TerminalServiceOptions {
   readonly getWorkspacePath: (workspaceId: string) => string | undefined;
   readonly getIntegratedTerminalShell: () => string | undefined;
-  readonly isPackaged: boolean;
+  readonly connectHost: () => Promise<HostClient | undefined>;
+  readonly onHostEvent: (listener: (event: HostEvent) => void) => () => void;
 }
 
 export class TerminalService {
   private readonly rootsByKey = new Map<string, TerminalRoot>();
   private readonly sessionsById = new Map<string, TerminalSession>();
+  private readonly sessionsByHostId = new Map<string, TerminalSession>();
   private nextSessionNumber = 1;
+  private readonly offHostEvent: () => void;
 
-  constructor(private readonly options: TerminalServiceOptions) {}
+  constructor(private readonly options: TerminalServiceOptions) {
+    this.offHostEvent = options.onHostEvent((event) => this.onHostEvent(event));
+  }
 
-  ensurePanel(
+  async ensurePanel(
     webContents: WebContents,
     workspaceId: string,
     terminalScopeId: string,
     size?: Partial<TerminalSize>,
-  ): TerminalPanelSnapshot {
+  ): Promise<TerminalPanelSnapshot> {
     const root = this.ensureRoot(webContents, workspaceId, terminalScopeId);
     if (!root.activeSessionId || root.sessionIds.length === 0) {
       const session = this.createSessionForRoot(webContents, root, size);
       root.sessionIds.push(session.id);
       root.activeSessionId = session.id;
+      await this.spawn(session);
     }
     return this.snapshotRoot(root);
   }
 
-  createSession(
+  async createSession(
     webContents: WebContents,
     workspaceId: string,
     terminalScopeId: string,
     size?: Partial<TerminalSize>,
-  ): TerminalPanelSnapshot {
+  ): Promise<TerminalPanelSnapshot> {
     const root = this.ensureRoot(webContents, workspaceId, terminalScopeId);
     if (root.sessionIds.length >= MAX_TERMINAL_SESSIONS_PER_ROOT) {
       throw new Error(
@@ -95,6 +103,7 @@ export class TerminalService {
     const session = this.createSessionForRoot(webContents, root, size);
     root.sessionIds.push(session.id);
     root.activeSessionId = session.id;
+    await this.spawn(session);
     return this.snapshotRoot(root);
   }
 
@@ -118,43 +127,44 @@ export class TerminalService {
 
   write(webContents: WebContents, terminalId: string, data: string): void {
     const session = this.requireOwnedSession(webContents, terminalId);
-    if (typeof data !== "string" || data.length === 0) {
+    const hostId = session.hostId;
+    if (typeof data !== "string" || data.length === 0 || !hostId || session.status !== "running") {
       return;
     }
-    const pty = session.pty;
-    if (!pty) {
-      return;
-    }
-    // Chunk large input (e.g. a big paste) instead of dropping it, so no data is
-    // silently lost. Split on code-unit boundaries but never inside a UTF-16
-    // surrogate pair.
+    // Chunk large input (a big paste) instead of dropping it; never split a UTF-16 surrogate pair.
+    const chunks: string[] = [];
     for (let offset = 0; offset < data.length;) {
       let end = Math.min(offset + MAX_WRITE_LENGTH, data.length);
       if (end < data.length) {
         const code = data.charCodeAt(end - 1);
-        if (code >= 0xd800 && code <= 0xdbff) {
-          end -= 1;
-        }
+        if (code >= 0xd800 && code <= 0xdbff) end -= 1;
       }
-      pty.write(data.slice(offset, end));
+      chunks.push(data.slice(offset, end));
       offset = end;
     }
+    this.onHost(session, "write", async (host) => {
+      for (const chunk of chunks) await host.call("terminal.write", { id: hostId, data: chunk });
+    });
   }
 
   resize(webContents: WebContents, terminalId: string, size: TerminalSize): void {
     const session = this.requireOwnedSession(webContents, terminalId);
     const normalizedSize = normalizeSize(size);
     session.size = normalizedSize;
-    session.pty?.resize(normalizedSize.cols, normalizedSize.rows);
+    const hostId = session.hostId;
+    if (!hostId || session.status !== "running") return;
+    this.onHost(session, "resize", (host) =>
+      host.call("terminal.resize", { id: hostId, ...normalizedSize }),
+    );
   }
 
-  restart(
+  async restart(
     webContents: WebContents,
     terminalId: string,
     size?: Partial<TerminalSize>,
-  ): TerminalPanelSnapshot {
+  ): Promise<TerminalPanelSnapshot> {
     const session = this.requireOwnedSession(webContents, terminalId);
-    this.disposePty(session);
+    this.killHostTerminal(session);
     session.shell = this.resolveShell();
     session.title = this.defaultTitle(session);
     session.status = "running";
@@ -163,14 +173,14 @@ export class TerminalService {
     session.exitCode = undefined;
     session.signal = undefined;
     session.size = normalizeSize(size ?? session.size);
-    this.spawnPty(webContents, session);
+    await this.spawn(session);
     return this.snapshotRoot(this.requireRoot(session.rootKey));
   }
 
   close(webContents: WebContents, terminalId: string): TerminalPanelSnapshot | null {
     const session = this.requireOwnedSession(webContents, terminalId);
     const root = this.requireRoot(session.rootKey);
-    this.disposeSession(session);
+    this.killHostTerminal(session);
     this.sessionsById.delete(session.id);
 
     const index = root.sessionIds.indexOf(session.id);
@@ -206,7 +216,7 @@ export class TerminalService {
         for (const sessionId of root.sessionIds) {
           const session = this.sessionsById.get(sessionId);
           if (session) {
-            this.disposeSession(session);
+            this.killHostTerminal(session);
             this.sessionsById.delete(session.id);
           }
         }
@@ -221,7 +231,7 @@ export class TerminalService {
       if (session.ownerWebContentsId !== webContentsId) {
         continue;
       }
-      this.disposeSession(session);
+      this.killHostTerminal(session);
       this.sessionsById.delete(sessionId);
       rootKeysToDelete.add(session.rootKey);
     }
@@ -232,10 +242,105 @@ export class TerminalService {
 
   dispose(): void {
     for (const session of this.sessionsById.values()) {
-      this.disposeSession(session);
+      this.killHostTerminal(session);
     }
     this.sessionsById.clear();
     this.rootsByKey.clear();
+    this.offHostEvent();
+  }
+
+  private onHostEvent(event: HostEvent): void {
+    if (event.event === "shuttingDown") return;
+    const session = this.sessionsByHostId.get(event.data.id);
+    if (!session) return;
+    if (event.event === "terminalData") {
+      const next = appendTerminalReplay(session.replay, event.data.data, session.truncated);
+      session.replay = next.replay;
+      session.truncated = next.truncated;
+      this.sendToOwner(session, desktopIpc.terminalData, {
+        terminalId: session.id,
+        data: event.data.data,
+      });
+      return;
+    }
+    session.status = "exited";
+    session.exitCode = event.data.exitCode ?? undefined;
+    session.signal = undefined;
+    this.sessionsByHostId.delete(event.data.id);
+    // The process is gone; forget it in the host too (its replay is mirrored here).
+    const hostId = event.data.id;
+    session.hostId = undefined;
+    this.onHost(session, "forget", (host) => host.call("terminal.kill", { id: hostId }));
+    this.sendToOwner(session, desktopIpc.terminalExit, {
+      terminalId: session.id,
+      exitCode: session.exitCode ?? 0,
+    });
+  }
+
+  private async spawn(session: TerminalSession): Promise<void> {
+    session.generation += 1;
+    const hostId = `${session.id}.${session.generation}`;
+    try {
+      const host = await this.options.connectHost();
+      if (!host) throw new Error("The Pegasus host is not running; see the host log.");
+      this.sessionsByHostId.set(hostId, session);
+      session.hostId = hostId;
+      await host.call("terminal.spawn", {
+        id: hostId,
+        shell: session.shell,
+        args: [],
+        cwd: session.cwd,
+        env: buildTerminalEnv(),
+        cols: session.size.cols,
+        rows: session.size.rows,
+        tag: JSON.stringify({ workspaceId: session.workspaceId, scope: session.terminalScopeId }),
+      });
+    } catch (error) {
+      this.sessionsByHostId.delete(hostId);
+      session.hostId = undefined;
+      session.status = "error";
+      const message = error instanceof Error ? error.message : String(error);
+      const next = appendTerminalReplay(session.replay, `${message}\r\n`, session.truncated);
+      session.replay = next.replay;
+      session.truncated = next.truncated;
+      this.sendToOwner(session, desktopIpc.terminalError, { terminalId: session.id, message });
+    }
+  }
+
+  /** Fire-and-forget form of `withHost` for input paths (write, resize, close). */
+  private onHost(
+    session: TerminalSession,
+    what: string,
+    run: (host: HostClient) => Promise<unknown>,
+  ): void {
+    this.withHost(session, what, run).catch((error: unknown) => {
+      console.warn(`[terminal] ${session.id} ${what}:`, error);
+    });
+  }
+
+  /** Runs a host call for a session; a failure is shown in that terminal and logged. */
+  private async withHost(
+    session: TerminalSession,
+    what: string,
+    run: (host: HostClient) => Promise<unknown>,
+  ): Promise<void> {
+    try {
+      const host = await this.options.connectHost();
+      if (!host) throw new Error("The Pegasus host is not running; see the host log.");
+      await run(host);
+    } catch (error) {
+      const message = `terminal ${what} failed: ${error instanceof Error ? error.message : String(error)}`;
+      console.warn(`[terminal] ${session.id} ${message}`);
+      this.sendToOwner(session, desktopIpc.terminalError, { terminalId: session.id, message });
+    }
+  }
+
+  private killHostTerminal(session: TerminalSession): void {
+    const hostId = session.hostId;
+    session.hostId = undefined;
+    if (!hostId) return;
+    this.sessionsByHostId.delete(hostId);
+    this.onHost(session, "close", (host) => host.call("terminal.kill", { id: hostId }));
   }
 
   private ensureRoot(
@@ -283,6 +388,9 @@ export class TerminalService {
       rootKey: root.rootKey,
       cwd: root.cwd,
       ownerWebContentsId: webContents.id,
+      webContents,
+      hostId: undefined,
+      generation: 0,
       shell: this.resolveShell(),
       title: "",
       status: "running",
@@ -291,78 +399,14 @@ export class TerminalService {
       exitCode: undefined,
       signal: undefined,
       size: normalizeSize(size),
-      pty: undefined,
-      dataSubscription: undefined,
-      exitSubscription: undefined,
     };
     session.title = this.defaultTitle(session);
     this.sessionsById.set(session.id, session);
-    this.spawnPty(webContents, session);
     return session;
   }
 
-  private spawnPty(webContents: WebContents, session: TerminalSession): void {
-    try {
-      ensureNodePtySpawnHelperExecutable(this.options.isPackaged);
-      session.pty = loadNodePty().spawn(session.shell, [], {
-        name: "xterm-256color",
-        cols: session.size.cols,
-        rows: session.size.rows,
-        cwd: session.cwd,
-        env: buildTerminalEnv(),
-        // Windows: always ConPTY (never winpty) so CLIs see a real console and keep colour.
-        ...(process.platform === "win32" ? { useConpty: true } : {}),
-      });
-    } catch (error) {
-      session.status = "error";
-      const message = error instanceof Error ? error.message : String(error);
-      this.appendReplay(session, `${message}\r\n`);
-      this.sendToOwner(webContents, session, desktopIpc.terminalError, {
-        terminalId: session.id,
-        message,
-      });
-      return;
-    }
-
-    session.dataSubscription = session.pty.onData((data) => {
-      this.appendReplay(session, data);
-      this.sendToOwner(webContents, session, desktopIpc.terminalData, {
-        terminalId: session.id,
-        data,
-      });
-    });
-    session.exitSubscription = session.pty.onExit(({ exitCode, signal }) => {
-      session.status = "exited";
-      session.exitCode = exitCode;
-      session.signal = signal;
-      // The PTY has exited on its own; drop the handle and listeners so a later
-      // Restart can't signal a recycled PID's process group and stale onData
-      // callbacks can't fire.
-      session.dataSubscription?.dispose();
-      session.exitSubscription?.dispose();
-      session.dataSubscription = undefined;
-      session.exitSubscription = undefined;
-      session.pty = undefined;
-      this.sendToOwner(webContents, session, desktopIpc.terminalExit, {
-        terminalId: session.id,
-        exitCode,
-        signal,
-      });
-    });
-  }
-
-  private appendReplay(session: TerminalSession, data: string): void {
-    const nextReplay = appendTerminalReplay(session.replay, data, session.truncated);
-    session.replay = nextReplay.replay;
-    session.truncated = nextReplay.truncated;
-  }
-
-  private sendToOwner(
-    webContents: WebContents,
-    session: TerminalSession,
-    channel: string,
-    payload: unknown,
-  ): void {
+  private sendToOwner(session: TerminalSession, channel: string, payload: unknown): void {
+    const webContents = session.webContents;
     if (webContents.id === session.ownerWebContentsId && !webContents.isDestroyed()) {
       webContents.send(channel, payload);
     }
@@ -413,27 +457,6 @@ export class TerminalService {
       exitCode: session.exitCode,
       signal: session.signal,
     };
-  }
-
-  private disposeSession(session: TerminalSession): void {
-    this.disposePty(session);
-  }
-
-  private disposePty(session: TerminalSession): void {
-    const pty = session.pty;
-    session.dataSubscription?.dispose();
-    session.exitSubscription?.dispose();
-    session.dataSubscription = undefined;
-    session.exitSubscription = undefined;
-    if (pty && process.platform !== "win32") {
-      killUnixProcessGroup(pty.pid);
-    }
-    try {
-      pty?.kill();
-    } catch {
-      // Best-effort cleanup when the child process has already exited.
-    }
-    session.pty = undefined;
   }
 
   private defaultTitle(session: TerminalSession): string {
@@ -518,61 +541,8 @@ function buildTerminalEnv(): Record<string, string> {
   delete env.FORCE_COLOR;
   delete env.TERMINFO;
   delete env.TERMINFO_DIRS;
+  // Host variables of this process must not leak into user shells.
+  delete env.PEGASUS_HOST_PATH;
+  delete env.PEGASUS_HOST_IDLE_SECS;
   return env;
-}
-
-function ensureNodePtySpawnHelperExecutable(isPackaged: boolean): void {
-  if (process.platform === "win32") {
-    return;
-  }
-  const packageDir = path.dirname(require.resolve("node-pty/package.json"));
-  const helperPath = resolveNodePtySpawnHelperPath(packageDir);
-  if (!helperPath) {
-    return;
-  }
-  try {
-    accessSync(helperPath, constants.X_OK);
-  } catch (error) {
-    if (isPackaged) {
-      throw error;
-    }
-    chmodSync(helperPath, 0o755);
-  }
-}
-
-function loadNodePty(): NodePty {
-  nodePty ??= require("node-pty") as NodePty;
-  return nodePty;
-}
-
-function killUnixProcessGroup(pid: number): void {
-  if (!Number.isInteger(pid) || pid <= 0) {
-    return;
-  }
-  try {
-    process.kill(-pid, "SIGHUP");
-    return;
-  } catch {
-    // Fall back to the direct child when the process is not a group leader.
-  }
-  try {
-    process.kill(pid, "SIGHUP");
-  } catch {
-    // Best-effort cleanup; the process may already be gone.
-  }
-}
-
-function resolveNodePtySpawnHelperPath(packageDir: string): string | undefined {
-  const candidateDirs = [
-    path.join(packageDir, "build", "Release"),
-    path.join(packageDir, "prebuilds", `${process.platform}-${process.arch}`),
-  ];
-  for (const candidateDir of candidateDirs) {
-    const ptyNodePath = path.join(candidateDir, "pty.node");
-    const helperPath = path.join(candidateDir, "spawn-helper");
-    if (existsSync(ptyNodePath) && existsSync(helperPath)) {
-      return helperPath;
-    }
-  }
-  return undefined;
 }

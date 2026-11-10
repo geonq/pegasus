@@ -293,16 +293,17 @@ async function connectOrLaunch(
 ): Promise<HostClient> {
   let socket = await tryConnect(options.endpoint);
   if (!socket && options.launch) {
-    const child = spawn(options.launch.binary, [...options.launch.args], {
+    // --detach: the binary starts the real host without inheriting our handles and exits 0.
+    const child = spawn(options.launch.binary, ["--detach", ...options.launch.args], {
       detached: true,
       stdio: "ignore",
       windowsHide: true,
     });
-    // Exit code 3 = another launcher's host won the race for the endpoint: keep connecting.
+    // The launcher exits 0 once the host is started; anything else means it could not start it.
     let died: string | undefined;
     child.on("error", (error) => (died = `spawn failed: ${error.message}`));
     child.on("exit", (code, signal) => {
-      if (code !== 3) died = `exited at start-up (${code ?? signal})`;
+      if (code !== 0) died = `exited at start-up (${code ?? signal})`;
     });
     child.unref();
     const deadline = Date.now() + connectTimeoutMs;

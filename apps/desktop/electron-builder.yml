@@ -282,13 +282,15 @@ asar: true
 asarUnpack:
   - "**/*.node"
   - "**/*.wasm"
-  - "**/node_modules/node-pty/**/*"
-  - "**/node_modules/.pnpm/node-pty*/node_modules/node-pty/**/*"
 
 artifactName: ${productName}-${version}-${arch}.${ext}
 
 mac:
   icon: resources/icon.icns
+  # Rust backend host (crates/pegasus-host), built by the release "mac" step on the Mac.
+  extraResources:
+    - from: ../../crates/target/release/pegasus-host
+      to: bin/pegasus-host
   executableName: Pegasus
   category: public.app-category.developer-tools
   hardenedRuntime: true
@@ -307,6 +309,10 @@ mac:
 
 linux:
   category: Development
+  # Rust backend host (crates/pegasus-host); build it on the Linux packaging machine first.
+  extraResources:
+    - from: ../../crates/target/release/pegasus-host
+      to: bin/pegasus-host
   executableName: pi-gui
   maintainer: Matthew Lam <minghinmatthew.lam@gmail.com>
   vendor: pi-gui

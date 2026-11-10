@@ -14,7 +14,7 @@ import {
   type MenuItemConstructorOptions,
   type MessageBoxOptions,
 } from "electron";
-import { isValidHttpBaseUrl } from "@pi-gui/pi-sdk-driver";
+import { connectHost, isValidHttpBaseUrl, onHostEvent } from "@pi-gui/pi-sdk-driver";
 import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -496,7 +496,8 @@ function getTerminalService(): TerminalService {
     terminalService = new TerminalService({
       getWorkspacePath: (workspaceId) => store.getWorkspacePath(workspaceId),
       getIntegratedTerminalShell: () => integratedTerminalShell,
-      isPackaged: app.isPackaged,
+      connectHost,
+      onHostEvent,
     });
   }
   return terminalService;

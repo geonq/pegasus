@@ -205,15 +205,18 @@ test("writes an oversized terminal paste in chunks instead of dropping it", asyn
     const payload = `${`${"X".repeat(63)}\n`.repeat(lineCount)}ENDMARKER\n`;
     expect(payload.length).toBeGreaterThan(128 * 1024);
 
-    // Start a receiver that installs its stdin pipe before announcing readiness.
+    // Start a receiver that installs its stdin listener before announcing readiness.
     // This keeps the test independent of whether the shell has handed the PTY to
-    // the child by the time Playwright's Enter keypress resolves.
+    // the child by the time Playwright's Enter keypress resolves. It exits on its own
+    // once the end marker arrives: end-of-input keys differ per platform (Ctrl+D on a
+    // Unix pty; a Windows console never turns the paste into EOF), and this test is
+    // about the paste arriving whole, not about EOF.
     const receiverReady = "PI_TERMINAL_RECEIVER_READY";
     const receiverDone = "PI_TERMINAL_RECEIVER_DONE";
     const receiverScript = [
       'const fs = require("node:fs")',
-      'const output = fs.createWriteStream("payload.txt")',
-      "process.stdin.pipe(output)",
+      'let tail = ""',
+      'process.stdin.on("data", (d) => { fs.appendFileSync("payload.txt", d); tail = (tail + d).slice(-32); if (tail.includes("ENDMARKER")) process.exit(0); })',
       'process.stdout.write("PI_TERMINAL_RECEIVER_" + "READY\\n")',
     ].join(";");
     await window.keyboard.type(`node -e '${receiverScript}'; echo PI_TERMINAL_RECEIVER_""DONE`);
@@ -231,10 +234,13 @@ test("writes an oversized terminal paste in chunks instead of dropping it", asyn
       .poll(() => readFile(payloadPath, "utf8").catch(() => ""), { timeout: 60_000 })
       .toContain("ENDMARKER");
 
-    await window.keyboard.press("Control+D");
     // The done line prints only after xterm has drawn the echo ahead of it.
     await expect(terminal.locator(".xterm-rows")).toContainText(receiverDone, { timeout: 60_000 });
-    expect(await readFile(payloadPath, "utf8")).toBe(payload);
+    // A Windows console's line mode stores line ends as CRLF.
+    const received = await readFile(payloadPath, "utf8");
+    expect(process.platform === "win32" ? received.replaceAll("\r\n", "\n") : received).toBe(
+      payload,
+    );
   } finally {
     await harness.close();
   }

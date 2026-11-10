@@ -1,6 +1,6 @@
 ---
 name: testing-windows-desktop
-description: End-to-end test the pi-gui Electron desktop app on Windows. Use when verifying Windows compatibility (dev launcher, PATH, folder picker, integrated terminal / node-pty) or any apps/desktop change on Windows.
+description: End-to-end test the pi-gui Electron desktop app on Windows. Use when verifying Windows compatibility (dev launcher, PATH, folder picker, integrated terminal in the Rust host) or any apps/desktop change on Windows.
 ---
 
 # Testing the pi-gui desktop app on Windows
@@ -17,7 +17,10 @@ description: End-to-end test the pi-gui Electron desktop app on Windows. Use whe
 - Empty state: sidebar (New thread / Threads / Skills / Extensions / Settings) + "Open a folder to start".
 - Navigation (Settings / Skills / Threads) is a good cheap proof the renderer is interactive.
 
-## Integrated terminal (node-pty / ConPTY) — IMPORTANT gotcha
+## Integrated terminal (Rust host / ConPTY) — IMPORTANT gotcha
+
+- Terminal processes run in `pegasus-host` (crates/pegasus-host), not in Electron. In dev the app uses the newest of `crates/target/{release,debug}/pegasus-host.exe`: run `cargo build -p pegasus-host` in `crates/` first. Its log is `<agent dir>/logs/pegasus-host.log`.
+- A host whose app quit kills that app's terminals after 30 s and exits after its idle timeout (tests: 5 s). A leftover test host locks the debug binary; it ends on its own, or stop only hosts whose `--sessions-root` is under the temp dir.
 
 - The Terminal item in the Open side panel menu is disabled until there is an **active session**: `terminalAvailable={Boolean(selectedSessionKey)}` in `apps/desktop/src/app/App.tsx`.
 - Creating a session through the live UI requires a **connected provider/model**. Without provider credentials you CANNOT reach the terminal via the GUI ("No models available" blocks send).

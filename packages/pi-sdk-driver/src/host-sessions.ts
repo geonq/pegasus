@@ -1,4 +1,12 @@
-import { existsSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -7,7 +15,13 @@ import {
   type SessionEntry,
   type SessionInfo,
 } from "@earendil-works/pi-coding-agent";
-import { HostCallError, HostClient, hostEndpoint, type AttachOptions } from "@pi-gui/host-protocol";
+import {
+  HostCallError,
+  HostClient,
+  hostEndpoint,
+  type AttachOptions,
+  type HostEvent,
+} from "@pi-gui/host-protocol";
 import { EXTENSION_PIN_CUSTOM_TYPE } from "@pi-gui/session-driver";
 
 /**
@@ -34,18 +48,67 @@ function resourcesPath(): string | undefined {
     : undefined;
 }
 
+/** Dev checkout: walk up from this file (dist or a bundle) to the repo's crates/target. */
+function devBinaries(): string[] {
+  const found: string[] = [];
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let depth = 0; depth < 8; depth += 1) {
+    for (const profile of ["release", "debug"]) {
+      found.push(join(dir, "crates", "target", profile, binaryName()));
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return found;
+}
+
 function resolveBinary(): string | undefined {
-  const here = dirname(fileURLToPath(import.meta.url));
   const resources = resourcesPath();
-  const candidates = [
-    process.env.PEGASUS_HOST_PATH,
-    // Packaged app: electron-builder extraResources puts it next to app.asar.
-    resources === undefined ? undefined : join(resources, "bin", binaryName()),
-    // Dev checkout: packages/pi-sdk-driver/dist -> repo/crates/target/{release,debug}.
-    join(here, "../../../crates/target/release", binaryName()),
-    join(here, "../../../crates/target/debug", binaryName()),
-  ];
-  return candidates.find((p): p is string => p !== undefined && p !== "" && existsSync(p));
+  const override = process.env.PEGASUS_HOST_PATH;
+  if (override && existsSync(override)) return override;
+  // Packaged app: electron-builder extraResources puts it next to app.asar.
+  const bundled = resources === undefined ? undefined : join(resources, "bin", binaryName());
+  if (bundled && existsSync(bundled)) return runnableCopy(bundled);
+  // Dev: the most recently built of release/debug, so a stale release build never shadows new code.
+  return devBinaries()
+    .filter((p) => existsSync(p))
+    .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
+}
+
+/**
+ * The host outlives the app, and Windows cannot replace a running .exe, so a packaged app runs the
+ * host from a per-version copy in the profile; the installer is then always free to replace the
+ * bundled binary. Older copies are removed when no host runs from them (a locked file stays).
+ */
+function runnableCopy(bundled: string): string {
+  const version = process.env.PEGASUS_APP_VERSION;
+  if (!version || !/^[\w.+-]+$/.test(version)) return bundled;
+  const root = join(getAgentDir(), "host-bin");
+  const target = join(root, version, binaryName());
+  try {
+    if (!existsSync(target) || statSync(target).size !== statSync(bundled).size) {
+      mkdirSync(dirname(target), { recursive: true });
+      const partial = `${target}.partial`;
+      copyFileSync(bundled, partial);
+      renameSync(partial, target);
+    }
+    for (const entry of readdirSync(root)) {
+      if (entry === version) continue;
+      try {
+        rmSync(join(root, entry), { recursive: true, force: true });
+      } catch {
+        // Still running from that copy; the next start cleans it up.
+      }
+    }
+    return target;
+  } catch (error) {
+    console.warn(
+      "[pegasus-host] could not stage a runnable copy; running the bundled binary:",
+      error,
+    );
+    return bundled;
+  }
 }
 
 let attaching: Promise<HostClient | undefined> | undefined;
@@ -79,11 +142,13 @@ function attachOptions(binary: string): AttachOptions {
   };
 }
 
-async function host(): Promise<HostClient | undefined> {
+const eventListeners = new Set<(event: HostEvent) => void>();
+
+async function host(retryNow = false): Promise<HostClient | undefined> {
   if (process.env.PEGASUS_HOST === "0") return undefined;
   if (client && !client.closed) return client;
   if (attaching) return attaching;
-  if (Date.now() - lastFailureAt < RETRY_COOLDOWN_MS) return undefined;
+  if (!retryNow && Date.now() - lastFailureAt < RETRY_COOLDOWN_MS) return undefined;
   const binary = resolveBinary();
   if (!binary) {
     if (!loggedMissing) {
@@ -95,6 +160,7 @@ async function host(): Promise<HostClient | undefined> {
   attaching = HostClient.attach(attachOptions(binary))
     .then((c) => {
       client = c;
+      for (const listener of eventListeners) c.onEvent(listener);
       return c;
     })
     .catch((error: unknown) => {
@@ -188,6 +254,24 @@ export async function sliceSessionRows(
   const c = await host();
   if (!c) throw new Error("pegasus-host unavailable");
   return c.call("session.slice", { path: file, pinType: EXTENSION_PIN_CUSTOM_TYPE, start, count });
+}
+
+/**
+ * The profile's host for features that need it (terminals). Attaches now even inside the session
+ * read cooldown; resolves undefined (and logs why) when it cannot.
+ */
+export function connectHost(): Promise<HostClient | undefined> {
+  return host(true);
+}
+
+/** Receive host events on this and every later connection (reconnects included). */
+export function onHostEvent(listener: (event: HostEvent) => void): () => void {
+  eventListeners.add(listener);
+  const off = client && !client.closed ? client.onEvent(listener) : undefined;
+  return () => {
+    eventListeners.delete(listener);
+    off?.();
+  };
 }
 
 /** Drop this process's connection; the host keeps running for other clients until idle. */

@@ -21,7 +21,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsc -p tsconfig.json && node --test \"test/**/*.test.mts\""
+    "test": "tsc -p tsconfig.json && cross-env PEGASUS_HOST=0 node --test \"test/**/*.test.mts\""
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "1.3.0",

@@ -1,8 +1,11 @@
 //! Shared host state and request dispatch. One `Host` per process; each connection calls `dispatch`.
+use crate::terminals::Terminals;
 use pegasus_core::protocol::{
     Empty, ErrorCode, HelloParams, HelloResult, HostError, HostEvent, ShutdownParams, ShutdownResult,
-    StatusResult, PROTOCOL,
+    StatusResult, TerminalId, TerminalList, TerminalResizeParams, TerminalSpawnParams, TerminalWriteParams,
+    PROTOCOL,
 };
+use std::collections::HashSet;
 use pegasus_core::rpc::Server as Sessions;
 use serde::Deserialize;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -17,10 +20,40 @@ pub const HOST_VERSION: &str = match option_env!("PEGASUS_APP_VERSION") {
     None => env!("CARGO_PKG_VERSION"),
 };
 
+/// Per-connection context: the client's name and which terminals' output it receives.
+#[derive(Default)]
+pub struct Conn {
+    pub id: u64,
+    pub name: Mutex<String>,
+    pub subs: Mutex<HashSet<String>>,
+}
+
+impl Conn {
+    pub fn name(&self) -> String {
+        self.name.lock().unwrap_or_else(|p| p.into_inner()).clone()
+    }
+    /// Terminal events go only to subscribed connections; everything else to all.
+    pub fn wants(&self, e: &HostEvent) -> bool {
+        match e {
+            HostEvent::TerminalData { id, .. } | HostEvent::TerminalExit { id, .. } => {
+                self.subs.lock().unwrap_or_else(|p| p.into_inner()).contains(id)
+            }
+            HostEvent::ShuttingDown { .. } => true,
+        }
+    }
+    /// Returns whether the set changed.
+    fn sub(&self, id: &str, on: bool) -> bool {
+        let mut s = self.subs.lock().unwrap_or_else(|p| p.into_inner());
+        if on { s.insert(id.to_string()) } else { s.remove(id) }
+    }
+}
+
 pub struct Host {
     sessions: Arc<Mutex<Sessions>>,
     clients: AtomicU32,
-    active_work: AtomicU32,
+    pub terminals: Arc<Terminals>,
+    /// How long an orphaned terminal waits for a client before it is killed.
+    pub orphan_grace: std::time::Duration,
     started: Instant,
     started_ms: f64,
     /// Last time the client count changed; drives the idle exit.
@@ -56,17 +89,23 @@ pub fn now_ms() -> f64 {
 }
 
 impl Host {
-    pub fn new(sessions: Sessions) -> Arc<Self> {
+    pub fn new(sessions: Sessions, orphan_grace: std::time::Duration) -> Arc<Self> {
+        let events = broadcast::channel(1024).0;
         Arc::new(Host {
             sessions: Arc::new(Mutex::new(sessions)),
             clients: AtomicU32::new(0),
-            active_work: AtomicU32::new(0),
+            terminals: Arc::new(Terminals::new(events.clone())),
+            orphan_grace,
             started: Instant::now(),
             started_ms: now_ms(),
             last_change: Mutex::new(Instant::now()),
-            events: broadcast::channel(64).0,
+            events,
             exiting: watch::channel(false).0,
         })
+    }
+
+    fn active_work(&self) -> u32 {
+        self.terminals.running()
     }
 
     pub fn client_connected(&self) -> u32 {
@@ -82,18 +121,19 @@ impl Host {
     /// Idle = no clients, no protected work, and nothing changed for `idle`.
     pub fn idle_for(&self, idle: std::time::Duration) -> bool {
         self.clients.load(Ordering::SeqCst) == 0
-            && self.active_work.load(Ordering::SeqCst) == 0
+            && self.active_work() == 0
             && self.last_change.lock().unwrap_or_else(|p| p.into_inner()).elapsed() >= idle
     }
 
     pub fn begin_exit(&self, reason: &str) {
         crate::info!("exiting: {reason}");
         let _ = self.events.send(HostEvent::ShuttingDown { reason: reason.to_string() });
+        self.terminals.kill_all();
         let _ = self.exiting.send(true);
     }
 
     /// One request body in, one framed response body out. Errors are responses, never panics.
-    pub async fn dispatch(self: &Arc<Self>, body: &[u8], client: &mut String) -> Vec<u8> {
+    pub async fn dispatch(self: &Arc<Self>, body: &[u8], conn: &Conn) -> Vec<u8> {
         let req: Request = match serde_json::from_slice(body) {
             Ok(r) => r,
             Err(e) => return envelope(0, Err(HostError::new(ErrorCode::BadRequest, e.to_string()))),
@@ -103,20 +143,21 @@ impl Host {
         } else if *self.exiting.borrow() {
             Err(HostError::new(ErrorCode::ShuttingDown, "host is exiting"))
         } else {
-            self.call(&req.method, req.params, client).await
+            self.call(&req.method, req.params, conn).await
         };
         if let Err(e) = &reply {
-            crate::warn!("{client} {} #{} -> {e}", req.method, req.id);
+            crate::warn!("{} {} #{} -> {e}", conn.name(), req.method, req.id);
         }
         envelope(req.id, reply)
     }
 
-    async fn call(self: &Arc<Self>, method: &str, params: serde_json::Value, client: &mut String) -> Reply {
+    async fn call(self: &Arc<Self>, method: &str, params: serde_json::Value, conn: &Conn) -> Reply {
+        let client = conn.name();
         match method {
             "hello" => {
                 let p: HelloParams = parse(params)?;
                 crate::info!("{} {} attached (host {HOST_VERSION})", p.client, p.app_version);
-                *client = format!("{}@{}", p.client, p.app_version);
+                *conn.name.lock().unwrap_or_else(|e| e.into_inner()) = format!("{}@{}", p.client, p.app_version);
                 to_body(&HelloResult {
                     protocol: PROTOCOL,
                     host_version: HOST_VERSION.into(),
@@ -131,12 +172,12 @@ impl Host {
                     host_version: HOST_VERSION.into(),
                     uptime_ms: self.started.elapsed().as_secs_f64() * 1000.0,
                     clients: self.clients.load(Ordering::SeqCst),
-                    active_work: self.active_work.load(Ordering::SeqCst),
+                    active_work: self.active_work(),
                 })
             }
             "shutdown" => {
                 let p: ShutdownParams = parse(params)?;
-                let active_work = self.active_work.load(Ordering::SeqCst);
+                let active_work = self.active_work();
                 let accepted = p.force || active_work == 0;
                 if accepted {
                     let host = self.clone();
@@ -160,6 +201,49 @@ impl Host {
                 })
                 .await
                 .map_err(|e| HostError::new(ErrorCode::Internal, format!("session task failed: {e}")))?
+            }
+            "terminal.spawn" => {
+                let p: TerminalSpawnParams = parse(params)?;
+                let id = p.id.clone();
+                // Subscribe before the process can print, so no early output is missed; a failed
+                // spawn undoes only a subscription it added (a duplicate id keeps the existing one).
+                let added = conn.sub(&id, true);
+                let r = self.terminals.spawn(p, conn.id);
+                if r.is_err() && added {
+                    conn.sub(&id, false);
+                }
+                to_body(&r?)
+            }
+            "terminal.attach" => {
+                let p: TerminalId = parse(params)?;
+                conn.sub(&p.id, true);
+                // Snapshot after subscribing: output may repeat across the seam, but none is lost.
+                to_body(&self.terminals.attach(&p.id, conn.id)?)
+            }
+            "terminal.detach" => {
+                let p: TerminalId = parse(params)?;
+                conn.sub(&p.id, false);
+                to_body(&Empty {})
+            }
+            "terminal.write" => {
+                let p: TerminalWriteParams = parse(params)?;
+                self.terminals.write(&p.id, &p.data)?;
+                to_body(&Empty {})
+            }
+            "terminal.resize" => {
+                let p: TerminalResizeParams = parse(params)?;
+                self.terminals.resize(&p.id, p.cols, p.rows)?;
+                to_body(&Empty {})
+            }
+            "terminal.kill" => {
+                let p: TerminalId = parse(params)?;
+                self.terminals.kill(&p.id)?;
+                conn.sub(&p.id, false);
+                to_body(&Empty {})
+            }
+            "terminal.list" => {
+                let _: Empty = parse(params)?;
+                to_body(&TerminalList { terminals: self.terminals.list() })
             }
             other => Err(HostError::new(ErrorCode::UnknownMethod, other)),
         }

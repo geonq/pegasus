@@ -6,7 +6,7 @@ export const HOST_PROTOCOL = 2;
 /** pi's own session entry, passed through unparsed. */
 export type RawEntry = SessionEntry;
 
-export type ErrorCode = "bad_request" | "bad_params" | "unknown_method" | "unsupported_protocol" | "bad_path" | "outside_root" | "not_a_session" | "unsupported_version" | "io" | "shutting_down" | "internal";
+export type ErrorCode = "bad_request" | "bad_params" | "unknown_method" | "unsupported_protocol" | "bad_path" | "outside_root" | "not_a_session" | "unsupported_version" | "io" | "not_found" | "already_exists" | "spawn_failed" | "shutting_down" | "internal";
 
 export type HostError = { code: ErrorCode, message: string, };
 
@@ -68,7 +68,39 @@ export type SessionTail = { offset: number,
  */
 reset: boolean, lines: Array<RawEntry>, };
 
-export type HostEvent = { "event": "shuttingDown", "data": { reason: string, } };
+export type TerminalStatus = "running" | "exited";
+
+export type TerminalSpawnParams = { 
+/**
+ * Client-chosen id, unique per host; reusing a live id is an error.
+ */
+id: string, shell: string, args: Array<string>, cwd: string, 
+/**
+ * The complete environment (the host does not inherit its own).
+ */
+env: { [key in string]: string }, cols: number, rows: number, 
+/**
+ * Opaque client metadata (workspace, thread scope) so a restarted client can adopt the terminal.
+ */
+tag: string, };
+
+export type TerminalInfo = { id: string, pid: number | null, shell: string, cwd: string, tag: string, status: TerminalStatus, exitCode: number | null, signal: string | null, cols: number, rows: number, };
+
+export type TerminalId = { id: string, };
+
+export type TerminalSnapshot = { info: TerminalInfo, 
+/**
+ * Output so far (last ~1M chars), to repaint before live data resumes.
+ */
+replay: string, truncated: boolean, };
+
+export type TerminalWriteParams = { id: string, data: string, };
+
+export type TerminalResizeParams = { id: string, cols: number, rows: number, };
+
+export type TerminalList = { terminals: Array<TerminalInfo>, };
+
+export type HostEvent = { "event": "shuttingDown", "data": { reason: string, } } | { "event": "terminalData", "data": { id: string, data: string, } } | { "event": "terminalExit", "data": { id: string, exitCode: number | null, signal: string | null, } };
 
 export interface HostMethods {
   "hello": { params: HelloParams; result: HelloResult };
@@ -78,4 +110,11 @@ export interface HostMethods {
   "session.context": { params: ContextParams; result: SessionContext };
   "session.slice": { params: SliceParams; result: SessionSlice };
   "session.tail": { params: TailParams; result: SessionTail };
+  "terminal.spawn": { params: TerminalSpawnParams; result: TerminalSnapshot };
+  "terminal.attach": { params: TerminalId; result: TerminalSnapshot };
+  "terminal.detach": { params: TerminalId; result: Empty };
+  "terminal.write": { params: TerminalWriteParams; result: Empty };
+  "terminal.resize": { params: TerminalResizeParams; result: Empty };
+  "terminal.kill": { params: TerminalId; result: Empty };
+  "terminal.list": { params: Empty; result: TerminalList };
 }

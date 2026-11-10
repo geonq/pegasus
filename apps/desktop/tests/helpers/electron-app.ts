@@ -440,6 +440,8 @@ function buildDesktopLaunchEnv(
     PI_APP_INITIAL_WORKSPACES: (options.initialWorkspaces ?? []).join(delimiter),
     PI_APP_TEST_MODE: options.testMode ?? process.env.PI_APP_TEST_MODE ?? "foreground",
     PI_CODING_AGENT_DIR: agentDir,
+    // Each test profile gets its own pegasus-host; let it exit soon after the app does.
+    PEGASUS_HOST_IDLE_SECS: "5",
     ...(options.notificationLogPath
       ? { PI_APP_NOTIFICATION_LOG_PATH: options.notificationLogPath }
       : {}),

@@ -1,15 +1,17 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
-//! pegasus-host --endpoint <pipe-or-socket> --sessions-root <dir> [--cache <file>] [--log-dir <dir>]
+//! pegasus-host [--detach] --endpoint <pipe-or-socket> --sessions-root <dir> [--cache <file>] [--log-dir <dir>]
 //!              [--idle-exit-secs N]
 //!
 //! One host per profile. It outlives the Electron window: clients attach over a named pipe (Windows)
 //! or a unix socket, and the host exits only on an accepted `shutdown` or after being idle (no
 //! clients, no active work) for `--idle-exit-secs` (default 600). A second host on the same endpoint
 //! exits with code 3 so racing launchers are harmless.
+mod detach;
 mod host;
 mod log;
+mod terminals;
 
-use host::{event_frame, Host};
+use host::{event_frame, Conn, Host};
 use pegasus_core::protocol::MAX_REQUEST;
 use pegasus_core::rpc::Server as Sessions;
 use std::path::PathBuf;
@@ -24,10 +26,11 @@ struct Args {
     cache: Option<PathBuf>,
     log_dir: Option<PathBuf>,
     idle: Duration,
+    orphan_grace: Duration,
 }
 
 fn args() -> Args {
-    let (mut endpoint, mut root, mut cache, mut log_dir, mut idle) = (None, None, None, None, 600u64);
+    let (mut endpoint, mut root, mut cache, mut log_dir, mut idle, mut grace) = (None, None, None, None, 600u64, 30u64);
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
         match (a.as_str(), it.next()) {
@@ -36,7 +39,8 @@ fn args() -> Args {
             ("--cache", Some(v)) => cache = Some(PathBuf::from(v)),
             ("--log-dir", Some(v)) => log_dir = Some(PathBuf::from(v)),
             ("--idle-exit-secs", Some(v)) => idle = v.parse().unwrap_or_else(|_| fail(2, "--idle-exit-secs must be a number")),
-            _ => fail(2, "usage: pegasus-host --endpoint <name> --sessions-root <dir> [--cache <file>] [--log-dir <dir>] [--idle-exit-secs N]"),
+            ("--orphan-grace-secs", Some(v)) => grace = v.parse().unwrap_or_else(|_| fail(2, "--orphan-grace-secs must be a number")),
+            _ => fail(2, "usage: pegasus-host --endpoint <name> --sessions-root <dir> [--cache <file>] [--log-dir <dir>] [--idle-exit-secs N] [--orphan-grace-secs N]"),
         }
     }
     Args {
@@ -45,6 +49,7 @@ fn args() -> Args {
         cache,
         log_dir,
         idle: Duration::from_secs(idle),
+        orphan_grace: Duration::from_secs(grace),
     }
 }
 
@@ -55,6 +60,13 @@ fn fail(code: i32, msg: &str) -> ! {
 
 #[tokio::main]
 async fn main() {
+    let raw: Vec<String> = std::env::args().skip(1).collect();
+    if raw.first().is_some_and(|a| a == "--detach") {
+        match detach::launch(&raw[1..]) {
+            Ok(_) => std::process::exit(0),
+            Err(e) => fail(1, &format!("detached launch failed: {e}")),
+        }
+    }
     let a = args();
     log::init(a.log_dir.clone());
     std::panic::set_hook(Box::new(|info| log::write("PANIC", &info.to_string())));
@@ -62,7 +74,7 @@ async fn main() {
     let _ = std::fs::create_dir_all(&a.sessions_root);
     let sessions = Sessions::new(&a.sessions_root, a.cache.clone())
         .unwrap_or_else(|e| fail(2, &format!("sessions root {}: {e}", a.sessions_root.display())));
-    let host = Host::new(sessions);
+    let host = Host::new(sessions, a.orphan_grace);
     info!("pegasus-host {} pid {} on {}", host::HOST_VERSION, std::process::id(), a.endpoint);
 
     let mut exiting = host.exiting.subscribe();
@@ -96,12 +108,25 @@ async fn connection<S: AsyncRead + AsyncWrite + Send + 'static>(stream: S, host:
     info!("client connected ({n} total)");
     let (mut r, mut w) = tokio::io::split(stream);
     let (tx, mut rx) = mpsc::channel::<Vec<u8>>(256);
+    static NEXT_CONN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    let conn = Arc::new(Conn { id: NEXT_CONN.fetch_add(1, std::sync::atomic::Ordering::Relaxed), ..Conn::default() });
+    *conn.name.lock().unwrap_or_else(|p| p.into_inner()) = "unnamed".into();
     let mut events = host.events.subscribe();
     let ev_tx = tx.clone();
+    let ev_conn = conn.clone();
     let ev_task = tokio::spawn(async move {
-        while let Ok(e) = events.recv().await {
-            if ev_tx.send(event_frame(&e)).await.is_err() {
-                return;
+        loop {
+            match events.recv().await {
+                Ok(e) => {
+                    if ev_conn.wants(&e) && ev_tx.send(event_frame(&e)).await.is_err() {
+                        return;
+                    }
+                }
+                // A slow client fell behind the event buffer: say so instead of dropping silently.
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    warn!("{} missed {n} events (too slow)", ev_conn.name());
+                }
+                Err(_) => return,
             }
         }
     });
@@ -113,7 +138,6 @@ async fn connection<S: AsyncRead + AsyncWrite + Send + 'static>(stream: S, host:
             }
         }
     });
-    let client = Arc::new(tokio::sync::Mutex::new(String::from("unnamed")));
     loop {
         let mut len = [0u8; 4];
         if r.read_exact(&mut len).await.is_err() {
@@ -121,27 +145,25 @@ async fn connection<S: AsyncRead + AsyncWrite + Send + 'static>(stream: S, host:
         }
         let n = u32::from_be_bytes(len) as usize;
         if n > MAX_REQUEST {
-            warn!("{} sent a {n}-byte frame; closing", client.lock().await);
+            warn!("{} sent a {n}-byte frame; closing", conn.name());
             break;
         }
         let mut body = vec![0u8; n];
         if r.read_exact(&mut body).await.is_err() {
             break;
         }
-        let (host, tx, client) = (host.clone(), tx.clone(), client.clone());
+        let (host, tx, conn) = (host.clone(), tx.clone(), conn.clone());
         tokio::spawn(async move {
-            // hello renames the client; other calls only read the name.
-            let mut name = client.lock().await.clone();
-            let out = host.dispatch(&body, &mut name).await;
-            *client.lock().await = name;
+            let out = host.dispatch(&body, &conn).await;
             let _ = tx.send(out).await;
         });
     }
     ev_task.abort();
     drop(tx);
     let _ = writer.await;
+    host.terminals.release(conn.id, host.orphan_grace);
     let left = host.client_left();
-    info!("{} disconnected ({left} left)", client.lock().await);
+    info!("{} disconnected ({left} left)", conn.name());
 }
 
 #[cfg(windows)]

@@ -26,6 +26,9 @@ pub enum ErrorCode {
     NotASession,
     UnsupportedVersion,
     Io,
+    NotFound,
+    AlreadyExists,
+    SpawnFailed,
     ShuttingDown,
     Internal,
 }
@@ -180,12 +183,90 @@ pub struct SessionTail {
     pub lines: Vec<RawEntry>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum TerminalStatus {
+    Running,
+    Exited,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TerminalSpawnParams {
+    /// Client-chosen id, unique per host; reusing a live id is an error.
+    pub id: String,
+    pub shell: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    pub cwd: String,
+    /// The complete environment (the host does not inherit its own).
+    pub env: std::collections::BTreeMap<String, String>,
+    pub cols: u16,
+    pub rows: u16,
+    /// Opaque client metadata (workspace, thread scope) so a restarted client can adopt the terminal.
+    pub tag: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalInfo {
+    pub id: String,
+    pub pid: Option<u32>,
+    pub shell: String,
+    pub cwd: String,
+    pub tag: String,
+    pub status: TerminalStatus,
+    pub exit_code: Option<u32>,
+    pub signal: Option<String>,
+    pub cols: u16,
+    pub rows: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct TerminalId {
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalSnapshot {
+    pub info: TerminalInfo,
+    /// Output so far (last ~1M chars), to repaint before live data resumes.
+    pub replay: String,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct TerminalWriteParams {
+    pub id: String,
+    pub data: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct TerminalResizeParams {
+    pub id: String,
+    pub cols: u16,
+    pub rows: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct TerminalList {
+    pub terminals: Vec<TerminalInfo>,
+}
+
 /// Host -> client pushes.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(tag = "event", content = "data", rename_all = "camelCase")]
 pub enum HostEvent {
     /// The host is about to exit; clients should reconnect (and respawn) on their next call.
     ShuttingDown { reason: String },
+    /// Batched output of a terminal this connection spawned or attached to.
+    TerminalData { id: String, data: String },
+    #[serde(rename_all = "camelCase")]
+    TerminalExit { id: String, exit_code: Option<u32>, signal: Option<String> },
 }
 
 /// The method table: name, params type, result type. `ts_bindings` turns it into `HostMethods`.
@@ -212,6 +293,13 @@ methods! {
     "session.context" => ContextParams => SessionContext,
     "session.slice" => SliceParams => SessionSlice,
     "session.tail" => TailParams => SessionTail,
+    "terminal.spawn" => TerminalSpawnParams => TerminalSnapshot,
+    "terminal.attach" => TerminalId => TerminalSnapshot,
+    "terminal.detach" => TerminalId => Empty,
+    "terminal.write" => TerminalWriteParams => Empty,
+    "terminal.resize" => TerminalResizeParams => Empty,
+    "terminal.kill" => TerminalId => Empty,
+    "terminal.list" => Empty => TerminalList,
 }
 
 /// The whole generated TypeScript module.
@@ -235,6 +323,14 @@ pub fn ts_bindings() -> String {
         SessionSlice::decl(&cfg),
         TailParams::decl(&cfg),
         SessionTail::decl(&cfg),
+        TerminalStatus::decl(&cfg),
+        TerminalSpawnParams::decl(&cfg),
+        TerminalInfo::decl(&cfg),
+        TerminalId::decl(&cfg),
+        TerminalSnapshot::decl(&cfg),
+        TerminalWriteParams::decl(&cfg),
+        TerminalResizeParams::decl(&cfg),
+        TerminalList::decl(&cfg),
         HostEvent::decl(&cfg),
     ];
     let mut out = String::from(

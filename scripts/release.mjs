@@ -265,13 +265,14 @@ const steps = {
     const zip = `Pegasus-${ctx.version}-arm64-mac.zip`;
     // Version and sha come from validated values; the script travels over stdin, not a shell argument.
     const script = `set -euo pipefail
-export PATH="$HOME/Pi/pi-gui-attachments/node_modules/.bin:$HOME/Pi/pi-gui-attachments/apps/desktop/node_modules/.bin:/opt/homebrew/bin:$PATH"
+export PATH="$HOME/Pi/pi-gui-attachments/node_modules/.bin:$HOME/Pi/pi-gui-attachments/apps/desktop/node_modules/.bin:$HOME/.cargo/bin:/opt/homebrew/bin:$PATH"
 export CSC_IDENTITY_AUTO_DISCOVERY=false
 cd "$HOME/Pi/pi-gui-attachments"
 before=$(git rev-parse HEAD)
 git merge --ff-only windows-sync
 test "$(git rev-parse HEAD)" = "${sha}"
 if ! git diff --quiet "$before" HEAD -- pnpm-lock.yaml; then pnpm install --frozen-lockfile; fi
+(cd crates && PEGASUS_APP_VERSION=${ctx.version} cargo build --release -p pegasus-host && cargo test --release -p pegasus-core -p pegasus-host)
 cd apps/desktop
 rm -rf release/mac-arm64
 pnpm run build

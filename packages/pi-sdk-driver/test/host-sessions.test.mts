@@ -9,6 +9,9 @@ import { join, resolve } from "node:path";
 const agentDir = await mkdtemp(join(tmpdir(), "pegasus-host-sessions-"));
 process.env.PI_CODING_AGENT_DIR = agentDir;
 process.env.PEGASUS_HOST_IDLE_SECS = "20";
+// The package test script disables the host so other suites never start one on the real profile;
+// this suite runs on its own scratch agent dir and exercises it.
+delete process.env.PEGASUS_HOST;
 
 const { SessionManager } = await import("@earendil-works/pi-coding-agent");
 const { listSessionInfos, openTranscriptSource, closeHostConnection, stopHost } =

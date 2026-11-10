@@ -1,2 +1,4 @@
 [toolchain]
-channel = "stable-x86_64-pc-windows-msvc"
+# Each OS uses its native default target (MSVC on Windows: rustup default stable-x86_64-pc-windows-msvc).
+channel = "stable"
+profile = "minimal"

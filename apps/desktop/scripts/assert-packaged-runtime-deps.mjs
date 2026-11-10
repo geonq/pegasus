@@ -62,7 +62,6 @@ const requiredPackages = [
   "lru-cache",
   "mime-types",
   "minimatch",
-  "node-pty",
   "openai",
   "parse5",
   "parse5-htmlparser2-tree-adapter",
@@ -182,7 +181,7 @@ try {
   verifyPiDependencyVersions(extractedDir);
   await verifyPackagedPiRuntime(extractedDir);
   await verifyPackagedRuntimeImports(extractedDir);
-  await verifyNativeNodePty(asarPath);
+  await verifyHostBinary(asarPath);
 } finally {
   try {
     rmSync(extractedDir, {
@@ -345,20 +344,16 @@ async function verifyPackagedRuntimeImports(extractedDir) {
   }
 }
 
-async function verifyNativeNodePty(asarPath) {
-  const unpackedResourcesDir = `${asarPath}.unpacked`;
-  const nodePtyDir = path.join(unpackedResourcesDir, "node_modules", "node-pty");
-  if (!existsSync(nodePtyDir) || !hasFileWithExtension(nodePtyDir, ".node")) {
-    throw new Error(`Packaged app is missing unpacked node-pty native module under ${nodePtyDir}`);
+/** Terminals, session reads and runs live in the Rust host; the app is not usable without it. */
+async function verifyHostBinary(asarPath) {
+  const name = packagePlatform === "win32" ? "pegasus-host.exe" : "pegasus-host";
+  const hostPath = path.join(path.dirname(asarPath), "bin", name);
+  if (!existsSync(hostPath)) {
+    throw new Error(`Packaged app is missing the Rust host at ${hostPath}`);
   }
-  if (packagePlatform !== "darwin") {
-    return;
+  if (packagePlatform !== "win32") {
+    await access(hostPath, constants.X_OK);
   }
-  const helperPath = findFileNamed(nodePtyDir, "spawn-helper");
-  if (!helperPath) {
-    throw new Error(`Packaged app is missing unpacked node-pty spawn-helper under ${nodePtyDir}`);
-  }
-  await access(helperPath, constants.X_OK);
 }
 
 function hasFileWithExtension(directoryPath, extension) {
