@@ -46,6 +46,9 @@ async function openReview(
   await selectSidePanel(window, "Review");
   const panel = window.getByRole("region", { name: "Review", exact: true });
   await expect(panel).toBeVisible();
+  // The changed-file tree steps aside below 520px and the default panel is narrower.
+  await window.getByRole("separator", { name: "Side panel width" }).focus();
+  await window.keyboard.press("End");
   return { harness, window, panel, workspace };
 }
 
