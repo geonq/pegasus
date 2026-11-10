@@ -1629,10 +1629,6 @@ export class DesktopAppStore {
         workspaceId,
         await this.driver.runtimeSupervisor.refreshRuntime(workspace),
       );
-      // Refresh in Extensions/Settings means "pick up what changed on disk", so open threads
-      // reload too; otherwise they keep running the old extension code.
-      await this.reloadOpenSessions([workspaceId]);
-      await this.refreshSessionCommandsForWorkspace(workspaceId);
     } else {
       await this.ensureRuntimeLoaded(workspaceId);
     }

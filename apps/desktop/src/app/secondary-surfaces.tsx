@@ -494,9 +494,14 @@ export function SecondarySurfaces({
           onOpenSkillFolder={handleOpenSkillFolder}
           onRefresh={() => {
             if (!customizeWorkspace) return;
-            void requestWorkspaceRuntime(customizeWorkspace.id, true).catch((error: unknown) => {
-              console.error("[renderer] loadWorkspaceRuntime refresh failed", error);
-            });
+            // The explicit Refresh also reloads open threads (when idle), so edited extensions
+            // and skills take effect; opening a settings page only reloads the runtime.
+            const workspaceId = customizeWorkspace.id;
+            void updateSnapshot(setSnapshot, () => api.refreshRuntime(workspaceId)).catch(
+              (error: unknown) => {
+                console.error("[renderer] refreshRuntime failed", error);
+              },
+            );
           }}
           onSelectTab={onSelectView}
           onToggleExtension={handleToggleExtension}

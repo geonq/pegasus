@@ -98,16 +98,20 @@ export function watchQuitRequest(dir: string, onQuit: () => void): () => void {
   const check = async () => {
     const createdAt = (await readJson(file))?.createdAt;
     if (handled || typeof createdAt !== "number") return;
+    // fs.watch fires several events per write; claim the request before awaiting so only one check quits.
+    const fresh = Date.now() - createdAt <= QUIT_REQUEST_MAX_AGE_MS;
+    if (fresh) handled = true;
     await rm(file, { force: true });
-    if (Date.now() - createdAt > QUIT_REQUEST_MAX_AGE_MS) return;
-    handled = true;
-    setTimeout(onQuit, QUIT_DELAY_MS);
+    if (fresh) setTimeout(onQuit, QUIT_DELAY_MS);
   };
   let watcher: ReturnType<typeof watch> | undefined;
-  void mkdir(dir, { recursive: true })
+  const checkNow = () => {
+    check().catch((error: unknown) => console.error("[self-update] quit check failed", error));
+  };
+  mkdir(dir, { recursive: true })
     .then(() => {
-      watcher = watch(dir, () => void check());
-      void check();
+      watcher = watch(dir, checkNow);
+      checkNow();
     })
     .catch((error: unknown) => console.error("[self-update] cannot watch", dir, error));
   return () => watcher?.close();
