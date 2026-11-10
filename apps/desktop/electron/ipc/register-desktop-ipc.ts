@@ -98,6 +98,7 @@ type WorkspaceOwner = Pick<
   | "reorderWorkspaces"
   | "createWorktree"
   | "removeWorktree"
+  | "approveWorktreeSetup"
   | "syncCurrentWorkspace"
   | "getWorkspacePath"
   | "getWorkspaceRecords"
@@ -381,6 +382,9 @@ export function registerDesktopIpc({
   );
   ipcMain.handle(desktopIpc.removeWorktree, (event, rawInput: unknown) =>
     run(event, () => owners.workspace.removeWorktree(expectRemoveWorktreeInput(rawInput))),
+  );
+  ipcMain.handle(desktopIpc.approveWorktreeSetup, (event, rawInput: unknown) =>
+    run(event, () => owners.workspace.approveWorktreeSetup(expectRemoveWorktreeInput(rawInput))),
   );
   ipcMain.handle(desktopIpc.syncCurrentWorkspace, (event) =>
     run(event, () => owners.workspace.syncCurrentWorkspace()),

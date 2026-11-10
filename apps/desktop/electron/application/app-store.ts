@@ -336,6 +336,12 @@ export class DesktopAppStore {
     this.worktreeManager = new GitWorktreeManager({
       catalogStorage: this.catalogStore,
       isAppWorktreePath: this.isAppWorktreePath,
+      setupTrustFilePath: join(options.userDataDir, "worktree-setup-trust.json"),
+      onSetupChange: () => {
+        void this.refreshState({ refreshWorktrees: false }).catch((error: unknown) => {
+          console.warn("pi-gui: worktree setup state refresh failed", error);
+        });
+      },
     });
     this.uiStateFilePath = join(options.userDataDir, "ui-state.json");
     this.scheduledTasksFilePath = join(options.userDataDir, "scheduled-tasks.json");
@@ -1115,6 +1121,10 @@ export class DesktopAppStore {
 
   async removeWorktree(input: RemoveWorktreeInput): Promise<DesktopAppState> {
     return this.workspaceOwner.removeWorktree(input);
+  }
+
+  async approveWorktreeSetup(input: RemoveWorktreeInput): Promise<DesktopAppState> {
+    return this.workspaceOwner.approveWorktreeSetup(input);
   }
 
   /* ── Composer methods (delegated) ──────────────────────── */
@@ -2654,6 +2664,7 @@ export class DesktopAppStore {
       const worktreesByWorkspace = buildWorktreeRecords(
         workspacesSnapshot.workspaces,
         worktreeEntries,
+        (path) => this.worktreeManager.setupFor(path),
       );
       const liveWorkspaceIds = new Set(workspaces.map((w) => w.id));
       for (const wsId of this.runtimeByWorkspace.keys()) {

@@ -199,3 +199,22 @@
     display: none;
   }
 }
+
+.topbar__setup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.topbar__setup--failed {
+  color: var(--error);
+}
+
+.topbar__setup-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

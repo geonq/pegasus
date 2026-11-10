@@ -143,6 +143,7 @@ export const desktopIpc = {
   renameSession: "pi-gui:rename-session",
   archiveSession: "pi-gui:archive-session",
   unarchiveSession: "pi-gui:unarchive-session",
+  approveWorktreeSetup: "pi-gui:approve-worktree-setup",
   markSessionRead: "pi-gui:mark-session-read",
   setSessionPinned: "pi-gui:set-session-pinned",
   createSession: "pi-gui:create-session",
@@ -751,6 +752,8 @@ export interface PiDesktopApi {
   markSessionRead(target: WorkspaceSessionTarget): Promise<DesktopAppState>;
   setSessionPinned(target: WorkspaceSessionTarget, pinned: boolean): Promise<DesktopAppState>;
   createSession(input: CreateSessionInput): Promise<DesktopAppState>;
+  /** Trust and run the repo setup command a new worktree is waiting on. */
+  approveWorktreeSetup(input: RemoveWorktreeInput): Promise<DesktopAppState>;
   startThread(input: StartThreadInput): Promise<DesktopAppState>;
   forkThread(input: ForkThreadInput): Promise<DesktopAppState>;
   sendChildThreadFollowUp(input: SendChildThreadFollowUpInput): Promise<DesktopAppState>;

@@ -226,6 +226,12 @@ export interface SelectedTranscriptRecord {
   readonly schemaInfo?: SessionSchemaInfo;
 }
 
+/** What a new worktree is still doing (or needs from the user) before it is fully usable. */
+export type WorktreeSetupRecord =
+  | { readonly state: "running"; readonly step: string }
+  | { readonly state: "needs-approval"; readonly command: string }
+  | { readonly state: "failed"; readonly message: string };
+
 export interface WorktreeRecord {
   readonly id: string;
   readonly rootWorkspaceId: string;
@@ -235,6 +241,8 @@ export interface WorktreeRecord {
   readonly status: WorktreeStatus;
   readonly branchName?: string;
   readonly updatedAt: string;
+  /** Present only while setup is running, waiting for approval, or failed. */
+  readonly setup?: WorktreeSetupRecord;
 }
 
 export interface SessionExtensionStatusRecord {

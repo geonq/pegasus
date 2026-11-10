@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
@@ -350,6 +350,153 @@ test("the folder that creates a worktree keeps it even if another folder listed 
     expect((await manager.listWorktrees(other)).worktrees.map((entry) => entry.path)).not.toContain(
       createdPath,
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+/** Repo with a tracked .gitignore, ignored .env/.vscode files and a .worktreeinclude. */
+async function makeSetupRepo(root: string, extra: Record<string, string> = {}): Promise<string> {
+  const repo = await makeRepo(root);
+  await writeFile(join(repo, ".gitignore"), ".env\n.vscode/\nnode_modules/\nsecret/\n");
+  await writeFile(join(repo, ".worktreeinclude"), "# local config\n.env\n.vscode/\n");
+  await writeFile(join(repo, ".env"), "TOKEN=1\n");
+  await mkdir(join(repo, ".vscode"), { recursive: true });
+  await writeFile(join(repo, ".vscode", "settings.json"), "{}\n");
+  await mkdir(join(repo, "node_modules", "dep"), { recursive: true });
+  await writeFile(join(repo, "node_modules", "dep", "index.js"), "1\n");
+  for (const [name, text] of Object.entries(extra)) {
+    await writeFile(join(repo, name), text);
+  }
+  await git(repo, "add", ".gitignore", ".worktreeinclude", ...Object.keys(extra));
+  await git(repo, "commit", "-qm", "setup config");
+  return repo;
+}
+
+test("new worktree gets the ignored files listed in .worktreeinclude, nothing else", async () => {
+  const root = await mkdtemp(join(tmpdir(), "wt-include-"));
+  try {
+    const repo = await makeSetupRepo(root);
+    await mkdir(join(repo, "secret"), { recursive: true });
+    await writeFile(join(repo, "secret", "key"), "k\n");
+    const workspace: WorkspaceRef = { workspaceId: "ws", path: repo, displayName: "repo" };
+    const { manager } = makeManager();
+    const created = await manager.createWorktree(workspace, {
+      path: join(root, "worktrees", "repo", "inc-1"),
+      branchName: "pi/inc-1",
+    });
+    await manager.whenSetupSettled(created.path);
+
+    expect(manager.setupFor(created.path)).toBeUndefined();
+    expect(await readFile(join(created.path, ".env"), "utf8")).toBe("TOKEN=1\n");
+    expect(await pathExists(join(created.path, ".vscode", "settings.json"))).toBe(true);
+    expect(await pathExists(join(created.path, "secret"))).toBe(false);
+    expect(await pathExists(join(created.path, "node_modules"))).toBe(false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test(".worktreeinclude never copies tracked files or paths outside the repo", async () => {
+  const root = await mkdtemp(join(tmpdir(), "wt-escape-"));
+  try {
+    const repo = await makeSetupRepo(root);
+    await writeFile(join(root, "outside.txt"), "outside\n");
+    await writeFile(
+      join(repo, ".worktreeinclude"),
+      "../outside.txt\n/etc/passwd\nseed.txt\n.gitignore\n.env\n",
+    );
+    const workspace: WorkspaceRef = { workspaceId: "ws", path: repo, displayName: "repo" };
+    const { manager } = makeManager();
+    const dest = join(root, "worktrees", "repo", "esc-1");
+    const created = await manager.createWorktree(workspace, { path: dest, branchName: "pi/esc-1" });
+    await manager.whenSetupSettled(created.path);
+
+    expect(manager.setupFor(created.path)).toBeUndefined();
+    expect(await pathExists(join(root, "worktrees", "outside.txt"))).toBe(false);
+    expect(await pathExists(join(created.path, ".env"))).toBe(true);
+    // Tracked files come from the checkout, untouched by the copy.
+    expect((await readFile(join(created.path, "seed.txt"), "utf8")).trim()).toBe("seed");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a repo setup command waits for approval, then runs once approved", async () => {
+  const root = await mkdtemp(join(tmpdir(), "wt-setup-"));
+  try {
+    const repo = await makeSetupRepo(root, {
+      "orca.yaml": "scripts:\n  setup: |\n    node -e \"require('fs').writeFileSync('setup-ran.txt','ok')\"\n",
+    });
+    const workspace: WorkspaceRef = { workspaceId: "ws", path: repo, displayName: "repo" };
+    const changes: string[] = [];
+    const manager = new GitWorktreeManager({
+      catalogStorage: new FakeCatalog() as unknown as CatalogStorage,
+      setupTrustFilePath: join(root, "trust.json"),
+      onSetupChange: () => changes.push("change"),
+    });
+    const created = await manager.createWorktree(workspace, {
+      path: join(root, "worktrees", "repo", "setup-1"),
+      branchName: "pi/setup-1",
+    });
+    await manager.whenSetupSettled(created.path);
+
+    expect(manager.setupFor(created.path)?.state).toBe("needs-approval");
+    expect(await pathExists(join(created.path, "setup-ran.txt"))).toBe(false);
+    expect(await pathExists(join(created.path, ".env"))).toBe(true);
+
+    await manager.approveSetup(workspace, created.path);
+    await manager.whenSetupSettled(created.path);
+    expect(manager.setupFor(created.path)).toBeUndefined();
+    expect(await readFile(join(created.path, "setup-ran.txt"), "utf8")).toBe("ok");
+    expect(changes.length).toBeGreaterThan(1);
+
+    // Approval is per exact command: a changed command asks again.
+    await writeFile(join(repo, "orca.yaml"), "scripts:\n  setup: node -e \"process.exit(0)\" && echo changed\n");
+    const second = await manager.createWorktree(workspace, {
+      path: join(root, "worktrees", "repo", "setup-2"),
+      branchName: "pi/setup-2",
+    });
+    await manager.whenSetupSettled(second.path);
+    expect(manager.setupFor(second.path)?.state).toBe("needs-approval");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a failing setup command is reported on the worktree, and sharedDirectories are linked", async () => {
+  const root = await mkdtemp(join(tmpdir(), "wt-fail-"));
+  try {
+    const repo = await makeSetupRepo(root, {
+      "orca.yaml":
+        "worktree:\n  sharedDirectories:\n    - node_modules\n    - ../escape\nscripts:\n  setup: node -e \"process.exit(3)\"\n",
+    });
+    const workspace: WorkspaceRef = { workspaceId: "ws", path: repo, displayName: "repo" };
+    const manager = new GitWorktreeManager({
+      catalogStorage: new FakeCatalog() as unknown as CatalogStorage,
+      setupTrustFilePath: join(root, "trust.json"),
+    });
+    const created = await manager.createWorktree(workspace, {
+      path: join(root, "worktrees", "repo", "fail-1"),
+      branchName: "pi/fail-1",
+    });
+    await manager.whenSetupSettled(created.path);
+    // The unsafe "../escape" entry fails setup loudly; the worktree itself still exists.
+    expect(manager.setupFor(created.path)).toMatchObject({ state: "failed" });
+    expect(await pathExists(created.path)).toBe(true);
+    expect(await pathExists(join(created.path, "node_modules", "dep", "index.js"))).toBe(true);
+
+    await writeFile(join(repo, "orca.yaml"), "scripts:\n  setup: node -e \"process.exit(3)\"\n");
+    const third = await manager.createWorktree(workspace, {
+      path: join(root, "worktrees", "repo", "fail-2"),
+      branchName: "pi/fail-2",
+    });
+    await manager.whenSetupSettled(third.path);
+    expect(manager.setupFor(third.path)?.state).toBe("needs-approval");
+    await manager.approveSetup(workspace, third.path);
+    await manager.whenSetupSettled(third.path);
+    const failed = manager.setupFor(third.path);
+    expect(failed?.state).toBe("failed");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

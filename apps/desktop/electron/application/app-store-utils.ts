@@ -76,6 +76,7 @@ export function buildWorkspaceRecords(
 export function buildWorktreeRecords(
   workspaces: readonly WorkspaceCatalogEntry[],
   worktrees: readonly WorktreeCatalogEntry[],
+  setupFor: (path: string) => WorktreeRecord["setup"] = () => undefined,
 ): Record<string, readonly WorktreeRecord[]> {
   const ownerByPath = resolveWorktreeOwners(worktrees);
   const linkedWorkspaceIdsByPath = new Map(
@@ -96,6 +97,7 @@ export function buildWorktreeRecords(
       status: worktree.status,
       branchName: worktree.branchName,
       updatedAt: worktree.updatedAt,
+      ...(setupFor(worktree.path) ? { setup: setupFor(worktree.path) } : {}),
     };
     const existing = groups.get(worktree.workspaceId);
     if (existing) {

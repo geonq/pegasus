@@ -94,6 +94,21 @@ export async function removeWorktree(
   });
 }
 
+export async function approveWorktreeSetup(
+  store: WorkspaceOwnerHost,
+  input: RemoveWorktreeInput,
+): Promise<DesktopAppState> {
+  await store.initialize();
+  const rootWorkspace = store.workspaceRefFromState(input.workspaceId);
+  if (!rootWorkspace) {
+    return store.withError(`Unknown workspace: ${input.workspaceId}`);
+  }
+  return store.withErrorHandling(async () => {
+    await store.worktreeManager.approveSetup(rootWorkspace, input.worktreeId);
+    return store.refreshState({ clearLastError: true, refreshWorktrees: false });
+  });
+}
+
 export async function startThread(
   store: WorkspaceOwnerHost,
   input: StartThreadInput,

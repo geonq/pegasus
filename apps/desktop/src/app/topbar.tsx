@@ -73,6 +73,7 @@ export function Topbar({
             <span className="topbar__session">New thread</span>
           </>
         ) : null}
+        <WorktreeSetupStatus api={api} rootWorkspace={rootWorkspace} worktree={selectedWorktree} />
       </div>
       <div className="topbar__actions">
         {children}
@@ -99,4 +100,52 @@ export function Topbar({
       </div>
     </header>
   );
+}
+
+/** Progress, approval prompt or error for a new worktree's background setup; absent once it is done. */
+function WorktreeSetupStatus({
+  api,
+  rootWorkspace,
+  worktree,
+}: {
+  readonly api: PiDesktopApi;
+  readonly rootWorkspace: WorkspaceRecord | undefined;
+  readonly worktree: WorktreeRecord | undefined;
+}) {
+  const setup = worktree?.setup;
+  if (!setup || !worktree || !rootWorkspace) return null;
+  const approve = () => {
+    void api
+      .approveWorktreeSetup({ workspaceId: rootWorkspace.id, worktreeId: worktree.id })
+      .catch((error: unknown) => console.error("[renderer] approveWorktreeSetup failed", error));
+  };
+  return (
+    <span
+      className={`topbar__setup topbar__setup--${setup.state}`}
+      data-testid="worktree-setup-status"
+      role="status"
+      aria-live="polite"
+    >
+      {setup.state === "running" ? (
+        <span className="topbar__setup-text">{setup.step}</span>
+      ) : setup.state === "failed" ? (
+        <span className="topbar__setup-text" title={setup.message}>
+          Setup failed: {setup.message}
+        </span>
+      ) : (
+        <>
+          <span className="topbar__setup-text" title={setup.command} translate="no">
+            Setup not run: {firstLine(setup.command)}
+          </span>
+          <button type="button" className="button button--ghost" onClick={approve}>
+            Run setup command
+          </button>
+        </>
+      )}
+    </span>
+  );
+}
+
+function firstLine(text: string): string {
+  return text.trim().split(/\r?\n/, 1)[0] ?? "";
 }

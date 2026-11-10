@@ -8,6 +8,8 @@ import type {
   WorktreeCatalogSnapshot,
 } from "@pi-gui/catalogs";
 import type { WorkspaceRef } from "@pi-gui/session-driver";
+import type { WorktreeSetupRecord } from "../../../contracts/desktop-state";
+import { prepareWorktree, readWorktreeSetupConfig, trustSetupCommand } from "./worktree-setup";
 
 const execFileAsync = promisify(execFile);
 
@@ -19,6 +21,10 @@ export interface GitWorktreeManagerOptions {
    * Defaults to every linked worktree.
    */
   readonly isAppWorktreePath?: (path: string) => Promise<boolean>;
+  /** Where approved repo setup commands are remembered. Without it no setup command ever runs. */
+  readonly setupTrustFilePath?: string;
+  /** Called whenever a worktree's background setup changes, so the UI can show it. */
+  readonly onSetupChange?: () => void;
 }
 
 export interface CreateWorktreeOptions {
@@ -56,6 +62,69 @@ export interface GitWorkspaceInspection {
 
 export class GitWorktreeManager {
   constructor(private readonly options: GitWorktreeManagerOptions) {}
+
+  private readonly setups = new Map<string, WorktreeSetupRecord>();
+  private readonly setupJobs = new Map<string, { done: Promise<void>; abort: AbortController }>();
+
+  /** Setup state of a worktree that is not fully ready yet; undefined once done. */
+  setupFor(path: string): WorktreeSetupRecord | undefined {
+    return this.setups.get(path);
+  }
+
+  /** Resolves when the worktree's background setup has finished (tests, shutdown). */
+  async whenSetupSettled(path: string): Promise<void> {
+    await this.setupJobs.get(path)?.done;
+  }
+
+  /**
+   * Run the repo's setup in the background: copies, links, and the setup command if approved.
+   * Failures stay visible on the worktree instead of failing creation.
+   */
+  private startSetup(repoRoot: string, worktreePath: string): void {
+    this.setupJobs.get(worktreePath)?.abort.abort();
+    const abort = new AbortController();
+    const publish = (record: WorktreeSetupRecord | undefined) => {
+      if (abort.signal.aborted) return;
+      if (record) this.setups.set(worktreePath, record);
+      else this.setups.delete(worktreePath);
+      this.options.onSetupChange?.();
+    };
+    const done = (async () => {
+      try {
+        const result = await prepareWorktree({
+          repoRoot,
+          worktreePath,
+          trustFilePath: this.options.setupTrustFilePath,
+          signal: abort.signal,
+          progress: publish,
+        });
+        if (result === "done") publish(undefined);
+      } catch (error) {
+        publish({ state: "failed", message: errorMessage(error) });
+      }
+    })();
+    this.setupJobs.set(worktreePath, { done, abort });
+  }
+
+  /** The user approved this repo's setup command: remember it and run setup again. */
+  async approveSetup(workspace: WorkspaceRef, worktreePath: string): Promise<void> {
+    const trustFile = this.options.setupTrustFilePath;
+    const path = await canonicalPath(worktreePath);
+    if (!trustFile || this.setups.get(path)?.state !== "needs-approval") {
+      throw new Error("This worktree is not waiting for setup approval.");
+    }
+    const repoRoot = await resolveRepositoryRoot(workspace.path);
+    const { setup } = await readWorktreeSetupConfig(repoRoot);
+    if (!setup) throw new Error("The repo no longer defines a setup command.");
+    await trustSetupCommand(trustFile, repoRoot, setup);
+    this.startSetup(repoRoot, path);
+  }
+
+  private cancelSetup(path: string): void {
+    this.setupJobs.get(path)?.abort.abort();
+    this.setupJobs.delete(path);
+    this.setups.delete(path);
+  }
 
   async listWorktrees(workspace: WorkspaceRef): Promise<WorktreeCatalogSnapshot> {
     return this.options.catalogStorage.worktrees.listWorktrees(workspace.workspaceId);
@@ -167,6 +236,7 @@ export class GitWorktreeManager {
     await runGit(args);
 
     const canonicalWorktreePath = await canonicalPath(worktreePath);
+    this.startSetup(repoRoot, canonicalWorktreePath);
     const snapshot = await this.refreshWorktrees(workspace, { claimPath: canonicalWorktreePath });
     const created = snapshot.worktrees.find((entry) => entry.worktreeId === canonicalWorktreePath);
     if (!created) {
@@ -191,6 +261,7 @@ export class GitWorktreeManager {
     const resolvedId = await canonicalPath(worktreeId);
     const existing = await this.options.catalogStorage.worktrees.getWorktree(resolvedId);
     const targetPath = await canonicalPath(existing?.path ? existing.path : resolvedId);
+    this.cancelSetup(targetPath);
     if (
       existing?.kind === "primary" ||
       (!existing && targetPath === (await canonicalPath(workspace.path)))
@@ -252,6 +323,7 @@ export class GitWorktreeManager {
       return;
     }
     const targetPath = await canonicalPath(input.path);
+    this.cancelSetup(targetPath);
     try {
       await runGit(["-C", repoRoot, "worktree", "remove", "--force", targetPath]);
     } catch {

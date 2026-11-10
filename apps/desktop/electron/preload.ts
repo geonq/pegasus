@@ -271,6 +271,8 @@ const localPiDesktopApi = {
   archiveSession: (target: WorkspaceSessionTarget) =>
     ipcRenderer.invoke(desktopIpc.archiveSession, target) as Promise<DesktopAppState>,
   unarchiveSession: (target: WorkspaceSessionTarget) =>
+  approveWorktreeSetup: (input: RemoveWorktreeInput) =>
+    ipcRenderer.invoke(desktopIpc.approveWorktreeSetup, input) as Promise<DesktopAppState>,
     ipcRenderer.invoke(desktopIpc.unarchiveSession, target) as Promise<DesktopAppState>,
   markSessionRead: (target: WorkspaceSessionTarget) =>
     ipcRenderer.invoke(desktopIpc.markSessionRead, target) as Promise<DesktopAppState>,
