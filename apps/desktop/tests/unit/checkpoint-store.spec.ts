@@ -798,3 +798,45 @@ test("retention caps records, deletes unneeded refs and prunes their objects", a
     Buffer.from("unique contents of turn 3"),
   );
 });
+
+test("a cold capture of thousands of files stores packs, not loose objects, and matches Git's own tree", async () => {
+  const { workspace, store } = await fixture();
+  // Creating a loose object costs ~2 ms on Windows, so per-file and per-directory objects made
+  // a 4,000-file cold capture take seconds. The invariant is no loose objects at all.
+  const names = ["plain.txt", "with space.txt", "quote\".txt", "back\\slash.txt", "unicodé-日本.txt"];
+  for (let directory = 0; directory < 60; directory += 1) {
+    const folder = join(workspace, `d${directory}`, "sub");
+    await mkdir(folder, { recursive: true });
+    for (let file = 0; file < 40; file += 1) {
+      await writeFile(join(folder, `f${file}.ts`), `export const v = ${directory * 40 + file};\n`);
+    }
+  }
+  const nested = join(workspace, "names dir");
+  await mkdir(nested);
+  for (const name of process.platform === "win32" ? names.filter((n) => !n.includes("\"") && !n.includes("\\")) : names) {
+    await writeFile(join(nested, name), `contents of ${name}`);
+  }
+  await ageFixtureFiles();
+
+  const capture = await store.capture(workspace);
+  available(capture);
+  expect(capture.fileCount).toBeGreaterThan(2_400);
+
+  const counts = (await git(store.repositoryPath, ["count-objects", "-v"])).toString();
+  expect(counts).toMatch(/^count: 0$/m);
+  expect(counts).toMatch(/^packs: [1-9]/m);
+
+  await git(workspace, ["config", "core.autocrlf", "false"]);
+  const index = join(workspace, "..", "reference.index");
+  const env = { ...process.env, GIT_INDEX_FILE: index };
+  const expected = await new Promise<string>((resolve, reject) => {
+    execFile("git", ["add", "-A"], { cwd: workspace, env }, (error) =>
+      error
+        ? reject(error)
+        : execFile("git", ["write-tree"], { cwd: workspace, env }, (failure, stdout) =>
+            failure ? reject(failure) : resolve(stdout.trim()),
+          ),
+    );
+  });
+  expect(capture.treeOid).toBe(expected);
+});

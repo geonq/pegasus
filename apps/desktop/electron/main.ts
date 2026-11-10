@@ -1594,8 +1594,14 @@ app
     integratedTerminalShell = (await store.getState()).integratedTerminalShell;
     nativeTheme.on("updated", refreshWindowBackgrounds);
     let windowBackgroundPresetId = store.snapshot().themePresetId;
+    let preparedCheckoutId: string | undefined;
     stopPruningTerminals = store.subscribe((state) => {
       integratedTerminalShell = state.integratedTerminalShell;
+      if (state.selectedWorkspaceId !== preparedCheckoutId) {
+        preparedCheckoutId = state.selectedWorkspaceId;
+        const selectedPath = store.getWorkspacePath(preparedCheckoutId);
+        if (selectedPath) checkpoints.prepare(selectedPath);
+      }
       if (state.themePresetId !== windowBackgroundPresetId) {
         windowBackgroundPresetId = state.themePresetId;
         refreshWindowBackgrounds();

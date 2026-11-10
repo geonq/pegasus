@@ -6,14 +6,13 @@ import {
   mkdir,
   mkdtemp,
   open,
+  readFile,
   readlink,
   realpath,
   rename,
   rm,
-  unlink,
-  writeFile,
 } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { SessionRef, TurnCaptureBoundary } from "@pi-gui/session-driver";
 import type { ReviewCoverage, ReviewIssue } from "../../contracts/review";
 import { readJsonWithBackup, writeFileAtomicQueued } from "../persistence/atomic-file-write";
@@ -64,6 +63,8 @@ const WARM_RETRY_MS = 15 * 60 * 1000;
 const CAPTURE_ABORTED_MESSAGE =
   "This project is too big for Pegasus to snapshot quickly around a turn, so it can't show what that turn changed. It keeps preparing in the background, so later turns should work. Uncommitted shows everything changed in the folder now.";
 const SNAPSHOT_REF_PREFIX = "refs/pi-gui/snapshots/";
+/** Holds the commit fast-import builds a tree under, until the tree gets its own snapshot ref. */
+const PENDING_REF_PREFIX = "refs/pi-pending/";
 
 interface FileVersion {
   readonly dev: number;
@@ -406,6 +407,14 @@ export class TurnCheckpointStore {
     });
   }
 
+  /** Starts a checkout's first inventory when it is opened, so its first turn is not the cold one. */
+  prepare(workspacePath: string): void {
+    checkoutRoot(workspacePath).then(
+      (root) => this.warmInventory(root),
+      () => undefined,
+    );
+  }
+
   async capture(
     workspacePath: string,
     parentSignal?: AbortSignal,
@@ -461,14 +470,12 @@ export class TurnCheckpointStore {
       ...(parentSignal ? [parentSignal] : []),
     ]);
     const snapshotId = randomUUID();
-    const indexPath = join(this.directory, "indexes", `${snapshotId}.index`);
     let spoolPath: string | undefined;
     let byteCount = 0;
     let fileCount = 0;
     try {
       signal.throwIfAborted();
       await this.prepareGit(signal);
-      await mkdir(dirname(indexPath), { recursive: true });
       const root = await realpath(workspacePath);
       const rootStat = await lstat(root);
       if (!rootStat.isDirectory() || rootStat.isSymbolicLink())
@@ -527,7 +534,7 @@ export class TurnCheckpointStore {
       spoolPath = await mkdtemp(join(this.directory, "capture-"));
       const captureDirectory = spoolPath;
       const stored: { path: string; file: CachedFile }[] = [];
-      const spooled: { path: string; mode: string; name: string; version: FileVersion }[] = [];
+      const spooled: { path: string; mode: string; bytes: Buffer; version: FileVersion }[] = [];
       let cursor = 0;
       const workers = Array.from({ length: Math.min(8, entries.length) }, async () => {
         while (cursor < entries.length) {
@@ -557,14 +564,7 @@ export class TurnCheckpointStore {
             stored.push({ path, file: file.file });
             continue;
           }
-          const name = `blob-${ordinal}`;
-          await writeFile(join(captureDirectory, name), file.bytes, {
-            flag: "wx",
-            mode: 0o600,
-            signal,
-          });
-          signal.throwIfAborted();
-          spooled.push({ path, mode: file.mode, name, version: file.version });
+          spooled.push({ path, mode: file.mode, bytes: file.bytes, version: file.version });
         }
       });
       try {
@@ -575,18 +575,60 @@ export class TurnCheckpointStore {
         throw error;
       }
       signal.throwIfAborted();
+      const unchangedTree =
+        previous !== undefined && spooled.length === 0 && stored.length === previous.entryCount;
       let objectIds: string[] = [];
-      if (spooled.length) {
-        // Git only opens freshly created private files with synthetic relative names. Original
-        // paths (including tabs/newlines) never enter this line-based input or get reopened by Git.
-        const objectOutput = await git(
+      let treeOid = previous?.treeOid ?? "";
+      if (!unchangedTree) {
+        // Blobs and trees go into one pack through a single fast-import run. Creating a loose
+        // object costs about 2 ms on Windows, so 4,000 files plus ~3,600 directory trees took
+        // 9 s as loose objects (hash-object, then write-tree) but well under a second packed.
+        // Git still names every object: the marks file returns blob ids and the commit's tree.
+        const marksPath = join(captureDirectory, "marks");
+        const pendingRef = PENDING_REF_PREFIX + snapshotId;
+        const stream: Buffer[] = [];
+        spooled.forEach((entry, index) => {
+          stream.push(
+            Buffer.from("blob\nmark :" + (index + 1) + "\ndata " + entry.bytes.length + "\n"),
+            entry.bytes,
+            Buffer.from("\n"),
+          );
+        });
+        const lines = [
+          "commit " + pendingRef,
+          "committer Pegasus <pegasus@localhost> 0 +0000",
+          "data 0",
+          ...stored.map((entry) => "M " + entry.file.gitMode + " " + entry.file.oid + " " + quoteGitPath(entry.path)),
+          ...spooled.map((entry, index) => "M " + entry.mode + " :" + (index + 1) + " " + quoteGitPath(entry.path)),
+          "",
+        ];
+        stream.push(Buffer.from(lines.join("\n")));
+        await git(
           captureDirectory,
-          ["--git-dir", this.repositoryPath, "hash-object", "--stdin-paths", "--no-filters", "-w"],
+          ["--git-dir", this.repositoryPath, "fast-import", "--quiet", "--export-marks=" + marksPath],
           signal,
-          Buffer.from(spooled.map((entry) => `${entry.name}\n`).join("")),
+          Buffer.concat(stream),
         );
         signal.throwIfAborted();
-        objectIds = objectOutput.length ? stripLine(objectOutput).split(/\r?\n/) : [];
+        const byMark = new Map<number, string>();
+        for (const line of (await readFile(marksPath, "utf8")).split("\n")) {
+          const match = /^:(\d+) ([a-f0-9]{40})$/.exec(line);
+          if (match) byMark.set(Number(match[1]), match[2]!);
+        }
+        objectIds = spooled.map((_, index) => byMark.get(index + 1) ?? "");
+        treeOid = stripLine(
+          await git(this.repositoryPath, ["rev-parse", "--verify", pendingRef + "^{tree}"], signal),
+        );
+        if (!/^[a-f0-9]{40}$/.test(treeOid))
+          throw new CaptureError("tree-invalid", "Git returned an invalid snapshot tree.");
+        signal.throwIfAborted();
+        // The creation time in the name lets maintenance spare refs of in-flight captures.
+        await git(
+          this.repositoryPath,
+          ["update-ref", SNAPSHOT_REF_PREFIX + Date.now() + "-" + snapshotId, treeOid],
+          signal,
+        );
+        await git(this.repositoryPath, ["update-ref", "-d", pendingRef], signal);
       }
       if (
         objectIds.length !== spooled.length ||
@@ -616,44 +658,6 @@ export class TurnCheckpointStore {
             oid: objectIds[index]!,
           });
       });
-      let treeOid: string;
-      if (previous && spooled.length === 0 && stored.length === previous.entryCount) {
-        // Every previously stored file is unchanged and nothing else exists: the same tree.
-        // Its ref cannot have been pruned, because maintenance clears inventories first.
-        treeOid = previous.treeOid;
-      } else {
-        const indexEntries = [
-          ...stored.map((entry) => `${entry.file.gitMode} ${entry.file.oid}\t${entry.path}\0`),
-          ...spooled.map((entry, index) => `${entry.mode} ${objectIds[index]}\t${entry.path}\0`),
-        ];
-        const indexEnvironment = { GIT_INDEX_FILE: indexPath };
-        await git(
-          this.repositoryPath,
-          ["read-tree", "--empty"],
-          signal,
-          undefined,
-          indexEnvironment,
-        );
-        await git(
-          this.repositoryPath,
-          ["update-index", "-z", "--index-info"],
-          signal,
-          Buffer.from(indexEntries.join("")),
-          indexEnvironment,
-        );
-        treeOid = stripLine(
-          await git(this.repositoryPath, ["write-tree"], signal, undefined, indexEnvironment),
-        );
-        if (!/^[a-f0-9]{40}$/.test(treeOid))
-          throw new CaptureError("tree-invalid", "Git returned an invalid snapshot tree.");
-        signal.throwIfAborted();
-        // The creation time in the name lets maintenance spare refs of in-flight captures.
-        await git(
-          this.repositoryPath,
-          ["update-ref", `${SNAPSHOT_REF_PREFIX}${Date.now()}-${snapshotId}`, treeOid],
-          signal,
-        );
-      }
       signal.throwIfAborted();
       if (generation === this.inventoryGeneration) {
         this.inventories.delete(root);
@@ -696,16 +700,6 @@ export class TurnCheckpointStore {
           force: true,
           maxRetries: process.platform === "win32" ? 5 : 0,
         });
-      // These are this capture's newly created scratch indexes, not user or checkpoint data.
-      await Promise.all(
-        [indexPath, `${indexPath}.lock`].map(async (path) => {
-          try {
-            await unlink(path);
-          } catch (error) {
-            if (!isMissing(error)) throw error;
-          }
-        }),
-      );
     }
   }
 
@@ -1120,6 +1114,17 @@ function git(
     child.stdin?.on("error", () => undefined);
     child.stdin?.end(input);
   });
+}
+
+/** fast-import path syntax: always C-quoted, non-ASCII bytes as octal so any UTF-8 name round-trips. */
+function quoteGitPath(path: string): string {
+  let quoted = '"';
+  for (const byte of Buffer.from(path)) {
+    if (byte === 0x22 || byte === 0x5c) quoted += "\\" + String.fromCharCode(byte);
+    else if (byte >= 0x20 && byte < 0x7f) quoted += String.fromCharCode(byte);
+    else quoted += "\\" + byte.toString(8).padStart(3, "0");
+  }
+  return quoted + '"';
 }
 
 function stripLine(buffer: Buffer): string {
