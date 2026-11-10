@@ -1033,7 +1033,9 @@ function canPublishToWindow(window: BrowserWindow): boolean {
 function resolveAppTestMode(
   value: string | undefined,
 ): "foreground" | "background" | "inactive" | undefined {
-  return value === "foreground" || value === "background" || value === "inactive" ? value : undefined;
+  return value === "foreground" || value === "background" || value === "inactive"
+    ? value
+    : undefined;
 }
 
 function resolveDialogWindow(parentWindow?: BrowserWindow | null): BrowserWindow | undefined {
