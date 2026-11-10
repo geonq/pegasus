@@ -25,7 +25,7 @@ test("archives a hovered thread into a restorable sidebar section", async () => 
       .locator(".session-list > .session-row")
       .filter({ hasText: "Thread two" })
       .first();
-    const archiveButton = activeRow.getByLabel("Archive Thread two");
+    const archiveButton = activeRow.getByLabel("Archive chat Thread two");
     const timeLabel = activeRow.locator(".session-row__time");
 
     await expect(archiveButton).toHaveCSS("opacity", "0");
@@ -58,7 +58,7 @@ test("archives a hovered thread into a restorable sidebar section", async () => 
       .locator(".session-list--archived .session-row")
       .filter({ hasText: "Thread two" })
       .first();
-    const restoreButton = archivedRow.getByLabel("Restore Thread two");
+    const restoreButton = archivedRow.getByLabel("Unarchive chat Thread two");
     await archivedRow.hover();
     await restoreButton.click();
 

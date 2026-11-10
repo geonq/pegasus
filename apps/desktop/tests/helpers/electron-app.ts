@@ -607,7 +607,7 @@ export async function seedAgentDir(
   const {
     withOpenAiAuth = true,
     withDefaultModel = true,
-    enabledModels = ["openai/gpt-5", "openai/gpt-4o"],
+    enabledModels = ["openai/gpt-6.1-sol", "openai/gpt-6-luna"],
   } = options;
   await mkdir(agentDir, { recursive: true });
   await writeFile(
@@ -627,7 +627,7 @@ export async function seedAgentDir(
     join(agentDir, "settings.json"),
     `${JSON.stringify(
       {
-        ...(withDefaultModel ? { defaultProvider: "openai", defaultModel: "gpt-5" } : {}),
+        ...(withDefaultModel ? { defaultProvider: "openai", defaultModel: "gpt-6.1-sol" } : {}),
         defaultThinkingLevel: "medium",
         enabledModels,
       },

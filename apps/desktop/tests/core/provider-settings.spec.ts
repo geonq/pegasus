@@ -21,7 +21,7 @@ test("settings lets the user save an API key for a built-in provider", async () 
   await seedAgentDir(agentDir, {
     withOpenAiAuth: false,
     withDefaultModel: false,
-    enabledModels: ["openai/gpt-5", "openai/gpt-4o"],
+    enabledModels: ["openai/gpt-6.1-sol", "openai/gpt-6-luna"],
   });
 
   const harness = await launchDesktop(userDataDir, {
@@ -66,10 +66,10 @@ test("settings lets the user save an API key for a built-in provider", async () 
       has: window.locator(".settings-section__title", { hasText: "Enabled models" }),
     });
     await expect(
-      enabledModels.getByRole("switch", { name: "Enable openai/gpt-5", exact: true }),
+      enabledModels.getByRole("switch", { name: "Enable openai/gpt-6.1-sol", exact: true }),
     ).toBeChecked();
     await expect(
-      enabledModels.getByRole("switch", { name: "Enable openai/gpt-4o", exact: true }),
+      enabledModels.getByRole("switch", { name: "Enable openai/gpt-6-luna", exact: true }),
     ).toBeChecked();
   } finally {
     await harness.close();
@@ -185,7 +185,7 @@ test("opening the first workspace from the empty state hydrates provider and mod
   const agentDir = join(userDataDir, "agent");
   const workspacePath = await makeWorkspace("provider-settings-first-workspace");
   await seedAgentDir(agentDir, {
-    enabledModels: ["openai/gpt-5", "openai/gpt-4o"],
+    enabledModels: ["openai/gpt-6.1-sol", "openai/gpt-6-luna"],
   });
 
   const harness = await launchDesktop(userDataDir, {
@@ -231,10 +231,10 @@ test("opening the first workspace from the empty state hydrates provider and mod
       has: window.locator(".settings-section__title", { hasText: "Enabled models" }),
     });
     await expect(
-      enabledModels.getByRole("switch", { name: "Enable openai/gpt-5", exact: true }),
+      enabledModels.getByRole("switch", { name: "Enable openai/gpt-6.1-sol", exact: true }),
     ).toBeChecked();
     await expect(
-      enabledModels.getByRole("switch", { name: "Enable openai/gpt-4o", exact: true }),
+      enabledModels.getByRole("switch", { name: "Enable openai/gpt-6-luna", exact: true }),
     ).toBeChecked();
   } finally {
     await harness.close();

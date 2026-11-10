@@ -85,7 +85,7 @@ test("folds a folder group from its row and keeps it folded across restart", asy
     // Starting a thread in a folded folder opens it so the new row stays in view.
     await folderRow.click();
     await expect(folderRow).toHaveAttribute("aria-expanded", "false");
-    await group.getByRole("button", { name: /^New thread in / }).click();
+    await group.getByRole("button", { name: /^New chat in / }).click();
     await expect(folderRow).toHaveAttribute("aria-expanded", "true");
 
     // A folded folder that has since lost all its threads still opens on "+".
@@ -110,7 +110,7 @@ test("folds a folder group from its row and keeps it folded across restart", asy
       { workspaceId, sessionId: alphaThread!.id },
     );
     await expect(folderRow).not.toHaveAttribute("aria-expanded", /.*/);
-    await group.getByRole("button", { name: /^New thread in / }).click();
+    await group.getByRole("button", { name: /^New chat in / }).click();
     await expect
       .poll(async () => (await getDesktopState(window)).collapsedWorkspaceIds)
       .toEqual([]);

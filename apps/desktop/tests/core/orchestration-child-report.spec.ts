@@ -15,14 +15,20 @@ import {
 } from "../helpers/electron-app";
 
 // An OpenAI-compatible server that answers every turn at once and keeps each request body.
-async function answeringServer(reply: string) {
+type ServerReply = { readonly text: string } | { readonly toolCall: string };
+
+async function answeringServer(
+  reply: string,
+  plan: (body: string) => Promise<ServerReply> | ServerReply = () => ({ text: reply }),
+) {
   const bodies: string[] = [];
   const sockets = new Set<Socket>();
   const server = createServer((request, response) => {
     let body = "";
     request.on("data", (chunk: Buffer) => (body += chunk.toString("utf8")));
-    request.on("end", () => {
+    request.on("end", async () => {
       bodies.push(body);
+      const planned = await plan(body);
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       const chunk = (delta: object, finish: string | null) =>
         `data: ${JSON.stringify({
@@ -32,8 +38,28 @@ async function answeringServer(reply: string) {
           model: "fast",
           choices: [{ index: 0, delta, finish_reason: finish }],
         })}\n\n`;
-      response.write(chunk({ role: "assistant", content: reply }, null));
-      response.write(chunk({}, "stop"));
+      if ("toolCall" in planned) {
+        response.write(
+          chunk(
+            {
+              role: "assistant",
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "call_lead_1",
+                  type: "function",
+                  function: { name: planned.toolCall, arguments: "{}" },
+                },
+              ],
+            },
+            null,
+          ),
+        );
+        response.write(chunk({}, "tool_calls"));
+      } else {
+        response.write(chunk({ role: "assistant", content: planned.text }, null));
+        response.write(chunk({}, "stop"));
+      }
       response.end("data: [DONE]\n\n");
     });
   });
@@ -132,6 +158,104 @@ test("a finished child reports to its parent thread without the parent polling",
       })
       .toBe(2);
   } finally {
+    await harness.close();
+    await server.close();
+  }
+});
+
+test("a child that finishes while the lead is mid-turn reaches the lead in that same turn", async () => {
+  test.setTimeout(120_000);
+  let releaseLead: () => void = () => undefined;
+  const leadHeld = new Promise<void>((resolve) => (releaseLead = resolve));
+  const events: string[] = [];
+  const server = await answeringServer("Child done.", async (body) => {
+    if (body.includes("[Child thread report]")) {
+      events.push("report");
+      return { text: "Noted." };
+    }
+    if (body.includes("LEAD_LONG_TURN")) {
+      if (body.includes('"role":"tool"')) {
+        events.push("lead-final");
+        return { text: "Lead finished without seeing the child." };
+      }
+      events.push("lead-start");
+      await leadHeld;
+      return { toolCall: "list_threads" };
+    }
+    return { text: "Child done." };
+  });
+  const userDataDir = await makeUserDataDir();
+  const agentDir = join(userDataDir, "agent");
+  const workspacePath = await makeWorkspace("orchestration-child-steer");
+  await seedAgentDir(agentDir, {
+    withOpenAiAuth: false,
+    withDefaultModel: false,
+    enabledModels: ["fast-test/fast"],
+  });
+  await writeFile(
+    join(agentDir, "settings.json"),
+    JSON.stringify({
+      defaultProvider: "fast-test",
+      defaultModel: "fast",
+      enabledModels: ["fast-test/fast"],
+    }),
+  );
+  await writeFile(
+    join(agentDir, "models.json"),
+    JSON.stringify({
+      providers: {
+        "fast-test": {
+          baseUrl: server.baseUrl,
+          api: "openai-completions",
+          apiKey: "unused",
+          models: [{ id: "fast" }],
+        },
+      },
+    }),
+  );
+  const harness = await launchDesktop(userDataDir, {
+    agentDir,
+    initialWorkspaces: [workspacePath],
+    scrubProviderEnv: true,
+    testMode: "background",
+  });
+  try {
+    const window = await harness.firstWindow();
+    await createNamedThread(window, "Busy lead");
+    const state = await getDesktopState(window);
+    const parentRef: SessionRef = {
+      workspaceId: state.selectedWorkspaceId!,
+      sessionId: state.selectedSessionId!,
+    };
+
+    // The lead starts a turn and its first model request is held, so it is mid-turn.
+    await window.getByTestId("composer").fill("LEAD_LONG_TURN keep working");
+    await window.getByRole("button", { name: "Send message" }).click();
+    await expect.poll(() => events).toContain("lead-start");
+
+    await runOrchestrationRuntimeTool(harness, {
+      toolName: "create_child_thread",
+      toolCallId: "child-steer",
+      sessionRef: parentRef,
+      params: { prompt: "[PI_CHILD_ROLE=implementer]\nQuick fix." },
+    });
+    await expect
+      .poll(
+        async () =>
+          (await getDesktopState(window)).orchestrationChildren.find(
+            (entry) => entry.sourceToolCallId === "child-steer",
+          )?.status,
+        { timeout: 60_000 },
+      )
+      .toBe("complete");
+
+    // Let the lead's turn go on: its next model request, right after the tool call, carries the
+    // report. A follow-up would wait for the turn to end and the lead would finish first.
+    releaseLead();
+    await expect.poll(() => events, { timeout: 60_000 }).toContain("report");
+    expect(events).toEqual(["lead-start", "report"]);
+  } finally {
+    releaseLead();
     await harness.close();
     await server.close();
   }
