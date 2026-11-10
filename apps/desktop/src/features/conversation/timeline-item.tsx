@@ -175,6 +175,16 @@ function TimelineToolGroupItem({
   );
 }
 
+/**
+ * Providers open a reasoning block with a bold title line ("**Planning the steps**"). Show it
+ * as the row's one-line summary with the markers stripped, never as literal asterisks.
+ */
+function thinkingTitle(text: string): string | undefined {
+  const match = /^\s*(?:\*\*|__)(.+?)(?:\*\*|__)\s*(?:\r?\n|$)/.exec(text);
+  const title = match?.[1]?.replace(/[*_`]/g, "").trim();
+  return title || undefined;
+}
+
 /** The model's reasoning: one quiet "Thought for 19s" line, collapsed until the reader opens it. */
 function TimelineThinking({
   item,
@@ -182,6 +192,7 @@ function TimelineThinking({
   readonly item: Extract<DisplayTimelineItem, { kind: "thinking" }>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const title = thinkingTitle(item.text);
   return (
     <article className="timeline-thinking" data-testid="timeline-thinking">
       <button
@@ -202,11 +213,16 @@ function TimelineThinking({
               ? `Thought for ${formatWorkedDuration(item.durationMs)}`
               : "Thought"}
         </span>
+        {!item.open && !expanded && title ? (
+          <span className="timeline-thinking__title" title={title}>
+            {title}
+          </span>
+        ) : null}
       </button>
       {expanded ? (
-        <p className="timeline-thinking__body" data-testid="timeline-thinking-body">
-          {item.text}
-        </p>
+        <div className="timeline-thinking__body" data-testid="timeline-thinking-body">
+          <MessageMarkdown text={item.text} />
+        </div>
       ) : null}
     </article>
   );

@@ -375,7 +375,7 @@
 
 .usage-limits__window {
   display: grid;
-  grid-template-columns: 110px minmax(0, 1fr) minmax(170px, auto);
+  grid-template-columns: clamp(110px, 22%, 210px) minmax(0, 1fr) minmax(170px, auto);
   align-items: center;
   gap: 12px;
   font-size: 13px;

@@ -361,7 +361,6 @@
 .agents-panel__views {
   display: flex;
   gap: 2px;
-  margin-right: 8px;
 }
 
 .agents-panel__views button {

@@ -37,6 +37,12 @@
   box-shadow: var(--elevation-hairline);
 }
 
+/* The empty state starts on the same left edge as the title and toolbar above it. */
+.scheduled-tasks-view .empty-panel {
+  width: 100%;
+  margin: 0;
+}
+
 .scheduled-create {
   position: relative;
 }

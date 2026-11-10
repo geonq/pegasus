@@ -237,6 +237,18 @@ option:disabled {
   display: none;
 }
 
+/* A long folder name is cut at the select's own edge; the UA's inner text ignores the select's
+   overflow, so the wrapper clips it (4px margin keeps the focus ring). */
+.settings-select-control {
+  max-width: 100%;
+  overflow: clip;
+  overflow-clip-margin: 4px;
+}
+
+.settings-select-control select {
+  text-overflow: ellipsis;
+}
+
 [data-platform="win32"] .shell {
   --titlebar-toggle-left: 12px;
 }

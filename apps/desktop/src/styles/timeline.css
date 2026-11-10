@@ -1265,12 +1265,32 @@
   min-width: 0;
 }
 
+.timeline-thinking__title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+.timeline-thinking__title::before {
+  content: "\00b7";
+  margin-right: 6px;
+}
+
 .timeline-thinking__body {
   margin: 0 0 0 20px;
   color: var(--muted-strong);
-  font: inherit;
   font-size: 13px;
   line-height: 1.5;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.timeline-thinking__body .message__content {
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
 }

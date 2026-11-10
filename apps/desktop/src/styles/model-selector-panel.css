@@ -187,6 +187,18 @@
   flex: none;
 }
 
+/* A name over its explanation: a long description may not squeeze the name away. */
+.model-selector__item--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.model-selector__item--stacked .model-selector__item-label {
+  flex: none;
+  max-width: 100%;
+}
+
 .model-selector__item-meta {
   font-size: 11px;
   color: var(--muted);

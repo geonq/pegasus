@@ -68,6 +68,9 @@
   top: calc(100% + 6px);
   z-index: 20;
   min-width: 200px;
+  /* A long folder or branch name wraps; it never pushes the menu out of the panel. */
+  width: max-content;
+  max-width: min(300px, 80vw);
   gap: 0;
   padding: 5px;
   border-radius: var(--radius-xl);
@@ -86,6 +89,8 @@
 .review-menu__item {
   padding: 7px 10px;
   border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .review-menu__item svg {

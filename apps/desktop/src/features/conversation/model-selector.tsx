@@ -252,7 +252,7 @@ export function ModelSelector({
                 const isActive = option.value === thinkingLevel;
                 return (
                   <button
-                    className={`model-selector__item${isActive ? " model-selector__item--active" : ""}`}
+                    className={`model-selector__item model-selector__item--stacked${isActive ? " model-selector__item--active" : ""}`}
                     key={option.value}
                     type="button"
                     onClick={() => {
