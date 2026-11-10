@@ -1749,6 +1749,8 @@ app
           checkpoints,
           userDataDir: app.getPath("userData"),
           resolveCheckoutPath: (checkoutId) => store.getWorkspacePath(checkoutId),
+          draftText: (target, system, prompt, signal) =>
+            store.generateSessionText(target, system, prompt, signal),
           // shortcut: only file tools' paths count, not files a shell command changed; add shell cwd if that misses repos.
           touchedRepositories: (target, checkoutPath) =>
             findTouchedRepositories(taskTreeTouchedFiles(store.snapshot(), target), checkoutPath),

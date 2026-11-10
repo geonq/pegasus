@@ -8,6 +8,7 @@
 @import "./styles/main.css";
 @import "./styles/workbench.css";
 @import "./styles/review.css";
+@import "./styles/review-git.css";
 @import "./styles/extension-views.css";
 @import "./styles/timeline.css";
 @import "./styles/generative-ui.css";

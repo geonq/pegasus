@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type {
   DiffPanelFileRequest,
   DiffPanelSelection,
@@ -15,11 +15,18 @@ import type {
   ReviewScope,
 } from "../../../contracts/review";
 import { isWorkingReviewScope, reviewStageActions } from "../../../contracts/review";
-import { InlineDiff } from "../../ui/diff-inline";
 import { ChevronDownIcon, FileIcon, MoreIcon, RefreshIcon, SidePanelIcon } from "../../ui/icons";
 import { extensionToLanguage } from "../../ui/syntax-highlight";
 import { formatPathForDisplay, ReviewFileTree, reviewTreeOrder } from "./review-file-tree";
 import { ReviewMenu } from "./review-menu";
+import { AnnotatableDiff } from "./annotatable-diff";
+import {
+  formatCommentsPrompt,
+  readStoredComments,
+  writeStoredComments,
+  type DiffComment,
+} from "./diff-comments";
+import { ReviewGitActions } from "./review-git-actions";
 
 interface DiffPanelProps {
   readonly workspaceId: string;
@@ -98,6 +105,31 @@ export function DiffPanel({
     [review, selection.selectedPath, shownFallback],
   );
   const stale = actionIssue?.state === "stale" || fileResult?.state === "stale";
+  // Line comments belong to the comparison on screen and stay while files or panel tabs change.
+  const [, bumpComments] = useReducer((count: number) => count + 1, 0);
+  const comments = readStoredComments(queryKey);
+  const changeComments = (change: (list: readonly DiffComment[]) => readonly DiffComment[]) => {
+    writeStoredComments(queryKey, change(readStoredComments(queryKey)));
+    bumpComments();
+  };
+  const [sendingComments, setSendingComments] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const sendComments = async () => {
+    setSendingComments(true);
+    setCommentError(null);
+    try {
+      const next = await api.submitComposer(
+        formatCommentsPrompt(comments),
+        sessionStatus === "running" ? { deliverAs: "followUp" } : undefined,
+      );
+      if (next.lastError) setCommentError(next.lastError);
+      else changeComments(() => []);
+    } catch (error: unknown) {
+      setCommentError(errorMessage(error));
+    } finally {
+      setSendingComments(false);
+    }
+  };
 
   const refresh = useCallback(() => {
     const nonce = ++requestNonce.current;
@@ -474,6 +506,9 @@ export function DiffPanel({
           </span>
         ) : null}
         <span className="review-panel__toolbar-spacer" />
+        {review && review.scope.kind !== "turn" ? (
+          <ReviewGitActions api={api} reviewId={review.reviewId} onChanged={refresh} />
+        ) : null}
         <button
           className="icon-button review-panel__tool"
           type="button"
@@ -635,10 +670,15 @@ export function DiffPanel({
                     ) : null}
                     {displayedFileResult.patch ? (
                       <section className="review-panel__patch-section" aria-label="Diff">
-                        <InlineDiff
+                        <AnnotatableDiff
                           diff={displayedFileResult.patch}
                           language={extensionToLanguage(selectedFile.path)}
-                          unmodifiedGaps
+                          path={selectedFile.path}
+                          comments={comments.filter((comment) => comment.path === selectedFile.path)}
+                          onAdd={(comment) => changeComments((list) => [...list, comment])}
+                          onRemove={(id) =>
+                            changeComments((list) => list.filter((comment) => comment.id !== id))
+                          }
                         />
                       </section>
                     ) : displayedFileResult.summary ? null : (
@@ -651,6 +691,37 @@ export function DiffPanel({
                   <div className="diff-panel__empty">Loading diff…</div>
                 )}
               </div>
+              {comments.length > 0 ? (
+                <div className="review-comments-bar" data-testid="review-comments-bar">
+                  <span className="review-comments-bar__count" aria-live="polite">
+                    {comments.length} {comments.length === 1 ? "comment" : "comments"}
+                  </span>
+                  {commentError ? (
+                    <span className="review-comments-bar__error" role="alert">
+                      {commentError}
+                    </span>
+                  ) : null}
+                  <span className="review-panel__toolbar-spacer" />
+                  <button
+                    className="button button--ghost"
+                    type="button"
+                    disabled={sendingComments}
+                    onClick={() => changeComments(() => [])}
+                  >
+                    Discard
+                  </button>
+                  <button
+                    className="button button--primary"
+                    type="button"
+                    disabled={sendingComments}
+                    onClick={() => void sendComments()}
+                  >
+                    {sendingComments
+                      ? "Sending…"
+                      : `Send ${comments.length} ${comments.length === 1 ? "comment" : "comments"} to agent`}
+                  </button>
+                </div>
+              ) : null}
             </>
           )}
         </div>

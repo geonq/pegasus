@@ -33,6 +33,7 @@ import {
 import { RuntimeSupervisor, type RuntimeSupervisorOptions } from "./runtime-supervisor.js";
 import { createRuntimeDependencies } from "./runtime-deps.js";
 import { generateThreadTitle, type GenerateThreadTitleOptions } from "./thread-title-generator.js";
+import { generateOneShotText, type GenerateOneShotTextOptions } from "./one-shot-text.js";
 
 export interface PiSdkDriverConfig extends PiSdkDriverOptions, RuntimeSupervisorOptions {}
 
@@ -187,6 +188,13 @@ export class PiSdkDriver implements SessionDriver {
 
   getSessionSchemaInfo(sessionRef: SessionRef) {
     return this.supervisor.getSessionSchemaInfo(sessionRef);
+  }
+
+  generateOneShotText(
+    workspace: WorkspaceRef,
+    options: GenerateOneShotTextOptions,
+  ): Promise<string | null> {
+    return generateOneShotText(workspace, options, { agentDir: this.agentDir });
   }
 
   generateThreadTitle(

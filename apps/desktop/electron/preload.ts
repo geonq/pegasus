@@ -35,6 +35,13 @@ import type { UpdateStatus } from "../contracts/updates";
 import type { AccountLimits, AccountStatus, ClaudeSlot, SignInStatus, UsageReport } from "../contracts/usage";
 import type { SaveTaskWorkbenchTemplateInput, TaskWorkbenchTemplate } from "../contracts/workbench";
 import type {
+  DraftGitTextInput,
+  DraftGitTextResult,
+  GitActionInput,
+  GitActionResult,
+  GitActionStateResult,
+} from "../contracts/git-actions";
+import type {
   TurnChangesInput,
   TurnChangesResult,
   GetReviewInput,
@@ -186,6 +193,12 @@ const localPiDesktopApi = {
       desktopIpc.changeReviewFileStage,
       input,
     ) as Promise<ChangeReviewFileStageResult>,
+  getGitActions: (input: { readonly reviewId: string }) =>
+    ipcRenderer.invoke(desktopIpc.getGitActions, input) as Promise<GitActionStateResult>,
+  draftGitText: (input: DraftGitTextInput) =>
+    ipcRenderer.invoke(desktopIpc.draftGitText, input) as Promise<DraftGitTextResult>,
+  runGitAction: (input: GitActionInput) =>
+    ipcRenderer.invoke(desktopIpc.runGitAction, input) as Promise<GitActionResult>,
   onStateChanged: (listener: (state: DesktopAppState) => void) => {
     const handle = (_event: Electron.IpcRendererEvent, state: DesktopAppState) => {
       listener(state);

@@ -4151,6 +4151,26 @@ export class DesktopAppStore {
     return workspace.sessions[0]?.id ?? "";
   }
 
+  /** One tool-less model call in the chat's workspace with the chat's current model. */
+  async generateSessionText(
+    target: SessionRef,
+    system: string,
+    prompt: string,
+    signal: AbortSignal,
+  ): Promise<string | null> {
+    const workspace = this.workspaceRefFromState(target.workspaceId);
+    const config = this.sessionFromState(target)?.config;
+    if (!workspace) return null;
+    return this.driver.generateOneShotText(workspace, {
+      system,
+      prompt,
+      signal,
+      ...(config?.provider && config.modelId
+        ? { model: { provider: config.provider, modelId: config.modelId } }
+        : {}),
+    });
+  }
+
   sessionFromState(sessionRef: SessionRef) {
     return this.state.workspaces
       .find((w) => w.id === sessionRef.workspaceId)

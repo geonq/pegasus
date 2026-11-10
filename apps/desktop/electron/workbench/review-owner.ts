@@ -20,6 +20,29 @@ import type {
   TurnChangesResult,
 } from "../../contracts/review";
 import { isWorkingReviewScope } from "../../contracts/review";
+import type {
+  DraftGitTextInput,
+  DraftGitTextResult,
+  GitActionInput,
+  GitActionResult,
+  GitActionStateResult,
+} from "../../contracts/git-actions";
+import {
+  commitStaged,
+  createPullRequest,
+  pushBranch,
+  readDraftSource,
+  readGitActionState,
+  stageAll,
+} from "../platform/files/git-actions";
+import {
+  buildDraftPrompt,
+  COMMIT_SYSTEM,
+  fallbackCommitDraft,
+  fallbackPullRequestDraft,
+  parseDraft,
+  PR_SYSTEM,
+} from "./git-draft";
 import {
   changeGitReviewFileStage,
   checkGitReviewFileCurrent,
@@ -61,6 +84,13 @@ export interface ReviewOwnerOptions {
   readonly userDataDir: string;
   readonly resolveCheckoutPath: (checkoutId: string) => string | undefined;
   readonly validateTask: (target: SessionRef) => boolean;
+  /** One model call with the chat's current model; null when it cannot answer. */
+  readonly draftText?: (
+    target: SessionRef,
+    system: string,
+    prompt: string,
+    signal: AbortSignal,
+  ) => Promise<string | null>;
   readonly checkpoints?: ReviewCheckpointSource;
   /** Repository roots holding files the task changed, newest first. */
   readonly touchedRepositories?: (
@@ -316,6 +346,88 @@ export class ReviewOwner {
     }
   }
 
+  async getGitActions(input: { readonly reviewId: string }): Promise<GitActionStateResult> {
+    try {
+      const review = this.gitReview(input.reviewId);
+      return isIssue(review) ? review : await readGitActionState(review.checkoutPath);
+    } catch (error: unknown) {
+      return failed(error);
+    }
+  }
+
+  async draftGitText(input: DraftGitTextInput): Promise<DraftGitTextResult> {
+    try {
+      const review = this.gitReview(input.reviewId);
+      if (isIssue(review)) return review;
+      const source = await readDraftSource(review.checkoutPath, input.kind);
+      if ("state" in source) return source;
+      const state = await readGitActionState(review.checkoutPath);
+      const fallback =
+        input.kind === "commit"
+          ? fallbackCommitDraft(source.summary)
+          : fallbackPullRequestDraft(
+              source.summary,
+              state.state === "available" ? state.branch : null,
+            );
+      const reply = source.diff.trim()
+        ? await this.options
+            .draftText?.(
+              review.target,
+              input.kind === "commit" ? COMMIT_SYSTEM : PR_SYSTEM,
+              buildDraftPrompt(source.summary, source.diff),
+              AbortSignal.timeout(60_000),
+            )
+            .catch(() => null)
+        : null;
+      const drafted = parseDraft(reply ?? null);
+      return { state: "drafted", ...(drafted ?? fallback), fallback: drafted === null };
+    } catch (error: unknown) {
+      return failed(error);
+    }
+  }
+
+  async runGitAction(input: GitActionInput): Promise<GitActionResult> {
+    try {
+      const review = this.gitReview(input.reviewId);
+      if (isIssue(review)) return review;
+      const path = review.checkoutPath;
+      return await this.withMutation(path, () => {
+        switch (input.action) {
+          case "stage-all":
+            return stageAll(path);
+          case "commit":
+            return commitStaged(path, input.title, input.body);
+          case "push":
+            return pushBranch(path);
+          case "pr":
+            return createPullRequest(path, input.title, input.body);
+        }
+      });
+    } catch (error: unknown) {
+      return failed(error);
+    }
+  }
+
+  /** The repository a live review reads, for actions that change it. Captured turns have none. */
+  private gitReview(
+    reviewId: string,
+  ): (OwnedReview & { readonly checkoutPath: string }) | ReviewIssue {
+    const review = this.reviews.get(reviewId);
+    if (!review)
+      return unavailable(
+        "review-expired",
+        "This comparison expired. Refresh to review current changes.",
+      );
+    if (!this.options.validateTask(review.target))
+      return unavailable("task-unavailable", "This task is unavailable.");
+    if (review.checkoutPath === null)
+      return unavailable(
+        "read-only-comparison",
+        "Git actions are not available while viewing a captured turn.",
+      );
+    return { ...review, checkoutPath: review.checkoutPath };
+  }
+
   private async resolveFile(
     input: ReviewFileInput,
   ): Promise<{ readonly review: OwnedReview; readonly file: GitReviewFile } | ReviewIssue> {
@@ -479,7 +591,7 @@ function markKey(review: OwnedReview, file: GitReviewFile): string {
     .digest("hex");
 }
 
-function isIssue(value: { readonly review: OwnedReview } | ReviewIssue): value is ReviewIssue {
+function isIssue<T extends object>(value: T | ReviewIssue): value is ReviewIssue {
   return "state" in value;
 }
 

@@ -2,10 +2,13 @@ import { useMemo } from "react";
 import { HighlightedLine } from "./highlighted-line";
 import { MAX_HIGHLIGHTED_LINES } from "./syntax-highlight";
 
-interface DiffLine {
+export interface DiffLine {
   readonly type: "added" | "removed" | "context" | "header" | "unmodified";
   readonly content: string;
+  /** Line number in the new file (added and context lines). */
   readonly lineNumber?: number;
+  /** Line number in the old file (removed and context lines). */
+  readonly oldNumber?: number;
 }
 
 export function InlineDiff({
@@ -47,12 +50,13 @@ export function InlineDiff({
   );
 }
 
-function parseDiff(diff: string, unmodifiedGaps: boolean): DiffLine[] {
+export function parseDiff(diff: string, unmodifiedGaps: boolean): DiffLine[] {
   const lines = diff.split("\n");
   // A patch ends with a newline; that final empty piece is not a blank context line.
   if (lines.at(-1) === "") lines.pop();
   const result: DiffLine[] = [];
   let lineNumber = 0;
+  let oldNumber = 0;
   // The next new-file line not yet shown, so a hunk header can count the lines it skips.
   let nextUnshown = 1;
   // File headers only come before a file's first hunk; inside one, "---" is a removed "--" line.
@@ -65,8 +69,9 @@ function parseDiff(diff: string, unmodifiedGaps: boolean): DiffLine[] {
     }
     if (line.startsWith("@@")) {
       inHunk = true;
-      const match = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(line);
-      lineNumber = match ? parseInt(match[1] ?? "0", 10) : 0;
+      const match = /^@@ -(\d+)(?:,\d+)? \+(\d+)/.exec(line);
+      oldNumber = match ? parseInt(match[1] ?? "0", 10) : 0;
+      lineNumber = match ? parseInt(match[2] ?? "0", 10) : 0;
       if (!unmodifiedGaps) {
         result.push({ type: "header", content: line });
         continue;
@@ -91,10 +96,12 @@ function parseDiff(diff: string, unmodifiedGaps: boolean): DiffLine[] {
       lineNumber += 1;
       nextUnshown = lineNumber;
     } else if (line.startsWith("-")) {
-      result.push({ type: "removed", content: line.slice(1) });
+      result.push({ type: "removed", content: line.slice(1), oldNumber });
+      oldNumber += 1;
     } else if (line.startsWith(" ") || line === "") {
-      result.push({ type: "context", content: line.slice(1), lineNumber });
+      result.push({ type: "context", content: line.slice(1), lineNumber, oldNumber });
       lineNumber += 1;
+      oldNumber += 1;
       nextUnshown = lineNumber;
     }
   }

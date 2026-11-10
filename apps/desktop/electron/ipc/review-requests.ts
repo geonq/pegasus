@@ -6,6 +6,11 @@ import {
   decodeSetReviewFileReviewedInput,
   decodeChangeReviewFileStageInput,
 } from "../../contracts/review";
+import {
+  decodeDraftGitTextInput,
+  decodeGitActionInput,
+  decodeGitActionStateInput,
+} from "../../contracts/git-actions";
 import type { ReviewOwner } from "../workbench/review-owner";
 import type { MainFrameHandler } from "./main-frame-ipc";
 
@@ -16,6 +21,9 @@ export type ReviewRequestsOwner = Pick<
   | "getReviewFile"
   | "setReviewFileReviewed"
   | "changeReviewFileStage"
+  | "getGitActions"
+  | "draftGitText"
+  | "runGitAction"
 >;
 
 export function registerReviewRequests(handle: MainFrameHandler, owner: ReviewRequestsOwner): void {
@@ -28,4 +36,7 @@ export function registerReviewRequests(handle: MainFrameHandler, owner: ReviewRe
   handle(desktopIpc.changeReviewFileStage, decodeChangeReviewFileStageInput, (input) =>
     owner.changeReviewFileStage(input),
   );
+  handle(desktopIpc.getGitActions, decodeGitActionStateInput, (input) => owner.getGitActions(input));
+  handle(desktopIpc.draftGitText, decodeDraftGitTextInput, (input) => owner.draftGitText(input));
+  handle(desktopIpc.runGitAction, decodeGitActionInput, (input) => owner.runGitAction(input));
 }

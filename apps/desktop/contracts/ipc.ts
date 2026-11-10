@@ -30,6 +30,13 @@ import type {
   ChangeReviewFileStageResult,
 } from "./review";
 import type {
+  DraftGitTextInput,
+  DraftGitTextResult,
+  GitActionInput,
+  GitActionResult,
+  GitActionStateResult,
+} from "./git-actions";
+import type {
   AppView,
   ComposerAttachment,
   CreateSessionInput,
@@ -244,6 +251,9 @@ export const desktopIpc = {
   getReviewFile: "pi-gui:get-review-file",
   setReviewFileReviewed: "pi-gui:set-review-file-reviewed",
   changeReviewFileStage: "pi-gui:change-review-file-stage",
+  getGitActions: "pi-gui:get-git-actions",
+  draftGitText: "pi-gui:draft-git-text",
+  runGitAction: "pi-gui:run-git-action",
   getThemeMode: "pi-gui:get-theme-mode",
   getResolvedTheme: "pi-gui:get-resolved-theme",
   setThemeMode: "pi-gui:set-theme-mode",
@@ -950,6 +960,12 @@ export interface PiDesktopApi {
   getReviewFile(input: ReviewFileInput): Promise<ReviewFileResult>;
   setReviewFileReviewed(input: SetReviewFileReviewedInput): Promise<SetReviewFileReviewedResult>;
   changeReviewFileStage(input: ChangeReviewFileStageInput): Promise<ChangeReviewFileStageResult>;
+  /** Where the reviewed repository stands: what the review header's git button should offer next. */
+  getGitActions(input: { readonly reviewId: string }): Promise<GitActionStateResult>;
+  /** A commit message or pull request text written by the chat's model from the diff. */
+  draftGitText(input: DraftGitTextInput): Promise<DraftGitTextResult>;
+  /** Stages everything, commits what is staged, pushes the branch (never forced), or opens a pull request. */
+  runGitAction(input: GitActionInput): Promise<GitActionResult>;
   toggleWindowMaximize(): Promise<void>;
   openExternal(url: string): Promise<void>;
   getThemeMode(): Promise<"system" | "light" | "dark">;
