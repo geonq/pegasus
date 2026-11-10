@@ -679,6 +679,7 @@ function isDesktopAppState(value: unknown): value is DesktopAppState {
 
 // Opaque windows track the current theme background while glass is disabled.
 const opaqueAppWindows = new Set<BrowserWindow>();
+const overlayAppWindows = new Set<BrowserWindow>();
 
 function refreshWindowBackgrounds(): void {
   if (!store) return;
@@ -687,7 +688,8 @@ function refreshWindowBackgrounds(): void {
     if (!window.isDestroyed()) window.setBackgroundColor(color);
   }
   if (process.platform === "win32") {
-    for (const window of BrowserWindow.getAllWindows()) {
+    // Only app windows have a title bar overlay; sign-in and other popups throw "Titlebar overlay is not enabled".
+    for (const window of overlayAppWindows) {
       if (!window.isDestroyed()) {
         window.setTitleBarOverlay(windowsTitleBarOverlay());
         setWindowTransparency(window, nativeWindowTransparencyEnabled());
@@ -767,6 +769,8 @@ function createWindow({ deferContent = false }: { deferContent?: boolean } = {})
   });
 
   if (process.platform === "win32") {
+    overlayAppWindows.add(window);
+    window.once("closed", () => overlayAppWindows.delete(window));
     const restoreMaterial = () => setWindowTransparency(window, nativeWindowTransparencyEnabled());
     window.webContents.on("did-finish-load", restoreMaterial);
     window.on("maximize", restoreMaterial);
