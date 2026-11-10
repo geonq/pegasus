@@ -53,7 +53,11 @@ export function AnnotatableDiff({
   const focusRow = (index: number) =>
     rootRef.current?.querySelector<HTMLElement>(`[data-row="${index}"]`)?.focus();
   const compose = (range: Range) => {
-    if (!lines.slice(Math.min(range.anchor, range.focus), Math.max(range.anchor, range.focus) + 1).some(isCommentable))
+    if (
+      !lines
+        .slice(Math.min(range.anchor, range.focus), Math.max(range.anchor, range.focus) + 1)
+        .some(isCommentable)
+    )
       return;
     setComposing(range);
   };
@@ -93,14 +97,10 @@ export function AnnotatableDiff({
       if (next === undefined) return;
       event.preventDefault();
       select(
-        event.shiftKey
-          ? { anchor: previous.anchor, focus: next }
-          : { anchor: next, focus: next },
+        event.shiftKey ? { anchor: previous.anchor, focus: next } : { anchor: next, focus: next },
       );
       focusRow(next);
-      rootRef.current
-        ?.querySelector(`[data-row="${next}"]`)
-        ?.scrollIntoView({ block: "nearest" });
+      rootRef.current?.querySelector(`[data-row="${next}"]`)?.scrollIntoView({ block: "nearest" });
     } else if ((event.key === "c" || event.key === "Enter") && !event.metaKey && !event.ctrlKey) {
       event.preventDefault();
       select(previous);
@@ -205,7 +205,13 @@ export function AnnotatableDiff({
                   focusRow(index);
                 }}
                 onSubmit={(text) => {
-                  const comment = buildComment(path, lines, composing.anchor, composing.focus, text);
+                  const comment = buildComment(
+                    path,
+                    lines,
+                    composing.anchor,
+                    composing.focus,
+                    text,
+                  );
                   if (comment) onAdd(comment);
                   setComposing(null);
                   focusRow(index);

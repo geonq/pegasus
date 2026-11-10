@@ -538,7 +538,8 @@ async function sendComposerPrompt(window: Page, text: string): Promise<void> {
     .poll(async () => {
       const transcript = await getSelectedTranscript(window);
       return transcript?.transcript.some(
-        (entry) => entry.kind === "message" && entry.role === "assistant" && entry.text.includes("Done."),
+        (entry) =>
+          entry.kind === "message" && entry.role === "assistant" && entry.text.includes("Done."),
       );
     })
     .toBe(true);
@@ -550,9 +551,12 @@ async function sendComposerPrompt(window: Page, text: string): Promise<void> {
         .find((session) => session.id === target.sessionId)?.status;
     })
     .not.toBe("running");
-  await window.evaluate(async (ref) => {
-    await globalThis.window.piApp.markSessionRead(ref);
-  }, target as { workspaceId: string; sessionId: string });
+  await window.evaluate(
+    async (ref) => {
+      await globalThis.window.piApp.markSessionRead(ref);
+    },
+    target as { workspaceId: string; sessionId: string },
+  );
 }
 
 const commandModifier = process.platform === "darwin" ? "Meta" : "Control";

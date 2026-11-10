@@ -148,9 +148,9 @@ test("areas are relative to the project and ignore finished agents", () => {
     ],
   };
   const areas = agentAreas(agentCards(state));
-  expect(areas.map(({ area, agents, active }) => [area, agents.map((a) => a.title), active])).toEqual(
-    [["pi-gui/src", ["a", "b"], 2]],
-  );
+  expect(
+    areas.map(({ area, agents, active }) => [area, agents.map((a) => a.title), active]),
+  ).toEqual([["pi-gui/src", ["a", "b"], 2]]);
 });
 
 test("the Mac client may stop one of its allowed chats by name", () => {

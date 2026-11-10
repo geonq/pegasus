@@ -19,14 +19,7 @@ export function buildDraftPrompt(summary: string, diff: string): string {
     diff.length > MAX_DIFF_CHARS
       ? `${diff.slice(0, MAX_DIFF_CHARS)}\n[diff cut: ${diff.length - MAX_DIFF_CHARS} more characters]`
       : diff;
-  return [
-    "<summary>",
-    summary.trim(),
-    "</summary>",
-    "<diff>",
-    clipped,
-    "</diff>",
-  ].join("\n");
+  return ["<summary>", summary.trim(), "</summary>", "<diff>", clipped, "</diff>"].join("\n");
 }
 
 export interface Draft {

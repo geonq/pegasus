@@ -22,10 +22,7 @@ function state(
   return {
     workspaces: [{ id: "w", sessions }] as unknown as DesktopAppState["workspaces"],
     sessionExtensionUiBySession: Object.fromEntries(
-      dialogs.map((id) => [
-        `w:${id}`,
-        { pendingDialogs: [{}] },
-      ]),
+      dialogs.map((id) => [`w:${id}`, { pendingDialogs: [{}] }]),
     ) as unknown as DesktopAppState["sessionExtensionUiBySession"],
   };
 }

@@ -211,7 +211,9 @@ test("rejects a server Settings cannot run and leaves mcp.json alone", async () 
     const surface = window.getByTestId("settings-surface");
     // The copy names the file this app really uses, here the test's own agent directory.
     // Settings shows a path under the home folder as ~/…
-    const shownPath = mcpPath.startsWith(homedir()) ? `~${mcpPath.slice(homedir().length)}` : mcpPath;
+    const shownPath = mcpPath.startsWith(homedir())
+      ? `~${mcpPath.slice(homedir().length)}`
+      : mcpPath;
     await expect(surface.getByTestId("mcp-servers-empty")).toContainText(shownPath);
     await expect(surface).toContainText(`Saved to ${shownPath}.`);
     await expect(surface.getByTestId("mcp-servers-empty")).toContainText("/mcp");

@@ -53,7 +53,10 @@ test("line comments: click a line, extend with the keyboard, send them as one pr
   await writeFile(join(workspacePath, "calc.ts"), `${BASE}\n`);
   await commitAllInGitRepo(workspacePath, "Baseline");
   const changed = BASE.replace("value5 = 5", "value5 = 50").replace("value6 = 6", "value6 = 60");
-  await writeFile(join(workspacePath, "calc.ts"), `${changed}\nexport const total = value5 + value6;\n`);
+  await writeFile(
+    join(workspacePath, "calc.ts"),
+    `${changed}\nexport const total = value5 + value6;\n`,
+  );
   const { harness, window, panel } = await openReview(workspacePath);
   try {
     const diff = panel.locator(".diff-inline--annotatable");
@@ -101,7 +104,9 @@ test("line comments: click a line, extend with the keyboard, send them as one pr
     await expect(composer).toHaveValue("half-typed draft stays");
     // The prompt reaches the chat as one message with references and quoted code.
     const message = window.locator(".message--user, [data-role='user']").last();
-    await expect(window.getByText("Review comments on the current changes (2 comments)")).toBeVisible({
+    await expect(
+      window.getByText("Review comments on the current changes (2 comments)"),
+    ).toBeVisible({
       timeout: 15_000,
     });
     await expect(window.getByText("calc.ts:5", { exact: false }).first()).toBeVisible();
@@ -158,9 +163,12 @@ test("git actions: stage all, commit with an editable draft, push, then the PR s
     // The remote is a local folder, so the PR step explains that instead of failing silently.
     await button.click();
     const prDialog = panel.getByRole("dialog", { name: "Pull request" });
-    await expect(prDialog.getByRole("textbox", { name: "Pull request title" })).not.toHaveValue("", {
-      timeout: 20_000,
-    });
+    await expect(prDialog.getByRole("textbox", { name: "Pull request title" })).not.toHaveValue(
+      "",
+      {
+        timeout: 20_000,
+      },
+    );
     await shot(panel, "gitactions-3-pr.png");
     await prDialog.getByRole("button", { name: /Create PR|Open PR page/ }).click();
     await expect(prDialog.getByRole("alert")).toContainText("GitHub");

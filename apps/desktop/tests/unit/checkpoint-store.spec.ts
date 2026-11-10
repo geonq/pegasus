@@ -803,7 +803,13 @@ test("a cold capture of thousands of files stores packs, not loose objects, and 
   const { workspace, store } = await fixture();
   // Creating a loose object costs ~2 ms on Windows, so per-file and per-directory objects made
   // a 4,000-file cold capture take seconds. The invariant is no loose objects at all.
-  const names = ["plain.txt", "with space.txt", "quote\".txt", "back\\slash.txt", "unicodé-日本.txt"];
+  const names = [
+    "plain.txt",
+    "with space.txt",
+    'quote".txt',
+    "back\\slash.txt",
+    "unicodé-日本.txt",
+  ];
   for (let directory = 0; directory < 60; directory += 1) {
     const folder = join(workspace, `d${directory}`, "sub");
     await mkdir(folder, { recursive: true });
@@ -813,7 +819,9 @@ test("a cold capture of thousands of files stores packs, not loose objects, and 
   }
   const nested = join(workspace, "names dir");
   await mkdir(nested);
-  for (const name of process.platform === "win32" ? names.filter((n) => !n.includes("\"") && !n.includes("\\")) : names) {
+  for (const name of process.platform === "win32"
+    ? names.filter((n) => !n.includes('"') && !n.includes("\\"))
+    : names) {
     await writeFile(join(nested, name), `contents of ${name}`);
   }
   await ageFixtureFiles();

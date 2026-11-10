@@ -8,9 +8,9 @@ const scope = new Set([allowed]);
 test("git actions and draft generation are remote methods with strict inputs", () => {
   for (const method of ["getGitActions", "draftGitText", "runGitAction", "sendReviewComments"])
     expect(REMOTE_DESKTOP_PI_METHODS).toContain(method);
-  expect(validateRemoteDesktopInvocation("getGitActions", [{ reviewId: "r" }], scope).args).toEqual([
-    { reviewId: "r" },
-  ]);
+  expect(validateRemoteDesktopInvocation("getGitActions", [{ reviewId: "r" }], scope).args).toEqual(
+    [{ reviewId: "r" }],
+  );
   expect(
     validateRemoteDesktopInvocation("draftGitText", [{ reviewId: "r", kind: "pr" }], scope).args,
   ).toEqual([{ reviewId: "r", kind: "pr" }]);
@@ -32,13 +32,16 @@ test("git actions and draft generation are remote methods with strict inputs", (
   expect(() =>
     validateRemoteDesktopInvocation("draftGitText", [{ reviewId: "r", kind: "x" }], scope),
   ).toThrow();
-  expect(() => validateRemoteDesktopInvocation("getGitActions", [{ reviewId: "r" }, 1], scope)).toThrow();
+  expect(() =>
+    validateRemoteDesktopInvocation("getGitActions", [{ reviewId: "r" }, 1], scope),
+  ).toThrow();
 });
 
 test("remote comment sends stay inside authorized workspaces", () => {
   const target = { workspaceId: allowed, sessionId: "s" };
   expect(
-    validateRemoteDesktopInvocation("sendReviewComments", [{ target, text: "1. a.ts:1" }], scope).args,
+    validateRemoteDesktopInvocation("sendReviewComments", [{ target, text: "1. a.ts:1" }], scope)
+      .args,
   ).toEqual([{ target, text: "1. a.ts:1" }]);
   expect(() =>
     validateRemoteDesktopInvocation(

@@ -38,7 +38,9 @@ export function registerReviewRequests(handle: MainFrameHandler, owner: ReviewRe
   handle(desktopIpc.changeReviewFileStage, decodeChangeReviewFileStageInput, (input) =>
     owner.changeReviewFileStage(input),
   );
-  handle(desktopIpc.getGitActions, decodeGitActionStateInput, (input) => owner.getGitActions(input));
+  handle(desktopIpc.getGitActions, decodeGitActionStateInput, (input) =>
+    owner.getGitActions(input),
+  );
   handle(desktopIpc.draftGitText, decodeDraftGitTextInput, (input) => owner.draftGitText(input));
   handle(desktopIpc.sendReviewComments, decodeSendReviewCommentsInput, (input) =>
     owner.sendReviewComments(input),

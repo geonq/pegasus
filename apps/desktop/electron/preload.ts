@@ -32,7 +32,13 @@ import type { ExtensionActionEffect, ExtensionActionRequest } from "../contracts
 import type { ClipboardImageRead } from "../contracts/composer-attachments";
 import type { SessionPermission } from "../contracts/session-permission";
 import type { UpdateStatus } from "../contracts/updates";
-import type { AccountLimits, AccountStatus, ClaudeSlot, SignInStatus, UsageReport } from "../contracts/usage";
+import type {
+  AccountLimits,
+  AccountStatus,
+  ClaudeSlot,
+  SignInStatus,
+  UsageReport,
+} from "../contracts/usage";
 import type { SaveTaskWorkbenchTemplateInput, TaskWorkbenchTemplate } from "../contracts/workbench";
 import type {
   DraftGitTextInput,

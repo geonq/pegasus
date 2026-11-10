@@ -155,7 +155,9 @@ function binaryName(): string {
 
 /** Set by Electron only. */
 function resourcesPath(): string | undefined {
-  return "resourcesPath" in process && typeof process.resourcesPath === "string" ? process.resourcesPath : undefined;
+  return "resourcesPath" in process && typeof process.resourcesPath === "string"
+    ? process.resourcesPath
+    : undefined;
 }
 
 function resolveBinary(): string | undefined {
@@ -185,11 +187,14 @@ function sidecar(): SidecarClient | undefined {
   if (!binary) {
     if (!loggedMissing) {
       loggedMissing = true;
-      console.warn("[pegasus-sidecar] binary not found; using pi's SessionManager for session reads");
+      console.warn(
+        "[pegasus-sidecar] binary not found; using pi's SessionManager for session reads",
+      );
     }
     return undefined;
   }
-  const cache = process.env.PEGASUS_SIDECAR_CACHE ?? join(getAgentDir(), "pegasus-index-cache.json");
+  const cache =
+    process.env.PEGASUS_SIDECAR_CACHE ?? join(getAgentDir(), "pegasus-index-cache.json");
   const args = ["--sessions-root", sessionsRoot(), "--cache", cache];
   try {
     client = new SidecarClient(spawn(binary, args, { stdio: "pipe", windowsHide: true }));
@@ -221,7 +226,9 @@ async function withFallback<T>(
 
 /** pi's default session directory for a cwd (same encoding as SessionManager.list). */
 function defaultSessionDir(cwd: string): string {
-  const safe = `--${resolve(cwd).replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
+  const safe = `--${resolve(cwd)
+    .replace(/^[/\\]/, "")
+    .replace(/[/\\:]/g, "-")}--`;
   return join(getAgentDir(), "sessions", safe);
 }
 
@@ -232,7 +239,9 @@ export function listSessionInfos(cwd: string): Promise<SessionInfo[]> {
     "session list",
     async (c) => {
       if (!existsSync(dir)) return [];
-      const { sessions } = await c.call<{ sessions: readonly WireSession[] }>("index.list", { dir });
+      const { sessions } = await c.call<{ sessions: readonly WireSession[] }>("index.list", {
+        dir,
+      });
       return sessions.map((s) => ({
         path: s.path,
         id: s.id,

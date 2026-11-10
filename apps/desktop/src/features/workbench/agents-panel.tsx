@@ -136,7 +136,10 @@ export function agentAreas(cards: readonly AgentCard[]): {
       agents,
       active: agents.filter((agent) => ACTIVE.has(agent.status)).length,
     }))
-    .sort((a, b) => b.active - a.active || b.agents.length - a.agents.length || a.area.localeCompare(b.area));
+    .sort(
+      (a, b) =>
+        b.active - a.active || b.agents.length - a.agents.length || a.area.localeCompare(b.area),
+    );
 }
 
 /** The folder a change belongs to: its first two folders below the project, or the project root. */
@@ -144,8 +147,13 @@ function areaOf(file: string, workspacePath: string): string {
   const path = file.replaceAll("\\", "/");
   const root = workspacePath.replaceAll("\\", "/").replace(/\/+$/, "");
   const relative =
-    root && path.toLowerCase().startsWith(`${root.toLowerCase()}/`) ? path.slice(root.length + 1) : path;
-  const folders = relative.split("/").filter((part) => part && part !== ".").slice(0, -1);
+    root && path.toLowerCase().startsWith(`${root.toLowerCase()}/`)
+      ? path.slice(root.length + 1)
+      : path;
+  const folders = relative
+    .split("/")
+    .filter((part) => part && part !== ".")
+    .slice(0, -1);
   return folders.length ? folders.slice(0, 2).join("/") : "(project root)";
 }
 

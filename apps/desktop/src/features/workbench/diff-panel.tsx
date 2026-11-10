@@ -574,8 +574,7 @@ export function DiffPanel({
             options={review.baseOptions.map((option) => ({
               id: option.ref,
               label: option.label,
-              checked:
-                review.scope.kind === "branch" ? option.ref === review.scope.baseRef : false,
+              checked: review.scope.kind === "branch" ? option.ref === review.scope.baseRef : false,
             }))}
             onSelect={(baseRef) =>
               onSelectionChange({
@@ -675,7 +674,9 @@ export function DiffPanel({
                           diff={displayedFileResult.patch}
                           language={extensionToLanguage(selectedFile.path)}
                           path={selectedFile.path}
-                          comments={comments.filter((comment) => comment.path === selectedFile.path)}
+                          comments={comments.filter(
+                            (comment) => comment.path === selectedFile.path,
+                          )}
                           onAdd={(comment) => changeComments((list) => [...list, comment])}
                           onRemove={(id) =>
                             changeComments((list) => list.filter((comment) => comment.id !== id))

@@ -109,9 +109,7 @@ export function buildCommandSections(input: {
         return [{ id: "actions", label: "Actions", items: actions }];
       case "all":
         return [
-          ...(waiting.length > 0
-            ? [{ id: "needs-you", label: "Needs you", items: waiting }]
-            : []),
+          ...(waiting.length > 0 ? [{ id: "needs-you", label: "Needs you", items: waiting }] : []),
           {
             id: "recents",
             label: "Recents",

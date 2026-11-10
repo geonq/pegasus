@@ -98,10 +98,7 @@ test("a turn that edits files gets a changes card whose rows open that file's di
   try {
     const window = await harness.firstWindow();
     await waitForWorkspaceByPath(window, workspacePath);
-    await window
-      .locator(".sidebar")
-      .getByRole("button", { name: "New chat", exact: true })
-      .click();
+    await window.locator(".sidebar").getByRole("button", { name: "New chat", exact: true }).click();
     await window.getByLabel("New thread prompt", { exact: true }).fill("edit files");
     await window.getByRole("button", { name: "Start thread", exact: true }).click();
     await expectCompleted(window, "Edited the files");

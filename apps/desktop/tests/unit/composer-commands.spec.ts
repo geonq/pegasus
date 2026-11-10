@@ -87,18 +87,30 @@ test("rejects unavailable records and provider/model mismatches", () => {
 });
 
 test("shows only the newest enabled model of each family", () => {
-  const ids = ["gpt-5.6-sol", "gpt-6-sol", "gpt-6.1-sol", "gpt-5.6-terra", "gpt-6.1-terra", "gpt-6-luna"];
+  const ids = [
+    "gpt-5.6-sol",
+    "gpt-6-sol",
+    "gpt-6.1-sol",
+    "gpt-5.6-terra",
+    "gpt-6.1-terra",
+    "gpt-6-luna",
+  ];
   const value = runtime({
     models: ids.map((modelId) => ({ ...model, modelId, label: modelId })),
     settings: {
       enableSkillCommands: false,
-      enabledModelPatterns: ["openai/gpt-5.6-sol", "openai/gpt-6-sol", "openai/gpt-5.6-terra", "openai/gpt-6-luna"],
+      enabledModelPatterns: [
+        "openai/gpt-5.6-sol",
+        "openai/gpt-6-sol",
+        "openai/gpt-5.6-terra",
+        "openai/gpt-6-luna",
+      ],
     },
   } as Partial<RuntimeSnapshot>);
-  expect(buildModelOptions(value).map((option) => option.modelId).sort()).toEqual([
-    "gpt-6-luna",
-    "gpt-6.1-sol",
-    "gpt-6.1-terra",
-  ]);
+  expect(
+    buildModelOptions(value)
+      .map((option) => option.modelId)
+      .sort(),
+  ).toEqual(["gpt-6-luna", "gpt-6.1-sol", "gpt-6.1-terra"]);
   expect(isModelSelectable(value, "openai", "gpt-6-sol")).toBe(false);
 });

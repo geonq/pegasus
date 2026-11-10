@@ -61,7 +61,9 @@ test("switches between app-global and per-repo model scope while worktrees inher
     await openSettings(window);
     await openSettingsSection(window, "Models");
     await expect(settingsWorkspacePicker(window)).toHaveCount(0);
-    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-6.1-sol");
+    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue(
+      "openai:gpt-6.1-sol",
+    );
 
     await openSettingsSection(window, "General");
     await window.getByRole("button", { name: "Per repo" }).click();
@@ -74,13 +76,23 @@ test("switches between app-global and per-repo model scope while worktrees inher
     await expect(settingsWorkspacePicker(window).locator("option")).toHaveCount(2);
     await settingsWorkspacePicker(window).selectOption({ label: rootWorkspaceA.name });
     await expect(settingsWorkspacePicker(window)).toHaveValue(rootWorkspaceA.id);
-    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-6.1-sol");
-    await setEnabledModels(window, ["openai/gpt-6-luna", "openai/gpt-5.6-terra"], ["openai/gpt-6.1-sol"]);
+    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue(
+      "openai:gpt-6.1-sol",
+    );
+    await setEnabledModels(
+      window,
+      ["openai/gpt-6-luna", "openai/gpt-5.6-terra"],
+      ["openai/gpt-6.1-sol"],
+    );
     await window.getByLabel("Default model", { exact: true }).selectOption("openai:gpt-6-luna");
-    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-6-luna");
+    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue(
+      "openai:gpt-6-luna",
+    );
 
     await settingsWorkspacePicker(window).selectOption({ label: rootWorkspaceB.name });
-    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-6.1-sol");
+    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue(
+      "openai:gpt-6.1-sol",
+    );
 
     await window.getByRole("button", { name: "Back to app", exact: true }).click();
     await selectSession(window, "Repo B global session");
@@ -127,9 +139,15 @@ test("switches between app-global and per-repo model scope while worktrees inher
         (text) => !/Worktree/i.test(text),
       ),
     ).toBeTruthy();
-    await setEnabledModels(window, ["openai/gpt-6.1-sol", "openai/gpt-5.6-terra"], ["openai/gpt-6-luna"]);
+    await setEnabledModels(
+      window,
+      ["openai/gpt-6.1-sol", "openai/gpt-5.6-terra"],
+      ["openai/gpt-6-luna"],
+    );
     await window.getByLabel("Default model", { exact: true }).selectOption("openai:gpt-6.1-sol");
-    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-6.1-sol");
+    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue(
+      "openai:gpt-6.1-sol",
+    );
 
     await window.getByRole("button", { name: "Back to app", exact: true }).click();
     await expect(

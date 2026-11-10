@@ -132,7 +132,9 @@ export function ReviewGitActions({
       () => {
         if (draftNonce.current === nonce)
           setDialog((current) =>
-            current ? { ...current, drafting: false, note: "Could not draft text. Write it here." } : current,
+            current
+              ? { ...current, drafting: false, note: "Could not draft text. Write it here." }
+              : current,
           );
       },
     );
@@ -143,9 +145,11 @@ export function ReviewGitActions({
     else if (step.kind === "push") void run({ reviewId, action: "push" }, "push");
     else if (step.kind === "commit" || step.kind === "pr") openDialog(step.kind);
     else if (step.kind === "view-pr" && state.pullRequest)
-      void api.openExternal(state.pullRequest.url).catch((failure: unknown) =>
-        setError(failure instanceof Error ? failure.message : String(failure)),
-      );
+      void api
+        .openExternal(state.pullRequest.url)
+        .catch((failure: unknown) =>
+          setError(failure instanceof Error ? failure.message : String(failure)),
+        );
   };
 
   const submit = () => {
@@ -200,9 +204,7 @@ export function ReviewGitActions({
             spellCheck
             value={dialog.title}
             placeholder={dialog.drafting ? "Writing from the diff…" : "Summarize the change…"}
-            onChange={(event) =>
-              setDialog({ ...dialog, title: event.target.value, edited: true })
-            }
+            onChange={(event) => setDialog({ ...dialog, title: event.target.value, edited: true })}
           />
           <label className="review-git__label" htmlFor={bodyId}>
             {dialog.kind === "commit" ? "Details (optional)" : "Description"}
@@ -225,7 +227,12 @@ export function ReviewGitActions({
             </p>
           ) : null}
           <div className="review-git__actions">
-            <button className="button button--ghost" type="button" onClick={closeDialog} disabled={busy !== null}>
+            <button
+              className="button button--ghost"
+              type="button"
+              onClick={closeDialog}
+              disabled={busy !== null}
+            >
               Cancel
             </button>
             <button className="button button--primary" type="submit" disabled={busy !== null}>

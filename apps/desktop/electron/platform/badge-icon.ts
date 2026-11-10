@@ -16,7 +16,10 @@ const GLYPHS: Readonly<Record<string, readonly string[]>> = {
 };
 
 /** BGRA pixels of a count badge, `9+` past nine. */
-export function renderCountBadge(count: number): { readonly bitmap: Buffer; readonly size: number } {
+export function renderCountBadge(count: number): {
+  readonly bitmap: Buffer;
+  readonly size: number;
+} {
   const label = count > 9 ? "9+" : String(Math.max(0, Math.floor(count)));
   const bitmap = Buffer.alloc(SIZE * SIZE * 4);
   const radius = SIZE / 2;

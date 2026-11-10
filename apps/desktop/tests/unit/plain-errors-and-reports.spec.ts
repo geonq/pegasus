@@ -22,7 +22,8 @@ test("provider errors become a sentence with the fix, unknown text stays untouch
     )?.summary,
   ).toContain("rate limiting");
   expect(
-    describeProviderError('OpenAI API error (400): {"error":{"message":"Bad tool schema"}}')?.summary,
+    describeProviderError('OpenAI API error (400): {"error":{"message":"Bad tool schema"}}')
+      ?.summary,
   ).toBe("OpenAI rejected the request (400): Bad tool schema");
   expect(describeProviderError("Network unreachable")).toBeUndefined();
   expect(describeProviderError("OpenAI API error (418): not json")).toBeUndefined();
@@ -44,11 +45,18 @@ test("a child thread report is read back into title, state, git lines and reply"
     title: "Write the docs",
     failed: true,
     childThreadId: "abc-123",
-    git: [{ summary: "/repo (main): 1 commit(s) since the child started; clean", commits: ["1a2b3c4 Add docs"] }],
+    git: [
+      {
+        summary: "/repo (main): 1 commit(s) since the child started; clean",
+        commits: ["1a2b3c4 Add docs"],
+      },
+    ],
     reply: "Line one\n\nLine two",
   });
   expect(
-    parseChildReport('[Child thread report] "T" finished.\nchildThreadId: x\nLast reply:\n(no reply; read_thread x for its transcript)')?.reply,
+    parseChildReport(
+      '[Child thread report] "T" finished.\nchildThreadId: x\nLast reply:\n(no reply; read_thread x for its transcript)',
+    )?.reply,
   ).toBe("");
   expect(parseChildReport("[Child thread report] something else")).toBeNull();
   expect(parseChildReport("hello")).toBeNull();

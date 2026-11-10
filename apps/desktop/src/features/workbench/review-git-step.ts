@@ -1,7 +1,11 @@
 import type { GitActionState } from "../../../contracts/git-actions";
 
 export type GitStep =
-  | { readonly kind: "stage" | "commit" | "push" | "pr" | "view-pr"; readonly label: string; readonly hint: string }
+  | {
+      readonly kind: "stage" | "commit" | "push" | "pr" | "view-pr";
+      readonly label: string;
+      readonly hint: string;
+    }
   | { readonly kind: "none"; readonly label: string; readonly hint: string };
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
@@ -17,7 +21,11 @@ export function nextGitStep(state: GitActionState): GitStep {
       hint: "Check out a branch to commit and push.",
     };
   if (state.staged === 0 && state.unstaged > 0)
-    return { kind: "stage", label: "Stage all", hint: `${plural(state.unstaged, "changed file")} not staged` };
+    return {
+      kind: "stage",
+      label: "Stage all",
+      hint: `${plural(state.unstaged, "changed file")} not staged`,
+    };
   if (state.staged > 0)
     return {
       kind: "commit",
@@ -31,7 +39,11 @@ export function nextGitStep(state: GitActionState): GitStep {
   const unpublished = !state.upstream && state.aheadOfBase > 0 && !onBase;
   if (state.ahead > 0 || unpublished) {
     if (!state.remote)
-      return { kind: "none", label: "No remote", hint: "Add a remote with git remote add origin <url>." };
+      return {
+        kind: "none",
+        label: "No remote",
+        hint: "Add a remote with git remote add origin <url>.",
+      };
     return {
       kind: "push",
       label: "Push",
@@ -41,7 +53,11 @@ export function nextGitStep(state: GitActionState): GitStep {
     };
   }
   if (state.pullRequest)
-    return { kind: "view-pr", label: `View PR #${state.pullRequest.number}`, hint: "Open it in the browser" };
+    return {
+      kind: "view-pr",
+      label: `View PR #${state.pullRequest.number}`,
+      hint: "Open it in the browser",
+    };
   if (state.upstream && !onBase && state.aheadOfBase > 0)
     return {
       kind: "pr",

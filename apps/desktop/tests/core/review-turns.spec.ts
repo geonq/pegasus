@@ -123,10 +123,7 @@ test("Last turn captures actual tool edits and a response pins its own saved com
   try {
     let window = await harness.firstWindow();
     await waitForWorkspaceByPath(window, workspacePath);
-    await window
-      .locator(".sidebar")
-      .getByRole("button", { name: "New chat", exact: true })
-      .click();
+    await window.locator(".sidebar").getByRole("button", { name: "New chat", exact: true }).click();
     await window.getByLabel("New thread prompt", { exact: true }).fill("capture first");
     await window.getByRole("button", { name: "Start thread", exact: true }).click();
     await expectCompleted(window, "First capture complete");

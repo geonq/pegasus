@@ -329,7 +329,10 @@ export function buildModelOptions(
   for (const model of available) {
     const key = `${model.providerId}\u0000${modelFamily(model.modelId).family}`;
     const current = newest.get(key);
-    if (!current || compareVersions(modelFamily(model.modelId).version, modelFamily(current.modelId).version) > 0)
+    if (
+      !current ||
+      compareVersions(modelFamily(model.modelId).version, modelFamily(current.modelId).version) > 0
+    )
       newest.set(key, model);
   }
   const shown = new Set<RuntimeSnapshot["models"][number]>();

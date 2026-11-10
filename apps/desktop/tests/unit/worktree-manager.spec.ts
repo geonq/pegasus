@@ -426,7 +426,8 @@ test("a repo setup command waits for approval, then runs once approved", async (
   const root = await mkdtemp(join(tmpdir(), "wt-setup-"));
   try {
     const repo = await makeSetupRepo(root, {
-      "orca.yaml": "scripts:\n  setup: |\n    node -e \"require('fs').writeFileSync('setup-ran.txt','ok')\"\n",
+      "orca.yaml":
+        "scripts:\n  setup: |\n    node -e \"require('fs').writeFileSync('setup-ran.txt','ok')\"\n",
     });
     const workspace: WorkspaceRef = { workspaceId: "ws", path: repo, displayName: "repo" };
     const changes: string[] = [];
@@ -452,7 +453,10 @@ test("a repo setup command waits for approval, then runs once approved", async (
     expect(changes.length).toBeGreaterThan(1);
 
     // Approval is per exact command: a changed command asks again.
-    await writeFile(join(repo, "orca.yaml"), "scripts:\n  setup: node -e \"process.exit(0)\" && echo changed\n");
+    await writeFile(
+      join(repo, "orca.yaml"),
+      'scripts:\n  setup: node -e "process.exit(0)" && echo changed\n',
+    );
     const second = await manager.createWorktree(workspace, {
       path: join(root, "worktrees", "repo", "setup-2"),
       branchName: "pi/setup-2",
@@ -469,7 +473,7 @@ test("a failing setup command is reported on the worktree, and sharedDirectories
   try {
     const repo = await makeSetupRepo(root, {
       "orca.yaml":
-        "worktree:\n  sharedDirectories:\n    - node_modules\n    - ../escape\nscripts:\n  setup: node -e \"process.exit(3)\"\n",
+        'worktree:\n  sharedDirectories:\n    - node_modules\n    - ../escape\nscripts:\n  setup: node -e "process.exit(3)"\n',
     });
     const workspace: WorkspaceRef = { workspaceId: "ws", path: repo, displayName: "repo" };
     const manager = new GitWorktreeManager({
@@ -486,7 +490,7 @@ test("a failing setup command is reported on the worktree, and sharedDirectories
     expect(await pathExists(created.path)).toBe(true);
     expect(await pathExists(join(created.path, "node_modules", "dep", "index.js"))).toBe(true);
 
-    await writeFile(join(repo, "orca.yaml"), "scripts:\n  setup: node -e \"process.exit(3)\"\n");
+    await writeFile(join(repo, "orca.yaml"), 'scripts:\n  setup: node -e "process.exit(3)"\n');
     const third = await manager.createWorktree(workspace, {
       path: join(root, "worktrees", "repo", "fail-2"),
       branchName: "pi/fail-2",

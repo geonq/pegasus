@@ -51,7 +51,12 @@ test("the flow stages, commits and pushes a new branch without gh or force", asy
   await writeFile(join(work, "new file.txt"), "n\n");
 
   let state = await readGitActionState(work);
-  expect(state).toMatchObject({ state: "available", branch: "feature/x-y", staged: 0, unstaged: 2 });
+  expect(state).toMatchObject({
+    state: "available",
+    branch: "feature/x-y",
+    staged: 0,
+    unstaged: 2,
+  });
 
   expect(await stageAll(work)).toEqual({ state: "done" });
   state = await readGitActionState(work);
@@ -64,7 +69,13 @@ test("the flow stages, commits and pushes a new branch without gh or force", asy
   expect(await git(work, "log", "-1", "--format=%b")).toBe("Why\nbecause");
 
   state = await readGitActionState(work);
-  expect(state).toMatchObject({ staged: 0, unstaged: 0, ahead: 1, upstream: null, remote: "origin" });
+  expect(state).toMatchObject({
+    staged: 0,
+    unstaged: 0,
+    ahead: 1,
+    upstream: null,
+    remote: "origin",
+  });
   expect(state).toMatchObject({ base: "main", aheadOfBase: 1 });
 
   expect(await pushBranch(work)).toEqual({ state: "done" });
@@ -106,9 +117,13 @@ test("nothing staged, conflicts and a missing push are refused in plain words", 
 
 test("a failing commit hook is reported with its output", async () => {
   const { work } = await fixture();
-  await writeFile(join(work, ".git", "hooks", "pre-commit"), "#!/bin/sh\necho lint failed >&2\nexit 1\n", {
-    mode: 0o755,
-  });
+  await writeFile(
+    join(work, ".git", "hooks", "pre-commit"),
+    "#!/bin/sh\necho lint failed >&2\nexit 1\n",
+    {
+      mode: 0o755,
+    },
+  );
   await writeFile(join(work, "a.txt"), "hooked\n");
   await stageAll(work);
   const result = await commitStaged(work, "blocked", "");
@@ -129,9 +144,9 @@ test("status counting, URLs, secrets and drafts", () => {
     "https://github.com/me/repo/compare/x?expand=1",
   );
   expect(compareUrl("https://gitlab.com/me/repo.git", "main", "x")).toBeNull();
-  expect(redactSecrets("fatal: https://user:ghp_abcdefghijklmnopqrstuvwxyz0123@github.com/x")).not.toContain(
-    "user:ghp",
-  );
+  expect(
+    redactSecrets("fatal: https://user:ghp_abcdefghijklmnopqrstuvwxyz0123@github.com/x"),
+  ).not.toContain("user:ghp");
   expect(explainGitFailure("push", "remote: Permission denied (publickey).")).toContain("sign in");
   expect(parseDraft('```\nTitle: "Add thing"\n\nBody here\n```')).toEqual({
     title: "Add thing",

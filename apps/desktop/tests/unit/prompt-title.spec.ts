@@ -18,8 +18,8 @@ test("prompt titles read like the task, without machine markup", () => {
   expect(promptTitle("You are a Seher worker. Review the LifeOS goals page. Be brief.")).toBe(
     "Review the LifeOS goals page",
   );
-  expect(
-    promptTitle("You are a Seher worker.\n\nAct as the reviewer.\n\nFix the login bug."),
-  ).toBe("Fix the login bug");
+  expect(promptTitle("You are a Seher worker.\n\nAct as the reviewer.\n\nFix the login bug.")).toBe(
+    "Fix the login bug",
+  );
   expect(promptTitle("You are a Seher worker.")).toBe("You are a Seher worker");
 });

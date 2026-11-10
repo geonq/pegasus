@@ -1,10 +1,5 @@
 import { expect, test } from "@playwright/test";
-import {
-  BRAND_HEX,
-  brandOf,
-  mixBrands,
-  providerColor,
-} from "../../src/features/usage/brand-color";
+import { BRAND_HEX, brandOf, mixBrands, providerColor } from "../../src/features/usage/brand-color";
 
 test("OpenScale is its own brand with the green from its usage bar", () => {
   expect(brandOf("openscale")).toBe("openscale");

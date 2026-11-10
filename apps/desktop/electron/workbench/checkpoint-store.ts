@@ -301,10 +301,7 @@ export class TurnCheckpointStore {
     // write may include it); restart marks either one interrupted, never complete.
     const capture = await this.capture(boundary.workspace.path, signal);
     const safeCapture = signal.aborted
-      ? unavailableCapture(
-          "capture-aborted",
-          CAPTURE_ABORTED_MESSAGE,
-        )
+      ? unavailableCapture("capture-aborted", CAPTURE_ABORTED_MESSAGE)
       : capture;
     if (safeCapture.state === "unavailable" && safeCapture.code === "capture-aborted")
       this.warmInventory(checkoutPath);
@@ -598,14 +595,26 @@ export class TurnCheckpointStore {
           "commit " + pendingRef,
           "committer Pegasus <pegasus@localhost> 0 +0000",
           "data 0",
-          ...stored.map((entry) => "M " + entry.file.gitMode + " " + entry.file.oid + " " + quoteGitPath(entry.path)),
-          ...spooled.map((entry, index) => "M " + entry.mode + " :" + (index + 1) + " " + quoteGitPath(entry.path)),
+          ...stored.map(
+            (entry) =>
+              "M " + entry.file.gitMode + " " + entry.file.oid + " " + quoteGitPath(entry.path),
+          ),
+          ...spooled.map(
+            (entry, index) =>
+              "M " + entry.mode + " :" + (index + 1) + " " + quoteGitPath(entry.path),
+          ),
           "",
         ];
         stream.push(Buffer.from(lines.join("\n")));
         await git(
           captureDirectory,
-          ["--git-dir", this.repositoryPath, "fast-import", "--quiet", "--export-marks=" + marksPath],
+          [
+            "--git-dir",
+            this.repositoryPath,
+            "fast-import",
+            "--quiet",
+            "--export-marks=" + marksPath,
+          ],
           signal,
           Buffer.concat(stream),
         );
@@ -682,10 +691,7 @@ export class TurnCheckpointStore {
       failure.abort();
       const result =
         timeout.aborted || parentSignal?.aborted
-          ? unavailableCapture(
-              "capture-aborted",
-              CAPTURE_ABORTED_MESSAGE,
-            )
+          ? unavailableCapture("capture-aborted", CAPTURE_ABORTED_MESSAGE)
           : error instanceof CaptureError
             ? unavailableCapture(error.code, error.message)
             : unavailableCapture(

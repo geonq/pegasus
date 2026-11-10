@@ -110,7 +110,9 @@ async function isSetupTrusted(
   repoRoot: string,
   command: string,
 ): Promise<boolean> {
-  return trustFilePath ? (await readTrusted(trustFilePath)).has(setupHash(repoRoot, command)) : false;
+  return trustFilePath
+    ? (await readTrusted(trustFilePath)).has(setupHash(repoRoot, command))
+    : false;
 }
 
 function setupHash(repoRoot: string, command: string): string {
@@ -176,7 +178,9 @@ async function linkSharedDirectory(
 ): Promise<void> {
   const clean = directory.replace(/[\\/]+$/, "");
   if (!clean || isAbsolute(clean) || clean.split(/[\\/]/).includes("..") || clean === ".git") {
-    throw new Error(`sharedDirectories entry "${directory}" must be a relative path inside the repo.`);
+    throw new Error(
+      `sharedDirectories entry "${directory}" must be a relative path inside the repo.`,
+    );
   }
   const source = join(repoRoot, clean);
   const target = join(worktreePath, clean);
@@ -203,7 +207,9 @@ async function filterIgnored(repoRoot: string, paths: readonly string[]): Promis
     child.on("error", reject);
     // Exit 1 means none of the paths is ignored.
     child.on("close", (code) =>
-      code === 0 || code === 1 ? resolveOutput(stdout) : reject(new Error(`git check-ignore exited ${code}`)),
+      code === 0 || code === 1
+        ? resolveOutput(stdout)
+        : reject(new Error(`git check-ignore exited ${code}`)),
     );
     child.stdin.end(paths.join("\0") + "\0");
   });
@@ -240,7 +246,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function tail(error: unknown): string {
   const text =
-    error && typeof error === "object" && "stderr" in error && typeof error.stderr === "string" && error.stderr.trim()
+    error &&
+    typeof error === "object" &&
+    "stderr" in error &&
+    typeof error.stderr === "string" &&
+    error.stderr.trim()
       ? error.stderr
       : error instanceof Error
         ? error.message

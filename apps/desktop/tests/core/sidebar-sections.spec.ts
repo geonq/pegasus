@@ -126,7 +126,11 @@ test("Needs you and Working head the Chats list, and Archive takes a real click 
     const workspaces = await Promise.all(
       workspacePaths.map((path) => waitForWorkspaceByPath(window, path)),
     );
-    await createSessionViaIpc(window, workspaces[0]!.id, "Needs a long title to crowd the row far past the edge");
+    await createSessionViaIpc(
+      window,
+      workspaces[0]!.id,
+      "Needs a long title to crowd the row far past the edge",
+    );
     await new Promise((resolve) => setTimeout(resolve, 25));
     await createSessionViaIpc(window, workspaces[1]!.id, "Builds");
     await window

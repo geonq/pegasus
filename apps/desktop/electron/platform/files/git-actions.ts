@@ -297,7 +297,11 @@ export async function createPullRequest(
       if (url) return { state: "pull-request", url, opened: "created" };
     }
     // Without gh access (or a GitHub remote it knows) the browser page still gets the user there.
-    if (!/not signed in|gh auth login|authentication|known GitHub host|none of the git remotes/i.test(result.stderr))
+    if (
+      !/not signed in|gh auth login|authentication|known GitHub host|none of the git remotes/i.test(
+        result.stderr,
+      )
+    )
       return issue("pr-failed", explainGitFailure("pull request", result.stderr));
   }
   if (!state.remote) return issue("no-remote", "This repository has no remote.");
