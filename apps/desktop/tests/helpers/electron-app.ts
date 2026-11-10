@@ -2277,8 +2277,13 @@ export async function startAnsweringModelServer(
   const server = createServer((request, response) => {
     let body = "";
     request.on("data", (chunk: Buffer) => (body += chunk.toString("utf8")));
-    request.on("end", async () => {
+    request.on("end", () => {
       bodies.push(body);
+      answer().catch((error: unknown) => {
+        response.destroy(error instanceof Error ? error : undefined);
+      });
+    });
+    const answer = async () => {
       const planned = await plan(body);
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       const chunk = (delta: object, finish: string | null) =>
@@ -2312,7 +2317,7 @@ export async function startAnsweringModelServer(
         response.write(chunk({}, "stop"));
       }
       response.end("data: [DONE]\n\n");
-    });
+    };
   });
   server.on("connection", (socket) => {
     sockets.add(socket);
