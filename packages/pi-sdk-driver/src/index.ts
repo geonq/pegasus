@@ -39,4 +39,3 @@ export type {
   McpServerSummary,
   NewMcpServer,
 } from "./mcp-config.js";
-export { connectHost, onHostEvent, closeHostConnection } from "./host-sessions.js";

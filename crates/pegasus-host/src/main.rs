@@ -9,6 +9,7 @@
 mod detach;
 mod host;
 mod log;
+mod review;
 mod terminals;
 
 use host::{event_frame, Conn, Host};

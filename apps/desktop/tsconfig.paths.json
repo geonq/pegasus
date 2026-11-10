@@ -10,6 +10,8 @@
       "@pi-gui/pi-sdk-driver/dev-reload-probe": [
         "../../packages/pi-sdk-driver/src/dev-reload-probe.ts"
       ],
+      "@pi-gui/host-protocol": ["../../packages/host-protocol/src/index.ts"],
+      "@pi-gui/host-protocol/shared": ["../../packages/host-protocol/src/shared.ts"],
       "@pi-gui/catalogs": ["../../packages/catalogs/src/index.ts"],
       "@pi-gui/catalogs/dev-reload-probe": ["../../packages/catalogs/src/dev-reload-probe.ts"],
       "@pi-gui/session-driver": ["../../packages/session-driver/src/index.ts"],

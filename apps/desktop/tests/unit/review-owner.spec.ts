@@ -21,6 +21,9 @@ import {
   type ReviewCheckpointSource,
 } from "../../electron/workbench/review-owner";
 import { ReviewedStore } from "../../electron/workbench/reviewed-store";
+import { useIsolatedHost } from "../helpers/isolated-host";
+
+useIsolatedHost();
 
 const execFileAsync = promisify(execFile);
 const firstTask = { workspaceId: "workspace", sessionId: "first" };

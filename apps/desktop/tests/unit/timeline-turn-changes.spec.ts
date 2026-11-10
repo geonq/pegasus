@@ -8,6 +8,9 @@ import type { TurnChangeSummary } from "../../contracts/review";
 import type { TranscriptMessage } from "../../contracts/timeline-types";
 import { summarizeGitTreeChanges } from "../../electron/platform/files/git-review";
 import { buildDisplayTimelineItems } from "../../src/features/conversation/timeline-turns";
+import { useIsolatedHost } from "../helpers/isolated-host";
+
+useIsolatedHost();
 
 const run = promisify(execFile);
 

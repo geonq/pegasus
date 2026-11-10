@@ -245,8 +245,50 @@ impl Host {
                 let _: Empty = parse(params)?;
                 to_body(&TerminalList { terminals: self.terminals.list() })
             }
+            "review.create" | "review.check" | "review.read" | "review.stage" | "review.treeChanges" => {
+                let method = method.to_string();
+                tokio::task::spawn_blocking(move || review_call(&method, params))
+                    .await
+                    .map_err(|e| HostError::new(ErrorCode::Internal, format!("review task failed: {e}")))?
+            }
             other => Err(HostError::new(ErrorCode::UnknownMethod, other)),
         }
+    }
+}
+
+/// Git review runs blocking Git commands, so it stays off the async workers.
+fn review_call(method: &str, params: serde_json::Value) -> Reply {
+    use pegasus_core::review_types::{ReviewCheckResult, ReviewCreateParams, ReviewFileParams, ReviewStageParams, TreeChangesParams};
+    match method {
+        "review.create" => to_body(&crate::review::create(parse::<ReviewCreateParams>(params)?)),
+        "review.check" => {
+            let p: ReviewFileParams = parse(params)?;
+            let issue = match crate::review::snapshot(&p.snapshot_id) {
+                Ok(s) => crate::review::check_current(&s, &p.file_id),
+                Err(expired) => Some(expired),
+            };
+            to_body(&ReviewCheckResult { issue })
+        }
+        "review.read" => {
+            let p: ReviewFileParams = parse(params)?;
+            match crate::review::snapshot(&p.snapshot_id) {
+                Ok(s) => to_body(&crate::review::read_file(&s, &p.file_id)),
+                Err(expired) => to_body(&pegasus_core::review_types::ReviewReadResult::Issue(expired)),
+            }
+        }
+        "review.stage" => {
+            let p: ReviewStageParams = parse(params)?;
+            match crate::review::snapshot(&p.snapshot_id) {
+                Ok(s) => to_body(&crate::review::stage(&s, &p.file_id, p.action)),
+                Err(expired) => to_body(&pegasus_core::review_types::ReviewStageResult::Issue(expired)),
+            }
+        }
+        "review.treeChanges" => {
+            let p: TreeChangesParams = parse(params)?;
+            let r = crate::review::tree_changes(p).map_err(|e| HostError::new(ErrorCode::Io, e))?;
+            to_body(&r)
+        }
+        other => Err(HostError::new(ErrorCode::UnknownMethod, other)),
     }
 }
 

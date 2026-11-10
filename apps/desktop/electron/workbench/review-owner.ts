@@ -211,7 +211,7 @@ export class ReviewOwner {
           checkpointId: checkpoint.checkpointId,
           beforeTreeOid: checkpoint.beforeTreeOid,
           afterTreeOid: checkpoint.afterTreeOid,
-          coverage: checkpoint.coverage,
+          coverage: { state: checkpoint.coverage.state, notes: [...checkpoint.coverage.notes] },
         };
       } else {
         const currentPath = await this.checkoutPath(input.target, input.checkoutId);

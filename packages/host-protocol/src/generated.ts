@@ -102,6 +102,80 @@ export type TerminalList = { terminals: Array<TerminalInfo>, };
 
 export type HostEvent = { "event": "shuttingDown", "data": { reason: string, } } | { "event": "terminalData", "data": { id: string, data: string, } } | { "event": "terminalExit", "data": { id: string, exitCode: number | null, signal: string | null, } };
 
+export type CoverageState = "complete" | "partial";
+
+export type ReviewCoverage = { state: CoverageState, notes: Array<string>, };
+
+export type IssueState = "stale" | "unavailable" | "failed";
+
+export type ReviewIssue = { state: IssueState, code: string, message: string, };
+
+export type ReviewFileStatus = "added" | "copied" | "deleted" | "modified" | "renamed" | "untracked" | "conflicted" | "typechanged";
+
+export type ReviewLineCounts = { added: number, removed: number, };
+
+export type ReviewScope = { "kind": "uncommitted" } | { "kind": "staged" } | { "kind": "unstaged" } | { "kind": "branch", baseRef?: string, } | { "kind": "turn", checkpointId?: string, };
+
+export type GitReviewScope = { "kind": "uncommitted" } | { "kind": "staged" } | { "kind": "unstaged" } | { "kind": "branch", baseRef?: string, } | { "kind": "turn", checkpointId: string, beforeTreeOid: string, afterTreeOid: string, coverage?: ReviewCoverage, };
+
+export type BlobRef = { mode: string, oid: string, stage?: number, };
+
+export type WorkingState = { mode: string, digest: string, note?: string, };
+
+export type FileSource = { base?: BlobRef, head?: BlobRef, index: Array<BlobRef>, working?: WorkingState, statusRecords: Array<string>, };
+
+export type GitReviewFile = { id: string, path: string, previousPath?: string, status: ReviewFileStatus, hasStagedChanges: boolean, hasUnstagedChanges: boolean, conflicted: boolean, lines: ReviewLineCounts | null, 
+/**
+ * Everything the comparison read, including the index; any change makes actions stale.
+ */
+fingerprint: string, 
+/**
+ * The reviewed content only. Staging moves it into the index without changing it.
+ */
+contentFingerprint: string, source: FileSource, };
+
+export type ReviewBaseOption = { ref: string, label: string, };
+
+export type AvailableState = "available";
+
+export type GitReviewSnapshot = { state: AvailableState, 
+/**
+ * Handle for file reads, checks and staging; the host keeps recent snapshots by this id.
+ */
+id: string, checkoutPath: string, scope: ReviewScope, baseLabel: string, headOid: string | null, baseOid: string | null, coverage: ReviewCoverage, files: Array<GitReviewFile>, branchName?: string, baseOptions?: Array<ReviewBaseOption>, };
+
+export type ReviewCreateResult = GitReviewSnapshot | ReviewIssue;
+
+export type GitReviewFileContent = { state: AvailableState, patch: string, coverage: ReviewCoverage, summary?: string, };
+
+export type ReviewReadResult = GitReviewFileContent | ReviewIssue;
+
+export type AppliedState = "applied";
+
+export type StageApplied = { state: AppliedState, };
+
+export type ReviewStageResult = StageApplied | ReviewIssue;
+
+export type TurnChangedFile = { path: string, previousPath?: string, lines: ReviewLineCounts | null, };
+
+export type ReviewCreateParams = { checkoutPath: string, scope: GitReviewScope, 
+/**
+ * Output cap for one Git listing; larger output makes the review unavailable.
+ */
+maxGitBytes?: number, };
+
+export type ReviewFileParams = { snapshotId: string, fileId: string, };
+
+export type StageAction = "stage" | "unstage";
+
+export type ReviewStageParams = { snapshotId: string, fileId: string, action: StageAction, };
+
+export type TreeChangesParams = { repositoryPath: string, beforeTreeOid: string, afterTreeOid: string, };
+
+export type TreeChanges = { files: Array<TurnChangedFile>, };
+
+export type ReviewCheckResult = { issue: ReviewIssue | null, };
+
 export interface HostMethods {
   "hello": { params: HelloParams; result: HelloResult };
   "status": { params: Empty; result: StatusResult };
@@ -117,4 +191,9 @@ export interface HostMethods {
   "terminal.resize": { params: TerminalResizeParams; result: Empty };
   "terminal.kill": { params: TerminalId; result: Empty };
   "terminal.list": { params: Empty; result: TerminalList };
+  "review.create": { params: ReviewCreateParams; result: ReviewCreateResult };
+  "review.check": { params: ReviewFileParams; result: ReviewCheckResult };
+  "review.read": { params: ReviewFileParams; result: ReviewReadResult };
+  "review.stage": { params: ReviewStageParams; result: ReviewStageResult };
+  "review.treeChanges": { params: TreeChangesParams; result: TreeChanges };
 }

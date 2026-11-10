@@ -22,6 +22,9 @@ import {
   readGitReviewFile,
   type GitReviewSnapshot,
 } from "../../electron/platform/files/git-review";
+import { useIsolatedHost } from "../helpers/isolated-host";
+
+useIsolatedHost();
 
 const execute = promisify(execFile);
 async function git(cwd: string, ...args: string[]): Promise<string> {
