@@ -1,0 +1,15 @@
+[package]
+name = "pegasus-rs"
+version = "0.0.1"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+rune = { git = "https://github.com/anomalyco/rune", rev = "e970367bd7d2a51e2e7d58e2978ea32eac7780cb" }
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+debug = false
