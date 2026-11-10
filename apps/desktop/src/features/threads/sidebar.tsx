@@ -83,6 +83,7 @@ import {
   type ThreadSidebarModel,
   type ThreadListEntry,
 } from "./thread-groups";
+import { UndoToastHost } from "./undo-toast";
 import { useThreadShortcutHintsVisible } from "./thread-shortcut-hints";
 import { useSignIns } from "../usage/account-state";
 import { UpdateBanner } from "../updates/update-banner";
@@ -197,6 +198,7 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
     sidebarWidth === undefined ? undefined : { "--sidebar-width": `${sidebarWidth}px` };
   const [activeId, setActiveId] = useState<string | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [workingFolded, setWorkingFolded] = useState(false);
   const [foldedChatParents, setChatParentFolded, chatFoldMotion] = useFoldedChatParents();
   const chatFold: ChatFold = {
     folded: foldedChatParents,
@@ -219,6 +221,7 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
     model: threadSidebarModel,
     expandedHistory,
     archivedOpen,
+    workingFolded,
     collapsedWorkspaceIds,
   });
   threadShortcutOrderRef.current = shortcutOrder;
@@ -667,6 +670,34 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
                       onSetSessionPinned={onSetSessionPinned}
                     />
                   ) : null}
+                  {threadGrouping === "time" ? (
+                    <>
+                      <AttentionSection
+                        kind="needs-you"
+                        label="Needs you"
+                        threads={threadSidebarModel.needsYouThreads}
+                        selectedWorkspace={selectedWorkspace}
+                        selectedSession={selectedSession}
+                        threadMenu={threadMenu}
+                        onArchiveSession={onArchiveSession}
+                        onSelectSession={onSelectSession}
+                        onSetSessionPinned={onSetSessionPinned}
+                      />
+                      <AttentionSection
+                        kind="working"
+                        label="Working"
+                        threads={threadSidebarModel.workingThreads}
+                        folded={workingFolded}
+                        onToggleFolded={() => setWorkingFolded((current) => !current)}
+                        selectedWorkspace={selectedWorkspace}
+                        selectedSession={selectedSession}
+                        threadMenu={threadMenu}
+                        onArchiveSession={onArchiveSession}
+                        onSelectSession={onSelectSession}
+                        onSetSessionPinned={onSetSessionPinned}
+                      />
+                    </>
+                  ) : null}
                   {threadGrouping === "time"
                     ? threadSidebarModel.recencySections.map((section) => (
                         <RecencyThreadSectionView
@@ -733,6 +764,7 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
           </DndContext>
         )}
       </div>
+      <UndoToastHost />
       <UpdateBanner api={api} />
     </aside>
   );
@@ -1063,6 +1095,91 @@ function WorkspaceFolderContent(
         </>
       ) : null}
     </>
+  );
+}
+
+/**
+ * "Needs you" and "Working" sit above the time buckets so a chat that wants the owner is never
+ * buried below Last week. Working folds shut; Needs you never does.
+ */
+function AttentionSection({
+  kind,
+  label,
+  threads,
+  folded = false,
+  onToggleFolded,
+  selectedWorkspace,
+  selectedSession,
+  threadMenu,
+  onArchiveSession,
+  onSelectSession,
+  onSetSessionPinned,
+}: {
+  readonly kind: "needs-you" | "working";
+  readonly label: string;
+  readonly threads: readonly ThreadListEntry[];
+  readonly folded?: boolean;
+  readonly onToggleFolded?: () => void;
+  readonly selectedWorkspace: WorkspaceRecord | undefined;
+  readonly selectedSession: SessionRecord | undefined;
+  readonly threadMenu: ThreadMenuState;
+  readonly onArchiveSession: (target: { workspaceId: string; sessionId: string }) => void;
+  readonly onSelectSession: (target: { workspaceId: string; sessionId: string }) => void;
+  readonly onSetSessionPinned: (
+    target: { workspaceId: string; sessionId: string },
+    pinned: boolean,
+  ) => void;
+}) {
+  if (threads.length === 0) return null;
+  const count = threads.filter((thread) => !thread.depth).length;
+  const headContent = (
+    <>
+      {onToggleFolded ? (
+        <span
+          aria-hidden="true"
+          className={`attention-group__chevron ${folded ? "attention-group__chevron--folded" : ""}`}
+        >
+          <ChevronDownIcon />
+        </span>
+      ) : (
+        <span aria-hidden="true" className="attention-group__dot" />
+      )}
+      <span>{label}</span>
+      <span className="attention-group__count">{count}</span>
+    </>
+  );
+  return (
+    <section className="attention-group" aria-label={label} data-attention={kind}>
+      {onToggleFolded ? (
+        <button
+          aria-expanded={!folded}
+          className="attention-group__head attention-group__head--button"
+          type="button"
+          onClick={onToggleFolded}
+        >
+          {headContent}
+        </button>
+      ) : (
+        <div className="attention-group__head">{headContent}</div>
+      )}
+      {folded ? null : (
+        <div className="session-list session-list--history">
+          {threads.map((thread) => (
+            <HistoryThreadRow
+              key={`${thread.workspaceId}:${thread.session.id}`}
+              showContext
+              thread={thread}
+              selectedWorkspace={selectedWorkspace}
+              selectedSession={selectedSession}
+              threadMenu={threadMenu}
+              onArchiveSession={onArchiveSession}
+              onSelectSession={onSelectSession}
+              onSetSessionPinned={onSetSessionPinned}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

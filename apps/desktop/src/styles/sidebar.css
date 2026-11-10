@@ -1204,3 +1204,141 @@
 .sidebar__folder-actions button:disabled {
   opacity: 0.45;
 }
+
+/* Needs you / Working sections above the time buckets. */
+.attention-group {
+  display: grid;
+  gap: 2px;
+  padding: 6px 0 4px;
+  border-bottom: 1px solid var(--line);
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 160ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.attention-group__head {
+  height: 24px;
+  width: 100%;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: var(--radius-md);
+  color: var(--muted-subtle);
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.attention-group[data-attention="needs-you"] .attention-group__head {
+  color: var(--text-strong);
+}
+
+.attention-group__head--button:hover {
+  background: var(--overlay-hover);
+}
+
+.attention-group__head--button:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: -2px;
+}
+
+.attention-group__dot {
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+}
+
+.attention-group__dot::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.attention-group__chevron {
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  transition: transform var(--motion-base) var(--ease-out);
+}
+
+.attention-group__chevron--folded {
+  transform: rotate(-90deg);
+}
+
+.attention-group__count {
+  color: var(--muted-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Five-second Undo after archiving, over the bottom of the sidebar. */
+.undo-toast {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 5;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 6px 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--sidebar);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.22);
+  font-size: 12px;
+  color: var(--text-strong);
+  transition:
+    opacity 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.undo-toast__message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.undo-toast__action {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: var(--radius-md);
+  color: var(--accent);
+  font-weight: var(--font-semibold);
+}
+
+.undo-toast__action:hover {
+  background: var(--overlay-hover);
+}
+
+.undo-toast__action:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attention-group,
+  .undo-toast {
+    transition: opacity 120ms ease-out;
+    transform: none;
+    @starting-style {
+      transform: none;
+    }
+  }
+}

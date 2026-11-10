@@ -528,3 +528,61 @@ test("a folded chat keeps its row and count but hides its subagent rows", () => 
   ]);
   expect(foldThreadSidebarModel(model, new Set())).toBe(model);
 });
+
+test("failed, unseen and running chats leave the time buckets for Needs you and Working", () => {
+  const model = buildThreadSidebarModel(
+    state([
+      workspace("alpha", "Alpha", [
+        session("failed", "Failed run", { updatedAt: isoDaysAgo(9), status: "failed" }),
+        session("unseen", "Finished away", { updatedAt: isoDaysAgo(3), hasUnseenUpdate: true }),
+        session("running", "Busy", { updatedAt: isoDaysAgo(20), status: "running" }),
+        session("runningUnseen", "Busy and news", {
+          updatedAt: isoDaysAgo(21),
+          status: "running",
+          hasUnseenUpdate: true,
+        }),
+        session("plain", "Plain", { updatedAt: isoDaysAgo(1) }),
+        session("pinned", "Pinned failed", {
+          updatedAt: isoDaysAgo(1),
+          status: "failed",
+          pinnedAt: isoDaysAgo(1),
+        }),
+      ]),
+    ]),
+    nowMs,
+  );
+  expect(model.needsYouThreads.map((entry) => entry.session.id)).toEqual(["unseen", "failed"]);
+  expect(model.workingThreads.map((entry) => entry.session.id)).toEqual([
+    "running",
+    "runningUnseen",
+  ]);
+  expect(model.pinnedThreads.map((entry) => entry.session.id)).toEqual(["pinned"]);
+  expect(model.recencySections.flatMap((s) => s.threads).map((e) => e.session.id)).toEqual([
+    "plain",
+  ]);
+  // Folder grouping keeps every unpinned chat under its folder.
+  expect(model.workspaceGroups[0]!.threads).toHaveLength(5);
+});
+
+test("shortcut order follows the screen: pinned, needs you, working, then the buckets", () => {
+  const model = buildThreadSidebarModel(
+    state([
+      workspace("alpha", "Alpha", [
+        session("plain", "Plain", { updatedAt: isoDaysAgo(1) }),
+        session("running", "Busy", { updatedAt: isoDaysAgo(2), status: "running" }),
+        session("failed", "Failed", { updatedAt: isoDaysAgo(3), status: "failed" }),
+        session("pinned", "Pinned", { updatedAt: isoDaysAgo(4), pinnedAt: isoDaysAgo(4) }),
+      ]),
+    ]),
+    nowMs,
+  );
+  const ids = (workingFolded: boolean) =>
+    visibleThreadShortcutOrder({ grouping: "time", model, workingFolded }).map(
+      (entry) => entry.session.id,
+    );
+  expect(ids(false)).toEqual(["pinned", "failed", "running", "plain"]);
+  expect(ids(true)).toEqual(["pinned", "failed", "plain"]);
+  expect(
+    visibleThreadShortcutOrder({ grouping: "workspace", model }).map((entry) => entry.session.id),
+  ).toEqual(["pinned", "plain", "running", "failed"]);
+});

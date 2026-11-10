@@ -19,6 +19,7 @@ import {
   type ThreadActionHandlers,
   type ThreadActionSubject,
 } from "../thread-actions";
+import { showUndoToast } from "../undo-toast";
 
 interface UseThreadActionsParams {
   readonly api: PiDesktopApi | undefined;
@@ -112,6 +113,7 @@ export function useThreadActions({
   const archive = (target: WorkspaceSessionTarget) => {
     flushComposerDraft();
     mutate((desktopApi) => desktopApi.archiveSession(target));
+    showUndoToast("Chat archived", () => restore(target));
   };
   const restore = (target: WorkspaceSessionTarget) =>
     mutate((desktopApi) => desktopApi.unarchiveSession(target));

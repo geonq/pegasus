@@ -82,6 +82,8 @@ export function foldThreadSidebarModel(
       threads: fold(group.threads),
     })),
     pinnedThreads: fold(model.pinnedThreads),
+    needsYouThreads: fold(model.needsYouThreads),
+    workingThreads: fold(model.workingThreads),
     recencySections: model.recencySections.map((section) => ({
       ...section,
       threads: fold(section.threads),
@@ -100,9 +102,19 @@ export interface ThreadSidebarModel {
   readonly folders: readonly WorkspaceRecord[];
   readonly workspaceGroups: readonly WorkspaceThreadGroup[];
   readonly pinnedThreads: readonly ThreadListEntry[];
+  /** Unpinned chats that failed or finished with news the owner has not seen, newest first. */
+  readonly needsYouThreads: readonly ThreadListEntry[];
+  /** Unpinned chats that are running now, newest first. */
+  readonly workingThreads: readonly ThreadListEntry[];
+  /** Everything else unpinned, by recency bucket (Chats view only). */
   readonly recencySections: readonly RecencyThreadSection[];
   readonly archivedThreads: readonly ThreadListEntry[];
   readonly recencyOrder: readonly ThreadListEntry[];
+}
+
+/** A chat the owner has to look at: it failed, or it finished while they were away. */
+export function sessionNeedsOwner(session: SessionRecord): boolean {
+  return session.status === "failed" || (session.status !== "running" && session.hasUnseenUpdate);
 }
 
 /** Folder rows in Chats mode exist only for folders with an active chat. */
@@ -132,6 +144,11 @@ export function buildThreadSidebarModel(
   const historyThreads = entries
     .filter((entry) => !entry.session.archivedAt && !entry.session.pinnedAt)
     .sort((left, right) => compareByRecency(left.session, right.session));
+  const needsYou = historyThreads.filter((entry) => sessionNeedsOwner(entry.session));
+  const working = historyThreads.filter((entry) => entry.session.status === "running");
+  const settled = historyThreads.filter(
+    (entry) => !sessionNeedsOwner(entry.session) && entry.session.status !== "running",
+  );
   const archivedThreads = allEntries
     .filter((entry) => Boolean(entry.session.archivedAt))
     .sort((left, right) => compareByRecency(left.session, right.session));
@@ -149,8 +166,10 @@ export function buildThreadSidebarModel(
       threads: withChildren(historyThreads.filter((entry) => entry.folderId === workspace.id)),
     })),
     pinnedThreads,
+    needsYouThreads: withChildren(needsYou),
+    workingThreads: withChildren(working),
     recencySections: RECENCY_BUCKET_ORDER.flatMap((bucket) => {
-      const threads = historyThreads.filter(
+      const threads = settled.filter(
         (entry) => recencyBucketId(sessionLastInteractedAt(entry.session), nowMs) === bucket,
       );
       return threads.length > 0
@@ -300,6 +319,8 @@ export interface VisibleThreadShortcutOptions {
   readonly model: ThreadSidebarModel;
   readonly expandedHistory?: ReadonlySet<string>;
   readonly archivedOpen?: boolean;
+  /** The Working section is folded shut in the Chats view; its rows are not on screen. */
+  readonly workingFolded?: boolean;
   /** Folder groups folded shut in the sidebar; their rows are not on screen. */
   readonly collapsedWorkspaceIds?: readonly string[];
 }
@@ -327,8 +348,16 @@ export function visibleThreadShortcutOrder(
               expandedHistory.has(recencyHistoryExpansionKey(section.bucket)),
             ).visible,
         );
+  const attention =
+    options.grouping === "time"
+      ? [
+          ...options.model.needsYouThreads,
+          ...(options.workingFolded ? [] : options.model.workingThreads),
+        ]
+      : [];
   return [
     ...options.model.pinnedThreads,
+    ...attention,
     ...unpinned,
     ...(options.archivedOpen ? options.model.archivedThreads : []),
   ];
