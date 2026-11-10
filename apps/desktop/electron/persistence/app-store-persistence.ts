@@ -45,6 +45,7 @@ export interface PersistedUiState {
   readonly workspaceDescriptions?: Record<string, string>;
   readonly lastInteractedAtBySession?: Record<string, string>;
   readonly pinnedAtBySession?: Record<string, string>;
+  readonly snoozedUntilBySession?: Record<string, string>;
   readonly pinnedSessionOrder?: readonly string[];
   readonly workspaceOrder?: readonly string[];
   readonly modelSettingsScopeMode?: ModelSettingsScopeMode;
@@ -115,6 +116,7 @@ export function decodePersistedUiState(parsed: unknown): LegacyPersistedUiState 
     workspaceDescriptions: toStringRecord(candidate.workspaceDescriptions),
     lastInteractedAtBySession: toStringRecord(candidate.lastInteractedAtBySession),
     pinnedAtBySession: toStringRecord(candidate.pinnedAtBySession),
+    snoozedUntilBySession: toStringRecord(candidate.snoozedUntilBySession),
     pinnedSessionOrder: toStringArray(candidate.pinnedSessionOrder),
     workspaceOrder: toStringArray(candidate.workspaceOrder),
     modelSettingsScopeMode:
@@ -219,6 +221,7 @@ function validateUiState(value: unknown): Record<string, unknown> {
       "workspaceDescriptions",
       "lastInteractedAtBySession",
       "pinnedAtBySession",
+      "snoozedUntilBySession",
       "pinnedSessionOrder",
       "workspaceOrder",
       "modelSettingsScopeMode",
@@ -270,6 +273,7 @@ function validateUiState(value: unknown): Record<string, unknown> {
     "lastViewedAtBySession",
     "lastInteractedAtBySession",
     "pinnedAtBySession",
+    "snoozedUntilBySession",
     "workspaceDescriptions",
   ])
     optional(root, key, stringRecord);

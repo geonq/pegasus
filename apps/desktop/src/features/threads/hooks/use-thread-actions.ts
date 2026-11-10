@@ -132,6 +132,28 @@ export function useThreadActions({
       setRenameDraft(subject.session.title);
     },
     setPinned: (subject, pinned) => setPinned(targetFor(subject), pinned),
+    setSnoozed: (subject, until) => {
+      const target = targetFor(subject);
+      mutate((desktopApi) =>
+        desktopApi.setSessionSnoozed
+          ? desktopApi.setSessionSnoozed(target, until ? until.toISOString() : null)
+          : Promise.reject(new Error("Snoozing is not available in this window.")),
+      );
+      if (until) {
+        const when = until.toLocaleString(undefined, {
+          weekday: "short",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+        showUndoToast(`Snoozed until ${when}`, () =>
+          mutate((desktopApi) =>
+            desktopApi.setSessionSnoozed
+              ? desktopApi.setSessionSnoozed(target, null)
+              : Promise.reject(new Error("Snoozing is not available in this window.")),
+          ),
+        );
+      }
+    },
     archive: (subject) => archive(targetFor(subject)),
     restore: (subject) => restore(targetFor(subject)),
     markRead: (subject) => mutate((desktopApi) => desktopApi.markSessionRead(targetFor(subject))),

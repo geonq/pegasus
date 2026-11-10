@@ -750,6 +750,9 @@ export function filterRemoteState(
       allowedSessionKeys.has(key),
     ),
     pinnedAtBySession: filterRecord(state.pinnedAtBySession, (key) => allowedSessionKeys.has(key)),
+    snoozedUntilBySession: filterRecord(state.snoozedUntilBySession, (key) =>
+      allowedSessionKeys.has(key),
+    ),
     pinnedSessionOrder: state.pinnedSessionOrder.filter((sessionId) =>
       allowedSessionIds.has(sessionId),
     ),

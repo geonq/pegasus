@@ -114,6 +114,7 @@ type ConversationOwner = Pick<
   | "unarchiveSession"
   | "markSessionRead"
   | "setSessionPinned"
+  | "setSessionSnoozed"
   | "createSession"
   | "startThread"
   | "forkThread"
@@ -421,6 +422,12 @@ export function registerDesktopIpc({
     const pinned = expectBoolean(rawPinned, "pinned");
     // Pin metadata has an explicit target and must not wait for an active prompt to finish.
     return immediate(event, () => owners.conversation.setSessionPinned(target, pinned));
+  });
+  ipcMain.handle(desktopIpc.setSessionSnoozed, (event, rawTarget: unknown, rawUntil: unknown) => {
+    const target = expectSessionTarget(rawTarget);
+    const until = rawUntil === null ? null : expectNonEmptyString(rawUntil, "until");
+    // Like pinning: explicit target, never waits behind an active prompt.
+    return immediate(event, () => owners.conversation.setSessionSnoozed(target, until));
   });
   ipcMain.handle(desktopIpc.setActiveView, (event, rawView: unknown) => {
     const view = expectAppView(rawView);

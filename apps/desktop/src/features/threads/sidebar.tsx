@@ -199,6 +199,7 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [workingFolded, setWorkingFolded] = useState(false);
+  const [snoozedFolded, setSnoozedFolded] = useState(true);
   const [foldedChatParents, setChatParentFolded, chatFoldMotion] = useFoldedChatParents();
   const chatFold: ChatFold = {
     folded: foldedChatParents,
@@ -720,6 +721,19 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
                         />
                       ))
                     : null}
+                  <AttentionSection
+                    kind="snoozed"
+                    label="Snoozed"
+                    threads={threadSidebarModel.snoozedThreads}
+                    folded={snoozedFolded}
+                    onToggleFolded={() => setSnoozedFolded((current) => !current)}
+                    selectedWorkspace={selectedWorkspace}
+                    selectedSession={selectedSession}
+                    threadMenu={threadMenu}
+                    onArchiveSession={onArchiveSession}
+                    onSelectSession={onSelectSession}
+                    onSetSessionPinned={onSetSessionPinned}
+                  />
                   {threadSidebarModel.archivedThreads.length > 0 ? (
                     <ArchivedThreadsSection
                       archivedThreads={threadSidebarModel.archivedThreads}
@@ -1117,7 +1131,7 @@ function AttentionSection({
   onSelectSession,
   onSetSessionPinned,
 }: {
-  readonly kind: "needs-you" | "working";
+  readonly kind: "needs-you" | "working" | "snoozed";
   readonly label: string;
   readonly threads: readonly ThreadListEntry[];
   readonly folded?: boolean;

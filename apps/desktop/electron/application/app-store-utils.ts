@@ -38,6 +38,7 @@ export function buildWorkspaceRecords(
   lastViewedAtBySession: Map<string, string>,
   lastInteractedAtBySession: Map<string, string>,
   pinnedAtBySession: Map<string, string>,
+  snoozedUntilBySession: ReadonlyMap<string, string> = new Map(),
 ): WorkspaceRecord[] {
   const workspaceRoots = resolveWorkspaceRoots(workspaces, worktrees);
 
@@ -67,6 +68,7 @@ export function buildWorkspaceRecords(
             lastViewedAtBySession,
             lastInteractedAtBySession,
             pinnedAtBySession,
+            snoozedUntilBySession,
           ),
         ),
     };
@@ -167,6 +169,7 @@ function buildSessionRecord(
   lastViewedAtBySession: Map<string, string>,
   lastInteractedAtBySession: Map<string, string>,
   pinnedAtBySession: Map<string, string>,
+  snoozedUntilBySession: ReadonlyMap<string, string>,
 ): SessionRecord {
   const key = sessionKey(session.sessionRef);
   const transcript = transcriptCache.get(key) ?? [];
@@ -174,11 +177,13 @@ function buildSessionRecord(
   const lastViewedAt = lastViewedAtBySession.get(key);
   const lastInteractedAt = lastInteractedAtBySession.get(key);
   const pinnedAt = pinnedAtBySession.get(key);
+  const snoozedUntil = snoozedUntilBySession.get(key);
   return {
     id: session.sessionRef.sessionId,
     title: session.title,
     updatedAt: session.updatedAt,
     pinnedAt,
+    ...(snoozedUntil ? { snoozedUntil } : {}),
     lastViewedAt,
     lastInteractedAt,
     archivedAt: session.archivedAt,

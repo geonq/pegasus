@@ -156,6 +156,7 @@ export const desktopIpc = {
   approveWorktreeSetup: "pi-gui:approve-worktree-setup",
   markSessionRead: "pi-gui:mark-session-read",
   setSessionPinned: "pi-gui:set-session-pinned",
+  setSessionSnoozed: "pi-gui:set-session-snoozed",
   createSession: "pi-gui:create-session",
   startThread: "pi-gui:start-thread",
   forkThread: "pi-gui:fork-thread",
@@ -769,6 +770,11 @@ export interface PiDesktopApi {
   unarchiveSession(target: WorkspaceSessionTarget): Promise<DesktopAppState>;
   markSessionRead(target: WorkspaceSessionTarget): Promise<DesktopAppState>;
   setSessionPinned(target: WorkspaceSessionTarget, pinned: boolean): Promise<DesktopAppState>;
+  /** Hide a chat until `until` (ISO); null wakes it now. */
+  setSessionSnoozed?(
+    target: WorkspaceSessionTarget,
+    until: string | null,
+  ): Promise<DesktopAppState>;
   createSession(input: CreateSessionInput): Promise<DesktopAppState>;
   /** Trust and run the repo setup command a new worktree is waiting on. */
   approveWorktreeSetup(input: RemoveWorktreeInput): Promise<DesktopAppState>;

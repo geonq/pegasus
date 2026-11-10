@@ -87,6 +87,8 @@ test("right-click thread menu supports rename, archive/restore, mark read, and c
     expect(await menuItemTitles(menu)).toEqual([
       "Rename chat",
       "Pin chat",
+      "Snooze for an hour",
+      "Snooze until tomorrow",
       "Archive chat",
       "Mark as read",
       "Add scheduled task…",

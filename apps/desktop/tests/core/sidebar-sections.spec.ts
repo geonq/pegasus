@@ -179,3 +179,61 @@ test("Needs you and Working head the Chats list, and Archive takes a real click 
     await harness.close();
   }
 });
+
+test("snoozing moves a chat into Snoozed with Undo, and it wakes unread when its time comes", async () => {
+  test.setTimeout(90_000);
+  const userDataDir = await makeUserDataDir("pi-app-user-data-snooze-");
+  const workspacePath = await makeWorkspace("sidebar-snooze");
+  const harness = await launchDesktop(userDataDir, {
+    initialWorkspaces: [workspacePath],
+    testMode: "background",
+  });
+
+  try {
+    const window = await harness.firstWindow();
+    const workspace = await waitForWorkspaceByPath(window, workspacePath);
+    await createSessionViaIpc(window, workspace.id, "Later");
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    // The open chat counts as read, so look at another one while "Later" sleeps.
+    await createSessionViaIpc(window, workspace.id, "Meanwhile");
+    await window
+      .getByRole("group", { name: "Sidebar view" })
+      .getByRole("button", { name: "Chats", exact: true })
+      .click();
+    const today = window.getByRole("region", { name: "Today" });
+    await expect(today).toContainText("Later");
+
+    // From the row's menu: the chat leaves the list for the folded Snoozed group.
+    const row = today.locator(".session-row", { hasText: "Later" });
+    await row.click({ button: "right" });
+    await row.getByRole("menu").getByRole("button", { name: "Snooze for an hour" }).click();
+    const snoozed = window.getByRole("region", { name: "Snoozed" });
+    await expect(snoozed).toBeVisible();
+    await expect(snoozed.locator(".attention-group__count")).toHaveText("1");
+    await expect(today).not.toContainText("Later");
+    const toast = window.getByRole("status").filter({ hasText: "Snoozed until" });
+    await toast.getByRole("button", { name: "Undo" }).click();
+    await expect(snoozed).toHaveCount(0);
+    await expect(window.getByRole("region", { name: "Today" })).toContainText("Later");
+
+    // A snooze that is due wakes on its own: back in the list, unread, under Needs you.
+    const state = await getDesktopState(window);
+    const session = state.workspaces
+      .find((entry) => entry.id === workspace.id)!
+      .sessions.find((entry) => entry.title === "Later")!;
+    await window.evaluate(
+      ([workspaceId, sessionId]) =>
+        globalThis.window.piApp?.setSessionSnoozed?.(
+          { workspaceId: workspaceId!, sessionId: sessionId! },
+          new Date(Date.now() + 2_000).toISOString(),
+        ),
+      [workspace.id, session.id],
+    );
+    await expect(window.getByRole("region", { name: "Snoozed" })).toBeVisible();
+    const needsYou = window.getByRole("region", { name: "Needs you" });
+    await expect(needsYou).toContainText("Later", { timeout: 10_000 });
+    await expect(window.getByRole("region", { name: "Snoozed" })).toHaveCount(0);
+  } finally {
+    await harness.close();
+  }
+});

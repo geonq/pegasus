@@ -106,6 +106,8 @@ export interface SessionRecord {
   readonly title: string;
   readonly updatedAt: string;
   readonly pinnedAt?: string;
+  /** Hidden from the sidebar until then (ISO); it then comes back unread, under Needs you. */
+  readonly snoozedUntil?: string;
   readonly lastViewedAt?: string;
   readonly lastInteractedAt?: string;
   readonly archivedAt?: string;
@@ -383,6 +385,7 @@ export interface DesktopAppState {
   readonly lastViewedAtBySession: Readonly<Record<string, string>>;
   readonly lastInteractedAtBySession: Readonly<Record<string, string>>;
   readonly pinnedAtBySession: Readonly<Record<string, string>>;
+  readonly snoozedUntilBySession: Readonly<Record<string, string>>;
   readonly pinnedSessionOrder: readonly string[];
   readonly workspaceOrder: readonly string[];
   readonly modelSettingsScopeMode: ModelSettingsScopeMode;
@@ -441,6 +444,7 @@ export function createEmptyDesktopAppState(): DesktopAppState {
     lastViewedAtBySession: {},
     lastInteractedAtBySession: {},
     pinnedAtBySession: {},
+    snoozedUntilBySession: {},
     pinnedSessionOrder: [],
     workspaceOrder: [],
     modelSettingsScopeMode: "app-global",

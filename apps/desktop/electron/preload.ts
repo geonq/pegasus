@@ -302,6 +302,8 @@ const localPiDesktopApi = {
     ipcRenderer.invoke(desktopIpc.markSessionRead, target) as Promise<DesktopAppState>,
   setSessionPinned: (target: WorkspaceSessionTarget, pinned: boolean) =>
     ipcRenderer.invoke(desktopIpc.setSessionPinned, target, pinned) as Promise<DesktopAppState>,
+  setSessionSnoozed: (target: WorkspaceSessionTarget, until: string | null) =>
+    ipcRenderer.invoke(desktopIpc.setSessionSnoozed, target, until) as Promise<DesktopAppState>,
   createSession: (input: CreateSessionInput) =>
     ipcRenderer.invoke(desktopIpc.createSession, input) as Promise<DesktopAppState>,
   startThread: (input: StartThreadInput) =>

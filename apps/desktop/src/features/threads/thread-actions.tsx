@@ -19,6 +19,9 @@ import {
 export type ThreadActionId =
   | "rename-thread"
   | "pin-thread"
+  | "snooze-hour"
+  | "snooze-tomorrow"
+  | "wake-thread"
   | "archive-thread"
   | "restore-thread"
   | "mark-read"
@@ -44,6 +47,8 @@ export interface ThreadActionHandlers {
   readonly hasScheduledTask: (subject: ThreadActionSubject) => boolean;
   readonly startRename: (subject: ThreadActionSubject) => void;
   readonly setPinned: (subject: ThreadActionSubject, pinned: boolean) => void;
+  /** Snooze until the given time; null wakes the chat now. */
+  readonly setSnoozed: (subject: ThreadActionSubject, until: Date | null) => void;
   readonly archive: (subject: ThreadActionSubject) => void;
   readonly restore: (subject: ThreadActionSubject) => void;
   readonly markRead: (subject: ThreadActionSubject) => void;
@@ -57,6 +62,17 @@ export function renameThreadShortcut(platform: NodeJS.Platform): string {
 
 export function archiveThreadShortcut(platform: NodeJS.Platform): string {
   return formatShortcut(platform, "A", { shift: true });
+}
+
+/** When the snooze menu items wake a chat: in an hour, or tomorrow at 9:00. */
+export function snoozeTimes(now: Date = new Date()): {
+  readonly hour: Date;
+  readonly tomorrow: Date;
+} {
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(9, 0, 0, 0);
+  return { hour: new Date(now.getTime() + 60 * 60 * 1000), tomorrow };
 }
 
 export function buildThreadActions(
@@ -90,6 +106,29 @@ export function buildThreadActions(
         icon: <PinIcon filled={pinned} />,
         run: () => handlers.setPinned(subject, !pinned),
       },
+      ...(session.snoozedUntil
+        ? [
+            {
+              id: "wake-thread" as const,
+              title: "Wake chat now",
+              icon: <ClockIcon />,
+              run: () => handlers.setSnoozed(subject, null),
+            },
+          ]
+        : [
+            {
+              id: "snooze-hour" as const,
+              title: "Snooze for an hour",
+              icon: <ClockIcon />,
+              run: () => handlers.setSnoozed(subject, snoozeTimes().hour),
+            },
+            {
+              id: "snooze-tomorrow" as const,
+              title: "Snooze until tomorrow",
+              icon: <ClockIcon />,
+              run: () => handlers.setSnoozed(subject, snoozeTimes().tomorrow),
+            },
+          ]),
       {
         id: "archive-thread",
         title: "Archive chat",

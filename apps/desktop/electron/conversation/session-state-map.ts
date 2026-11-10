@@ -52,6 +52,7 @@ export class SessionStateMap {
   readonly lastViewedAtBySession = new Map<string, string>();
   readonly lastInteractedAtBySession = new Map<string, string>();
   readonly pinnedAtBySession = new Map<string, string>();
+  readonly snoozedUntilBySession = new Map<string, string>();
   /** Flag values each thread's pi session started with; re-applied when it reopens. */
   readonly extensionFlagsBySession = new Map<string, ExtensionFlagValues>();
   pinnedSessionOrder: string[] = [];
@@ -100,6 +101,7 @@ export class SessionStateMap {
       this.lastViewedAtBySession,
       this.lastInteractedAtBySession,
       this.pinnedAtBySession,
+      this.snoozedUntilBySession,
       this.extensionFlagsBySession,
       this.sessionErrorsBySession,
       this.sessionSubscriptions,
@@ -135,6 +137,7 @@ export class SessionStateMap {
       this.lastViewedAtBySession,
       this.lastInteractedAtBySession,
       this.pinnedAtBySession,
+      this.snoozedUntilBySession,
       this.extensionFlagsBySession,
     ]) {
       for (const key of map.keys()) {
@@ -169,6 +172,7 @@ export class SessionStateMap {
     this.lastViewedAtBySession.delete(key);
     this.lastInteractedAtBySession.delete(key);
     this.pinnedAtBySession.delete(key);
+    this.snoozedUntilBySession.delete(key);
     this.extensionFlagsBySession.delete(key);
     this.pinnedSessionOrder = this.pinnedSessionOrder.filter((entry) => entry !== key);
     this.sessionErrorsBySession.delete(key);

@@ -1038,6 +1038,107 @@ export class DesktopAppStore {
     return this.emit();
   }
 
+  /**
+   * Snooze a chat until `until` (ISO time), or wake it now with null. A snoozed chat leaves the
+   * sidebar; when its time comes it returns unread, so it shows under Needs you.
+   */
+  async setSessionSnoozed(
+    target: WorkspaceSessionTarget,
+    until: string | null,
+  ): Promise<DesktopAppState> {
+    await this.initialize();
+    const sessionRef = toSessionRef(target);
+    if (!this.sessionFromState(sessionRef)) {
+      return this.withError(`Unknown session: ${target.workspaceId}:${target.sessionId}`);
+    }
+    const key = sessionKey(sessionRef);
+    if (until !== null) {
+      const at = Date.parse(until);
+      if (!Number.isFinite(at) || at <= Date.now()) {
+        return this.withError("Snooze until a time in the future.");
+      }
+      this.sessionState.snoozedUntilBySession.set(key, new Date(at).toISOString());
+    } else {
+      this.sessionState.snoozedUntilBySession.delete(key);
+    }
+    this.applySnoozeState();
+    this.scheduleSnoozeWake();
+    await this.persistUiState();
+    return this.emit();
+  }
+
+  private snoozeWakeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Wakes the snoozes that are due (unread again) and arms a timer for the next one. */
+  private scheduleSnoozeWake(): void {
+    if (this.snoozeWakeTimer) clearTimeout(this.snoozeWakeTimer);
+    this.snoozeWakeTimer = undefined;
+    const now = Date.now();
+    let next = Number.POSITIVE_INFINITY;
+    const woke = new Set<string>();
+    let anyDue = false;
+    const openKey = this.state.selectedSessionId
+      ? sessionKey({
+          workspaceId: this.state.selectedWorkspaceId,
+          sessionId: this.state.selectedSessionId,
+        })
+      : undefined;
+    for (const [key, until] of [...this.sessionState.snoozedUntilBySession]) {
+      const at = Date.parse(until);
+      if (at <= now) {
+        anyDue = true;
+        this.sessionState.snoozedUntilBySession.delete(key);
+        // The open chat is being looked at; any other comes back unread (older than any activity).
+        if (key !== openKey) {
+          this.sessionState.lastViewedAtBySession.set(key, new Date(0).toISOString());
+          woke.add(key);
+        }
+      } else {
+        next = Math.min(next, at);
+      }
+    }
+    if (anyDue) {
+      this.applySnoozeState(woke);
+      this.persistUiState()
+        .then(() => this.emit())
+        .catch((error: unknown) => console.warn("[snooze] waking a chat failed", error));
+    }
+    if (Number.isFinite(next)) {
+      // setTimeout caps at ~24.8 days; a longer snooze re-arms when this fires.
+      const delay = Math.min(next - now, 2_000_000_000);
+      this.snoozeWakeTimer = setTimeout(() => this.scheduleSnoozeWake(), delay);
+      this.snoozeWakeTimer.unref?.();
+    }
+  }
+
+  /** Mirrors the snooze map onto the projected sessions and state. */
+  private applySnoozeState(unread: ReadonlySet<string> = new Set()): void {
+    const snoozed = this.sessionState.snoozedUntilBySession;
+    this.state = {
+      ...this.state,
+      workspaces: this.state.workspaces.map((workspaceEntry) => ({
+        ...workspaceEntry,
+        sessions: workspaceEntry.sessions.map((entry) => {
+          const key = sessionKey({ workspaceId: workspaceEntry.id, sessionId: entry.id });
+          const until = snoozed.get(key);
+          const wakeUnread = unread.has(key) && entry.status !== "running";
+          if (until === entry.snoozedUntil && !wakeUnread) return entry;
+          const { snoozedUntil: _previous, ...rest } = entry;
+          return {
+            ...rest,
+            ...(until ? { snoozedUntil: until } : {}),
+            ...(wakeUnread
+              ? { hasUnseenUpdate: true, lastViewedAt: new Date(0).toISOString() }
+              : {}),
+          };
+        }),
+      })),
+      snoozedUntilBySession: mapToRecord(snoozed),
+      lastError: undefined,
+      revision: this.state.revision + 1,
+    };
+  }
+
   async setSessionPinned(
     target: WorkspaceSessionTarget,
     pinned: boolean,
@@ -2455,6 +2556,7 @@ export class DesktopAppStore {
       lastViewedAtBySession: persisted.lastViewedAtBySession ?? {},
       lastInteractedAtBySession: persisted.lastInteractedAtBySession ?? {},
       pinnedAtBySession: persisted.pinnedAtBySession ?? {},
+      snoozedUntilBySession: persisted.snoozedUntilBySession ?? {},
       pinnedSessionOrder: persisted.pinnedSessionOrder ?? [],
       workspaceOrder: persisted.workspaceOrder ?? [],
       themeMode: persisted.themeMode ?? this.state.themeMode,
@@ -2489,6 +2591,13 @@ export class DesktopAppStore {
       this.sessionState.pinnedAtBySession,
       persisted.pinnedSessionOrder ?? [],
     ).slice();
+    this.sessionState.snoozedUntilBySession.clear();
+    for (const [key, until] of Object.entries(persisted.snoozedUntilBySession ?? {})) {
+      if (until && Number.isFinite(Date.parse(until))) {
+        this.sessionState.snoozedUntilBySession.set(key, until);
+      }
+    }
+    this.scheduleSnoozeWake();
     this.sessionState.composerDraftsBySession.clear();
     for (const [key, draft] of Object.entries(persisted.composerDraftsBySession ?? {})) {
       if (draft) {
@@ -2660,6 +2769,7 @@ export class DesktopAppStore {
         this.sessionState.lastViewedAtBySession,
         this.sessionState.lastInteractedAtBySession,
         this.sessionState.pinnedAtBySession,
+        this.sessionState.snoozedUntilBySession,
       );
       const worktreesByWorkspace = buildWorktreeRecords(
         workspacesSnapshot.workspaces,
@@ -2770,6 +2880,7 @@ export class DesktopAppStore {
         lastViewedAtBySession: mapToRecord(this.sessionState.lastViewedAtBySession),
         lastInteractedAtBySession: mapToRecord(this.sessionState.lastInteractedAtBySession),
         pinnedAtBySession: mapToRecord(this.sessionState.pinnedAtBySession),
+        snoozedUntilBySession: mapToRecord(this.sessionState.snoozedUntilBySession),
         pinnedSessionOrder,
         workspaceOrder: this.state.workspaceOrder,
         collapsedWorkspaceIds: this.state.collapsedWorkspaceIds.filter((id) =>
@@ -4287,6 +4398,10 @@ export class DesktopAppStore {
       lastViewedAtBySession: mapToRecord(this.sessionState.lastViewedAtBySession),
       lastInteractedAtBySession: mapToRecord(this.sessionState.lastInteractedAtBySession),
       pinnedAtBySession: mapToRecord(this.sessionState.pinnedAtBySession),
+      snoozedUntilBySession:
+        this.sessionState.snoozedUntilBySession.size > 0
+          ? mapToRecord(this.sessionState.snoozedUntilBySession)
+          : undefined,
       pinnedSessionOrder:
         this.sessionState.pinnedSessionOrder.length > 0
           ? this.sessionState.pinnedSessionOrder

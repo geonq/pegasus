@@ -109,7 +109,14 @@ export interface ThreadSidebarModel {
   /** Everything else unpinned, by recency bucket (Chats view only). */
   readonly recencySections: readonly RecencyThreadSection[];
   readonly archivedThreads: readonly ThreadListEntry[];
+  /** Snoozed chats, soonest to wake first; hidden everywhere else until then. */
+  readonly snoozedThreads: readonly ThreadListEntry[];
   readonly recencyOrder: readonly ThreadListEntry[];
+}
+
+/** Snoozed and not yet due (main wakes a due one, so this is only a guard against clock skew). */
+export function isSnoozed(session: SessionRecord, nowMs: number = Date.now()): boolean {
+  return session.snoozedUntil !== undefined && Date.parse(session.snoozedUntil) > nowMs;
 }
 
 /** A chat the owner has to look at: it failed, or it finished while they were away. */
@@ -134,7 +141,14 @@ export function buildThreadSidebarModel(
   const allEntries = collectThreadEntries(state);
   // Subagent chats are listed under the chat that started them, not as their own top-level chats.
   const nested = nestChildThreads(state, allEntries);
-  const entries = allEntries.filter((entry) => !nested.childKeys.has(sessionThreadKey(entry)));
+  const listed = allEntries.filter((entry) => !nested.childKeys.has(sessionThreadKey(entry)));
+  const snoozedThreads = listed
+    .filter((entry) => !entry.session.archivedAt && isSnoozed(entry.session, nowMs))
+    .sort(
+      (left, right) =>
+        Date.parse(left.session.snoozedUntil ?? "") - Date.parse(right.session.snoozedUntil ?? ""),
+    );
+  const entries = listed.filter((entry) => !isSnoozed(entry.session, nowMs));
   const withChildren = nested.withChildren;
   const pinnedThreads = withChildren(
     entries
@@ -177,6 +191,7 @@ export function buildThreadSidebarModel(
         : [];
     }),
     archivedThreads,
+    snoozedThreads,
     recencyOrder,
   };
 }
