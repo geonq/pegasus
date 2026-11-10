@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Linking } from "react-native";
+import { Linking, Platform, Settings } from "react-native";
 import { PegasusClient, PegasusError, type StreamStatus } from "../api/client";
 import { parsePairingLink } from "../api/pairing";
 import type { DesktopAppState, Pairing, SelectedTranscript } from "../api/types";
@@ -82,6 +82,13 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
     Linking.getInitialURL()
       .then(handle)
       .catch(() => undefined);
+    // `-PegasusPairingLink <link>` at launch (iOS puts launch arguments in user defaults): how a
+    // headless simulator test pairs, since opening a link there needs a tap. Only simctl or a
+    // debugger can pass launch arguments.
+    if (Platform.OS === "ios") {
+      const fromLaunch: unknown = Settings.get("PegasusPairingLink");
+      if (typeof fromLaunch === "string") handle(fromLaunch);
+    }
     const subscription = Linking.addEventListener("url", (event) => handle(event.url));
     return () => subscription.remove();
   }, [pairing]);

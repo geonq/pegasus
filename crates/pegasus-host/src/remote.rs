@@ -448,6 +448,7 @@ impl Remote {
             streams.push(s.clone());
             s
         };
+        crate::info!("sse stream opened for {client_id}");
         let brotli = accepts_brotli(headers);
         let (tx, rx) = mpsc::channel::<(Bytes, usize)>(1);
         let ready = format!("id: {}\nevent: ready\ndata: {{\"version\":1}}\n\n", self.event_sequence.fetch_add(1, Ordering::Relaxed));
