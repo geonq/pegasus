@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { cp, mkdtemp, readdir, realpath, rename } from "node:fs/promises";
+import { access, cp, mkdtemp, readdir, realpath, rename } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -35,6 +35,12 @@ export async function resolvePackagedAppBundle(releaseDir = packagedReleaseDir):
 export async function resolvePackagedAppExecutable(
   releaseDir = packagedReleaseDir,
 ): Promise<string> {
+  if (process.platform === "win32") {
+    // package:win:dir leaves the unpacked app in release/win-unpacked.
+    const executable = join(releaseDir, "win-unpacked", "Pegasus.exe");
+    await access(executable);
+    return executable;
+  }
   return resolveAppBundleExecutable(await resolvePackagedAppBundle(releaseDir));
 }
 
