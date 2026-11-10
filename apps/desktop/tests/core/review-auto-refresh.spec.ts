@@ -10,6 +10,7 @@ import {
   makeWorkspace,
   seedAgentDir,
   selectSidePanel,
+  widenSidePanel,
   waitForWorkspaceByPath,
 } from "../helpers/electron-app";
 
@@ -33,6 +34,7 @@ test("Review picks up outside edits when the window regains focus, without blank
     const workspace = await waitForWorkspaceByPath(window, workspacePath);
     await createNamedThread(window, "Review auto refresh", { workspaceName: workspace.name });
     await selectSidePanel(window, "Review");
+    await widenSidePanel(window);
     const panel = window.getByRole("region", { name: "Review", exact: true });
     const diff = panel.getByRole("region", { name: "Diff", exact: true });
     await expect(diff.locator(".diff-line--added .diff-line__content")).toHaveText(["second"]);

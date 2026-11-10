@@ -11,6 +11,7 @@ import {
   waitForWorkspaceByPath,
   writeProjectExtension,
   reviewScopeButton,
+  widenSidePanel,
 } from "../helpers/electron-app";
 
 // A local scripted provider: "edit files" writes seven files through Pi's real write tool in
@@ -99,7 +100,7 @@ test("a turn that edits files gets a changes card whose rows open that file's di
     await waitForWorkspaceByPath(window, workspacePath);
     await window
       .locator(".sidebar")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
     await window.getByLabel("New thread prompt", { exact: true }).fill("edit files");
     await window.getByRole("button", { name: "Start thread", exact: true }).click();
@@ -133,6 +134,7 @@ test("a turn that edits files gets a changes card whose rows open that file's di
 
     await card.locator('.turn-changes__file[data-file-path="src/nested/f.txt"]').click();
     const panel = window.getByRole("region", { name: "Review", exact: true });
+    await widenSidePanel(window);
     await expect(reviewScopeButton(window)).toHaveText("Selected Turn");
     await expect(panel.locator(".diff-panel__file")).toHaveCount(7);
     await expect(

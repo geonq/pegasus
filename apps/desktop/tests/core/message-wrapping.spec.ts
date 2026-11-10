@@ -82,7 +82,7 @@ test("wraps long markdown content inside transcript message bubbles", async () =
     await waitForWorkspaceByPath(window, workspacePath);
     await window
       .getByRole("complementary")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
 
     const prompt = window.getByLabel("New thread prompt");

@@ -38,18 +38,18 @@ test("changing model or thinking from the composer footer keeps the typed prompt
     await expect.poll(async () => (await getDesktopState(window)).composerDraft).toBe(prompt);
 
     await footer.locator(".model-selector__badge").first().click();
-    await footer.getByRole("button", { name: "GPT-4o" }).click();
+    await footer.getByRole("button", { name: "GPT-6 Luna" }).click();
     await expect(footer.locator(".model-selector__badge").first()).toHaveAttribute(
       "aria-label",
-      /GPT-4o$/i,
+      /GPT-6 Luna$/i,
     );
-    await expect(window.getByTestId("transcript")).toContainText("Model set to GPT-4o");
+    await expect(window.getByTestId("transcript")).toContainText("Model set to GPT-6 Luna");
     await expect(composer).toHaveValue(prompt);
     await expect(attachment).toHaveCount(1);
 
-    // GPT-4o has no reasoning levels; switch to the reasoning model before testing its effort control.
+    // GPT-6 Luna has no reasoning levels; switch to the reasoning model before testing its effort control.
     await footer.locator(".model-selector__badge").first().click();
-    await footer.getByRole("button", { name: "GPT-5", exact: true }).click();
+    await footer.getByRole("button", { name: "GPT-6.1 Sol", exact: true }).click();
     const thinkingBadge = footer.locator(".model-selector__badge").nth(1);
     const initialThinking = (await thinkingBadge.textContent())?.trim();
     const nextThinking = initialThinking === "High" ? "Low" : "High";
@@ -65,13 +65,13 @@ test("changing model or thinking from the composer footer keeps the typed prompt
     await composer.fill("/model");
     await expect.poll(async () => (await getDesktopState(window)).composerDraft).toBe("/model");
     const optionsMenu = window.getByTestId("slash-options-menu");
-    await optionsMenu.getByRole("button", { name: /GPT-5/ }).first().click();
-    await expect(window.getByTestId("transcript")).toContainText("Model set to GPT-5");
+    await optionsMenu.getByRole("button", { name: /GPT-6.1 Sol/ }).first().click();
+    await expect(window.getByTestId("transcript")).toContainText("Model set to GPT-6.1 Sol");
     // The cleared draft is saved before the model changes, not after the typing debounce.
     expect((await getDesktopState(window)).composerDraft).toBe("");
     await expect(footer.locator(".model-selector__badge").first()).toHaveAttribute(
       "aria-label",
-      /GPT-5$/i,
+      /GPT-6.1 Sol$/i,
     );
     await expect(composer).toHaveValue("");
     await expect.poll(async () => (await getDesktopState(window)).composerDraft).toBe("");

@@ -66,7 +66,7 @@ test("shows turned off and opens System Settings when macOS notifications are de
 
     await expect(window.locator(".settings-view")).toContainText("Turned off");
     await expect(window.locator(".settings-view")).toContainText(
-      "macOS notifications are turned off for pi-gui",
+      "macOS notifications are turned off for Pegasus",
     );
     await expect(window.getByRole("button", { name: "Ask macOS", exact: true })).toHaveCount(0);
     await expect(

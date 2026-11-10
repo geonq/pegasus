@@ -12,12 +12,31 @@ import {
   selectSession,
 } from "../helpers/electron-app";
 
-function parseRgb(color: string): [number, number, number] {
+type Rgba = [number, number, number, number];
+
+/** Reads rgb()/rgba() and the color(srgb …) form Chromium reports for color-mix tokens. */
+function parseRgba(color: string): Rgba {
   const channels = color.match(/\d+(?:\.\d+)?/g);
   if (!channels || channels.length < 3) {
     throw new Error(`Unsupported color value: ${color}`);
   }
-  return [Number(channels[0]), Number(channels[1]), Number(channels[2])];
+  const scale = color.startsWith("color(") ? 255 : 1;
+  const [red, green, blue, alpha] = channels.map(Number);
+  return [red! * scale, green! * scale, blue! * scale, alpha ?? 1];
+}
+
+/** Lays translucent backgrounds (nearest ancestor first) over each other. */
+function flatten(layers: readonly string[]): [number, number, number] {
+  let base: [number, number, number] = [0, 0, 0];
+  for (const layer of [...layers].reverse()) {
+    const [red, green, blue, alpha] = parseRgba(layer);
+    base = [
+      red * alpha + base[0] * (1 - alpha),
+      green * alpha + base[1] * (1 - alpha),
+      blue * alpha + base[2] * (1 - alpha),
+    ];
+  }
+  return base;
 }
 
 function relativeLuminance([red, green, blue]: [number, number, number]): number {
@@ -28,9 +47,10 @@ function relativeLuminance([red, green, blue]: [number, number, number]): number
   return 0.2126 * linearized[0] + 0.7152 * linearized[1] + 0.0722 * linearized[2];
 }
 
-function contrastRatio(foreground: string, background: string): number {
-  const foregroundLuminance = relativeLuminance(parseRgb(foreground));
-  const backgroundLuminance = relativeLuminance(parseRgb(background));
+function contrastRatio(foreground: string, backgrounds: readonly string[]): number {
+  const [red, green, blue] = parseRgba(foreground);
+  const foregroundLuminance = relativeLuminance([red, green, blue]);
+  const backgroundLuminance = relativeLuminance(flatten(backgrounds));
   const lighter = Math.max(foregroundLuminance, backgroundLuminance);
   const darker = Math.min(foregroundLuminance, backgroundLuminance);
   return (lighter + 0.05) / (darker + 0.05);
@@ -227,13 +247,13 @@ test("dark mode keeps the send button visible before and after typing", async ()
     await expect
       .poll(async () => {
         const styles = await sendButton.evaluate((button) => {
-          const computed = getComputedStyle(button);
-          return {
-            backgroundColor: computed.backgroundColor,
-            color: computed.color,
-          };
+          const backgrounds: string[] = [];
+          for (let node: Element | null = button; node; node = node.parentElement) {
+            backgrounds.push(getComputedStyle(node).backgroundColor);
+          }
+          return { backgrounds, color: getComputedStyle(button).color };
         });
-        return contrastRatio(styles.color, styles.backgroundColor);
+        return contrastRatio(styles.color, styles.backgrounds);
       })
       .toBeGreaterThan(3);
 
@@ -242,13 +262,13 @@ test("dark mode keeps the send button visible before and after typing", async ()
     await expect
       .poll(async () => {
         const styles = await sendButton.evaluate((button) => {
-          const computed = getComputedStyle(button);
-          return {
-            backgroundColor: computed.backgroundColor,
-            color: computed.color,
-          };
+          const backgrounds: string[] = [];
+          for (let node: Element | null = button; node; node = node.parentElement) {
+            backgrounds.push(getComputedStyle(node).backgroundColor);
+          }
+          return { backgrounds, color: getComputedStyle(button).color };
         });
-        return contrastRatio(styles.color, styles.backgroundColor);
+        return contrastRatio(styles.color, styles.backgrounds);
       })
       .toBeGreaterThan(4.5);
   } finally {

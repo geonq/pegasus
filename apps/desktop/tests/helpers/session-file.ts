@@ -69,7 +69,7 @@ export async function appendMessagesToSessionFile(
               content: [{ type: "text", text: message.text }],
               api: "openai-responses",
               provider: "openai",
-              model: "gpt-5",
+              model: "gpt-6.1-sol",
               usage: {
                 input: 0,
                 output: 0,

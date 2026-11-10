@@ -9,6 +9,7 @@ import {
   makeWorkspace,
   seedAgentDir,
   selectSidePanel,
+  widenSidePanel,
   waitForWorkspaceByPath,
   writeProjectExtension,
   chooseReviewScope,
@@ -124,13 +125,14 @@ test("Last turn captures actual tool edits and a response pins its own saved com
     await waitForWorkspaceByPath(window, workspacePath);
     await window
       .locator(".sidebar")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
     await window.getByLabel("New thread prompt", { exact: true }).fill("capture first");
     await window.getByRole("button", { name: "Start thread", exact: true }).click();
     await expectCompleted(window, "First capture complete");
     expect(await readFile(join(workspacePath, "result.txt"), "utf8")).toBe("FIRST_TURN_OUTPUT\n");
     await selectSidePanel(window, "Review");
+    await widenSidePanel(window);
     await chooseReviewScope(window, "Last Turn");
     let patch = await openCapturedFile(window);
     await expect(patch).toContainText("INITIAL_CONTENT");

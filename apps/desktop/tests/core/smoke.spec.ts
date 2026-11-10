@@ -46,13 +46,13 @@ test("boots an existing workspace and starts a new thread through the real UI", 
     await expect(window.getByTestId("workspace-list")).toContainText(basename(workspacePath));
     await window
       .getByRole("complementary")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
 
     const prompt = window.getByLabel("New thread prompt");
     await expect(prompt).toBeVisible();
     await expect(prompt).toBeFocused();
-    await expect(window.getByRole("heading", { name: "Let's build" })).toBeVisible();
+    await expect(window.getByRole("heading", { name: "Start a new chat." })).toBeVisible();
     await prompt.fill(promptText);
 
     await window.getByRole("button", { name: "Start thread" }).click();

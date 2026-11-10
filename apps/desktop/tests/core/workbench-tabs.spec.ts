@@ -13,6 +13,7 @@ import {
   seedNamedTextSessionFixture,
   selectSession,
   selectSidePanel,
+  widenSidePanel,
   waitForTimelineLayout,
   type DesktopHarness,
 } from "../helpers/electron-app";
@@ -156,6 +157,7 @@ test("adds singleton tool tabs, closes to a neighbor, and keeps an empty chooser
     await captureToolWidths(harness, window, testInfo, "Terminal");
     await addTool(window, "Review");
     await expect(window.locator(".diff-panel")).toBeVisible();
+    await widenSidePanel(window);
     await window
       .locator('.diff-panel__file[data-file-path="alpha.txt"] .diff-panel__file-name')
       .click();
@@ -521,7 +523,7 @@ test("keeps one resizable width across tools, chooser, tasks, and restart", asyn
   }
 });
 
-test("shows and selects GPT-6 Sol from the upgraded Pi model catalog", async ({}, testInfo) => {
+test("shows and selects the newest GPT-6 Sol from the upgraded Pi model catalog", async ({}, testInfo) => {
   const fixture = await prepareWorkspace();
   // Synthetic credentials enable the provider catalog; this test never sends a request.
   await seedAgentDir(fixture.agentDir, {
@@ -539,8 +541,8 @@ test("shows and selects GPT-6 Sol from the upgraded Pi model catalog", async ({}
     await badge.click();
     const dropdown = window.locator(".composer__bar .model-selector__dropdown").first();
     await expect(dropdown.getByRole("button", { name: "GPT-6 Luna", exact: true })).toBeVisible();
-    await dropdown.getByRole("button", { name: "GPT-6 Sol", exact: true }).click();
-    await expect(badge).toHaveAccessibleName("OpenAI · GPT-6 Sol");
+    await dropdown.getByRole("button", { name: "GPT-6.1 Sol", exact: true }).click();
+    await expect(badge).toHaveAccessibleName("OpenAI · GPT-6.1 Sol");
     await expect(
       window.locator(".composer").getByRole("button", { name: "Medium", exact: true }),
     ).toBeVisible();

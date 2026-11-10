@@ -1801,6 +1801,12 @@ export async function waitForTimelineLayout(window: Page): Promise<void> {
   await expect(window.getByTestId("timeline-pane")).toHaveAttribute("data-layout", "settled");
 }
 
+/** The changed-file tree steps aside below 520px; the default side panel is narrower. */
+export async function widenSidePanel(window: Page): Promise<void> {
+  await window.getByRole("separator", { name: "Side panel width" }).focus();
+  await window.keyboard.press("End");
+}
+
 export async function selectSidePanel(
   window: Page,
   choice: "Files" | "Review" | "Terminal",

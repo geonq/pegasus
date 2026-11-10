@@ -45,7 +45,9 @@ Use this skill when the user wants a short demo workflow.
     await expect(window.locator(".skill-detail")).toContainText("/skill:demo-skill");
 
     await window.getByRole("button", { name: "Try", exact: true }).click();
-    await expect(window.getByRole("button", { name: "Threads", exact: true })).toBeVisible();
+    await expect(
+      window.getByRole("group", { name: "Sidebar view" }).getByRole("button", { name: "Chats", exact: true }),
+    ).toBeVisible();
     await expect(window.getByTestId("composer")).toHaveValue("/skill:demo-skill ");
 
     await window.getByRole("button", { name: "Settings", exact: true }).click();

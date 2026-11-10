@@ -43,9 +43,9 @@ test("switches between app-global and per-repo model scope while worktrees inher
     });
     await expect(window.locator(".chat-header__title")).toHaveText("Repo A global session");
     await expectComposerModelState(window, {
-      activeModel: "OpenAI · GPT-5",
-      visibleModelLabels: ["GPT-5", "GPT-4o"],
-      hiddenModelLabels: ["GPT-4 Turbo"],
+      activeModel: "OpenAI · GPT-6.1 Sol",
+      visibleModelLabels: ["GPT-6.1 Sol", "GPT-6 Luna"],
+      hiddenModelLabels: ["GPT-5.6 Terra"],
     });
 
     await createNamedThread(window, "Repo B global session", {
@@ -53,15 +53,15 @@ test("switches between app-global and per-repo model scope while worktrees inher
     });
     await expect(window.locator(".chat-header__title")).toHaveText("Repo B global session");
     await expectComposerModelState(window, {
-      activeModel: "OpenAI · GPT-5",
-      visibleModelLabels: ["GPT-5", "GPT-4o"],
-      hiddenModelLabels: ["GPT-4 Turbo"],
+      activeModel: "OpenAI · GPT-6.1 Sol",
+      visibleModelLabels: ["GPT-6.1 Sol", "GPT-6 Luna"],
+      hiddenModelLabels: ["GPT-5.6 Terra"],
     });
 
     await openSettings(window);
     await openSettingsSection(window, "Models");
     await expect(settingsWorkspacePicker(window)).toHaveCount(0);
-    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-5");
+    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-6.1-sol");
 
     await openSettingsSection(window, "General");
     await window.getByRole("button", { name: "Per repo" }).click();
@@ -74,20 +74,20 @@ test("switches between app-global and per-repo model scope while worktrees inher
     await expect(settingsWorkspacePicker(window).locator("option")).toHaveCount(2);
     await settingsWorkspacePicker(window).selectOption({ label: rootWorkspaceA.name });
     await expect(settingsWorkspacePicker(window)).toHaveValue(rootWorkspaceA.id);
-    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-5");
-    await setEnabledModels(window, ["openai/gpt-4o", "openai/gpt-4-turbo"], ["openai/gpt-5"]);
-    await window.getByLabel("Default model", { exact: true }).selectOption("openai:gpt-4o");
-    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-4o");
+    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-6.1-sol");
+    await setEnabledModels(window, ["openai/gpt-6-luna", "openai/gpt-5.6-terra"], ["openai/gpt-6.1-sol"]);
+    await window.getByLabel("Default model", { exact: true }).selectOption("openai:gpt-6-luna");
+    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-6-luna");
 
     await settingsWorkspacePicker(window).selectOption({ label: rootWorkspaceB.name });
-    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-5");
+    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-6.1-sol");
 
     await window.getByRole("button", { name: "Back to app", exact: true }).click();
     await selectSession(window, "Repo B global session");
     await expectComposerModelState(window, {
-      activeModel: "OpenAI · GPT-5",
-      visibleModelLabels: ["GPT-5", "GPT-4o"],
-      hiddenModelLabels: ["GPT-4 Turbo"],
+      activeModel: "OpenAI · GPT-6.1 Sol",
+      visibleModelLabels: ["GPT-6.1 Sol", "GPT-6 Luna"],
+      hiddenModelLabels: ["GPT-5.6 Terra"],
     });
 
     await startThreadViaIpc(window, {
@@ -95,28 +95,28 @@ test("switches between app-global and per-repo model scope while worktrees inher
       environment: "worktree",
       prompt: "",
       provider: "openai",
-      modelId: "gpt-4o",
+      modelId: "gpt-6-luna",
     });
     await expect(window.locator(".chat-header__title")).toHaveText("New thread");
     await expectComposerModelState(window, {
-      activeModel: "OpenAI · GPT-4o",
-      visibleModelLabels: ["GPT-4o", "GPT-4 Turbo"],
-      hiddenModelLabels: ["GPT-5"],
+      activeModel: "OpenAI · GPT-6 Luna",
+      visibleModelLabels: ["GPT-6 Luna", "GPT-5.6 Terra"],
+      hiddenModelLabels: ["GPT-6.1 Sol"],
     });
 
     await openNewThread(window);
     await expect(window.locator(".new-thread__workspace")).toHaveValue(rootWorkspaceA.id);
     await expectNewThreadModelState(window, {
-      activeModel: "OpenAI · GPT-4o",
-      visibleModelLabels: ["GPT-4o", "GPT-4 Turbo"],
-      hiddenModelLabels: ["GPT-5"],
+      activeModel: "OpenAI · GPT-6 Luna",
+      visibleModelLabels: ["GPT-6 Luna", "GPT-5.6 Terra"],
+      hiddenModelLabels: ["GPT-6.1 Sol"],
     });
     await window.locator(".session-row--active .session-row__select").first().click();
     await expect(window.getByTestId("new-thread-composer")).toHaveCount(0);
 
-    await selectComposerModel(window, "GPT-4 Turbo");
+    await selectComposerModel(window, "GPT-5.6 Terra");
     await expect(
-      window.getByRole("button", { name: "OpenAI · GPT-4 Turbo" }).first(),
+      window.getByRole("button", { name: "OpenAI · GPT-5.6 Terra" }).first(),
     ).toBeVisible();
 
     await openSettings(window);
@@ -127,26 +127,26 @@ test("switches between app-global and per-repo model scope while worktrees inher
         (text) => !/Worktree/i.test(text),
       ),
     ).toBeTruthy();
-    await setEnabledModels(window, ["openai/gpt-5", "openai/gpt-4-turbo"], ["openai/gpt-4o"]);
-    await window.getByLabel("Default model", { exact: true }).selectOption("openai:gpt-5");
-    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-5");
+    await setEnabledModels(window, ["openai/gpt-6.1-sol", "openai/gpt-5.6-terra"], ["openai/gpt-6-luna"]);
+    await window.getByLabel("Default model", { exact: true }).selectOption("openai:gpt-6.1-sol");
+    await expect(window.getByLabel("Default model", { exact: true })).toHaveValue("openai:gpt-6.1-sol");
 
     await window.getByRole("button", { name: "Back to app", exact: true }).click();
     await expect(
-      window.getByRole("button", { name: "OpenAI · GPT-4 Turbo" }).first(),
+      window.getByRole("button", { name: "OpenAI · GPT-5.6 Terra" }).first(),
     ).toBeVisible();
     await expectComposerModelOptions(window, {
-      visibleModelLabels: ["GPT-5", "GPT-4 Turbo"],
-      hiddenModelLabels: ["GPT-4o"],
+      visibleModelLabels: ["GPT-6.1 Sol", "GPT-5.6 Terra"],
+      hiddenModelLabels: ["GPT-6 Luna"],
     });
 
     const composer = window.getByTestId("composer");
     await composer.fill("/model");
     const optionsMenu = window.getByTestId("slash-options-menu");
     await expect(optionsMenu).toBeVisible();
-    await expect(optionsMenu).toContainText("GPT-5");
-    await expect(optionsMenu).toContainText("GPT-4 Turbo");
-    await expect(optionsMenu).not.toContainText("GPT-4o");
+    await expect(optionsMenu).toContainText("GPT-6.1 Sol");
+    await expect(optionsMenu).toContainText("GPT-5.6 Terra");
+    await expect(optionsMenu).not.toContainText("GPT-6 Luna");
   } finally {
     await harness.close();
   }

@@ -147,7 +147,7 @@ test("extension custom messages show like terminal pi, live and after relaunch",
     await waitForWorkspaceByPath(window, workspacePath);
     await window
       .getByRole("complementary")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
     await window.getByLabel("New thread prompt", { exact: true }).fill("Check CI, then continue.");
     await window.getByRole("button", { name: "Start thread", exact: true }).click();

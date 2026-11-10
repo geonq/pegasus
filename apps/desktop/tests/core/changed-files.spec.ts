@@ -11,6 +11,7 @@ import {
   makeUserDataDir,
   makeWorkspace,
   selectSidePanel,
+  widenSidePanel,
 } from "../helpers/electron-app";
 
 const execFileAsync = promisify(execFile);
@@ -36,6 +37,7 @@ test("preserves an exact changed-file path through diff and stage actions", asyn
     const window = await harness.firstWindow();
     await createNamedThread(window, "Changed path test");
     await selectSidePanel(window, "Review");
+    await widenSidePanel(window);
 
     const diffPanel = window.locator(".diff-panel");
     const changedRows = diffPanel.locator(".diff-panel__file");
@@ -95,6 +97,7 @@ test("shows Git status as unavailable without losing reviewed files", async () =
     const window = await harness.firstWindow();
     await createNamedThread(window, "Reviewed unavailable status test");
     await selectSidePanel(window, "Review");
+    await widenSidePanel(window);
     const diffPanel = window.locator(".diff-panel");
     await diffPanel.getByTestId(`diff-panel-reviewed-${filePath}`).click();
     await expect(diffPanel.getByTestId(`diff-panel-reviewed-${filePath}`)).toBeChecked();
@@ -103,7 +106,7 @@ test("shows Git status as unavailable without losing reviewed files", async () =
     gitMoved = true;
     await diffPanel.locator('button[aria-label="Refresh"]').click();
     await expect(diffPanel.getByTestId("changed-files-unavailable")).toContainText(
-      /not a git repository|unavailable/i,
+      /not a git repository|isn.t in a git repository|unavailable/i,
     );
     await expect(diffPanel.getByText("No changes", { exact: true })).toHaveCount(0);
     await saveProof(window, "git-status-unavailable.png");

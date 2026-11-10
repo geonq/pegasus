@@ -112,7 +112,7 @@ test("keeps no-tool continuation replies separate and completes only after settl
     await waitForWorkspaceByPath(window, workspacePath);
     await window
       .getByRole("complementary")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
     await window.getByLabel("New thread prompt", { exact: true }).fill("Exercise a continuation.");
     await window.getByRole("button", { name: "Start thread", exact: true }).click();

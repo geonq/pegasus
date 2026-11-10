@@ -302,7 +302,7 @@ test("the Usage example adds a card after each reply with its time, cost and con
     await waitForWorkspaceByPath(window, workspace);
     await window
       .getByRole("complementary")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
     await window.getByLabel("New thread prompt", { exact: true }).fill("Answer briefly.");
     await window.getByRole("button", { name: "Start thread", exact: true }).click();
@@ -383,7 +383,7 @@ test("the Usage example writes one card for a reply pi retried", async () => {
     await waitForWorkspaceByPath(window, workspace);
     await window
       .getByRole("complementary")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
     await window.getByLabel("New thread prompt", { exact: true }).fill("Answer briefly.");
     await window.getByRole("button", { name: "Start thread", exact: true }).click();

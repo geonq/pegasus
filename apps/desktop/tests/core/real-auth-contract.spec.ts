@@ -42,7 +42,7 @@ test("default desktop launches keep real-auth mode disabled and seed fake auth i
     };
     expect(settings).toMatchObject({
       defaultProvider: "openai",
-      defaultModel: "gpt-5",
+      defaultModel: "gpt-6.1-sol",
     });
   } finally {
     await harness.close();

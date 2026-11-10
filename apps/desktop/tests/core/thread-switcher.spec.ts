@@ -101,7 +101,7 @@ test("Ctrl-Tab switches threads in most-recently-used order and keeps it across 
       .filter({ hasText: "Thread two" })
       .first();
     await threadTwoRow.hover();
-    await threadTwoRow.getByLabel("Archive Thread two").click();
+    await threadTwoRow.getByLabel("Archive chat Thread two").click();
     await expect(
       window.locator(".session-list > .session-row").filter({ hasText: "Thread two" }),
     ).toHaveCount(0);

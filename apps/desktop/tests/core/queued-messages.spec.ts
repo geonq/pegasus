@@ -250,7 +250,7 @@ test("delineates queued follow-ups and submitted steers in the timeline", async 
     // the first queued message as the next reply instead.
     await window
       .getByRole("complementary")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
     await window.getByLabel("New thread prompt", { exact: true }).fill("Start a long reply");
     await window.getByRole("button", { name: "Start thread", exact: true }).click();

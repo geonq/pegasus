@@ -8,6 +8,7 @@ import {
   commitAllInGitRepo,
   createNamedThread,
   selectSidePanel,
+  widenSidePanel,
   emitTestSessionEvent,
   getDesktopState,
   initGitRepo,
@@ -76,6 +77,7 @@ test("syntax-highlights known languages and leaves unknown extensions plain", as
   const { harness, window } = await launchSeeded("Review UX highlight");
   try {
     await selectSidePanel(window, "Review");
+    await widenSidePanel(window);
     const diffPanel = window.locator(".diff-panel");
     await expect(diffPanel).toBeVisible();
 
@@ -132,6 +134,8 @@ test("reviewed marks survive relaunch and apply only to the reviewed file revisi
     });
 
     await selectSidePanel(firstWindow, "Review");
+
+    await widenSidePanel(firstWindow);
     const diffPanel = firstWindow.locator(".diff-panel");
     await expect(diffPanel).toBeVisible();
     await expect(diffPanel.locator(".diff-panel__file")).toHaveCount(3);
@@ -163,6 +167,7 @@ test("reviewed marks survive relaunch and apply only to the reviewed file revisi
   try {
     await expect(window.locator(".chat-header__title")).toBeVisible();
     await selectSidePanel(window, "Review");
+    await widenSidePanel(window);
     const reopenedPanel = window.locator(".diff-panel");
     await expect(reopenedPanel).toBeVisible();
     await expect(reopenedPanel.getByTestId("diff-panel-counter")).toHaveText("Reviewed 2 of 3");
@@ -199,6 +204,7 @@ test("a new file at a renamed file's old path can be marked reviewed", async () 
     await execFileAsync("git", ["mv", "notes.md", "renamed.md"], { cwd: workspacePath });
     await writeFile(join(workspacePath, "notes.md"), "# a new notes file\n", "utf8");
     await selectSidePanel(window, "Review");
+    await widenSidePanel(window);
     const diffPanel = window.locator(".diff-panel");
     await expect(diffPanel).toBeVisible();
     await diffPanel.locator('button[aria-label="Refresh"]').click();
@@ -219,6 +225,7 @@ test("Files mode shows a file browser and reader instead of the changes reviewer
   const { harness, window } = await launchSeeded("Review UX files mode");
   try {
     await selectSidePanel(window, "Review");
+    await widenSidePanel(window);
     const diffPanel = window.locator(".diff-panel");
     await expect(diffPanel).toBeVisible();
     await expect(diffPanel).toHaveAttribute("aria-label", "Review");
@@ -316,6 +323,7 @@ test("highlighting follows the theme when light or dark changes", async () => {
   const { harness, window } = await launchSeeded("Review UX theme");
   try {
     await selectSidePanel(window, "Review");
+    await widenSidePanel(window);
 
     const diffPanel = window.locator(".diff-panel");
     await diffPanel

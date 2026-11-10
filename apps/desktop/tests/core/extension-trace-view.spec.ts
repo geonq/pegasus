@@ -115,7 +115,7 @@ test("the Trace example shows a live waterfall of the reply's model calls and to
     await waitForWorkspaceByPath(window, workspace);
     await window
       .getByRole("complementary")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
     await window.getByLabel("New thread prompt", { exact: true }).fill("What do the notes say?");
     await window.getByRole("button", { name: "Start thread", exact: true }).click();

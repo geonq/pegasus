@@ -26,7 +26,7 @@ test("opening New thread flushes the current conversation draft before navigatio
     await window.getByTestId("composer").fill(draft);
     await window
       .getByRole("complementary")
-      .getByRole("button", { name: "New thread", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
       .click();
     await expect(window.getByLabel("New thread prompt", { exact: true })).toBeVisible();
     await expect.poll(async () => (await getDesktopState(window)).composerDraft).toBe(draft);

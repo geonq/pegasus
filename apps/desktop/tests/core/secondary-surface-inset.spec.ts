@@ -35,7 +35,7 @@ test("Back to app lines up with New thread below the window buttons", async ({},
   try {
     const window = await harness.firstWindow();
     await expect(window.locator(".sidebar__new")).toBeVisible();
-    const newThread = await layoutOf(window, ".sidebar__new", "New thread");
+    const newThread = await layoutOf(window, ".sidebar__new", "New chat");
     await window.screenshot({ path: testInfo.outputPath("threads.png") });
 
     for (const view of ["Settings", "Skills", "Extensions"] as const) {
