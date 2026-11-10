@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { Fragment, memo, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -7,6 +7,8 @@ import {
   type WorkspaceFileLine,
 } from "./workspace-file-line";
 import { MermaidDiagram } from "../generative-ui/diagram-view";
+import { HighlightedLine } from "../../ui/highlighted-line";
+import { fenceToLanguage, MAX_HIGHLIGHTED_LINES } from "../../ui/syntax-highlight";
 
 const REMARK_PLUGINS = [remarkGfm];
 
@@ -16,6 +18,26 @@ function markdownComponents(
   return {
     code: ({ className, children }) => {
       const code = String(children).replace(/\n$/, "");
+      // Fenced blocks in a known language are coloured line by line with the active theme's
+      // syntax colours. Lines are cached, so a reply that is still streaming only tokenises the
+      // lines it adds. Long blocks and unknown languages stay plain.
+      const language = /(?:^|\s)language-([\w+#.-]+)/u.exec(className ?? "")?.[1];
+      const grammar = language ? fenceToLanguage(language) : undefined;
+      if (grammar) {
+        const lines = code.split("\n");
+        if (lines.length <= MAX_HIGHLIGHTED_LINES) {
+          return (
+            <code className={className} data-highlighted="">
+              {lines.map((line, index) => (
+                <Fragment key={index}>
+                  {index > 0 ? "\n" : null}
+                  <HighlightedLine content={line} language={grammar} />
+                </Fragment>
+              ))}
+            </code>
+          );
+        }
+      }
       return <code className={className}>{code}</code>;
     },
     a: ({ href, children, ...props }) => {

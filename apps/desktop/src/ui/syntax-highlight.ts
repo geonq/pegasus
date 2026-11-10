@@ -137,6 +137,21 @@ export function extensionToLanguage(filePath: string): string | undefined {
   return EXTENSION_TO_LANGUAGE[ext];
 }
 
+const FENCE_ALIASES: Readonly<Record<string, string>> = {
+  ...EXTENSION_TO_LANGUAGE,
+  typescript: "typescript",
+  javascript: "javascript",
+  python: "python",
+  shell: "bash",
+  console: "bash",
+  jsonc: "json",
+};
+
+/** The loaded grammar for a markdown fence's info string (```ts, ```python …), if any. */
+export function fenceToLanguage(info: string): string | undefined {
+  return FENCE_ALIASES[info.trim().toLowerCase()];
+}
+
 const lineCache = new LRUCache<string, HighlightLine>({ max: 5000 });
 
 /** Coloured tokens for one line, or null until the highlighter has loaded. */

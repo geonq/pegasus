@@ -98,6 +98,12 @@ test("renders markdown formatting in assistant responses", async () => {
     await expect(messageRow.locator("pre code")).toContainText(
       'const rendered: string = "markdown";',
     );
+    // The ts fence is coloured with the theme's syntax colours once the highlighter has loaded.
+    const code = messageRow.locator("pre code[data-highlighted]");
+    await expect(code).toHaveCount(1);
+    await expect
+      .poll(() => code.locator("span[style*='color']").count(), { timeout: 15_000 })
+      .toBeGreaterThan(2);
 
     const issueLink = messageRow.getByRole("link", { name: "issue" });
     await expect(issueLink).toHaveAttribute(
