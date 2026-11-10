@@ -1,0 +1,19 @@
+[package]
+name = "pegasus-host"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Long-lived Pegasus backend host: owns sessions, terminals, git and runs; outlives the window."
+
+[[bin]]
+name = "pegasus-host"
+path = "src/main.rs"
+
+[dependencies]
+pegasus-core = { path = "../pegasus-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros", "io-util", "net", "sync", "time"] }
+
+[dev-dependencies]
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros", "io-util", "net", "time"] }

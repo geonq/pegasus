@@ -340,10 +340,10 @@ deb:
 
 win:
   icon: resources/icon.ico
-  # Rust session sidecar (crates/pegasus-core). Optional: a missing binary makes the app use pi's reader.
+  # Rust backend host (crates/pegasus-host), built by the release "host" step.
   extraResources:
-    - from: ../../crates/target/release/pegasus-sidecar.exe
-      to: bin/pegasus-sidecar.exe
+    - from: ../../crates/target/release/pegasus-host.exe
+      to: bin/pegasus-host.exe
   executableName: Pegasus
   # Keep icon/version metadata editing; signing is optional without credentials.
   signAndEditExecutable: true

@@ -1,16 +1,16 @@
 // Equivalence check: Rust sidecar vs pi's SessionManager on the real session files (read-only).
-// Usage: node tools/verify-sidecar.mjs <sessionsRoot> <cacheFile>
+// Usage: node tools/verify-host-sessions.mjs <sessionsRoot>
 import { dirname } from "node:path";
 import { readFileSync } from "node:fs";
 
-const [root, cache] = process.argv.slice(2);
+const [root] = process.argv.slice(2);
 process.env.PI_CODING_AGENT_DIR = dirname(root);
-process.env.PEGASUS_SIDECAR_CACHE = cache;
+// The host keeps its index cache in the agent dir.
 const { SessionManager } = await import("@earendil-works/pi-coding-agent");
 const { transcriptFromSession } =
   await import("../packages/pi-sdk-driver/dist/session-supervisor-utils.js");
-const { listSessionInfos, openTranscriptSource, closeSidecar } =
-  await import("../packages/pi-sdk-driver/dist/sidecar-client.js");
+const { listSessionInfos, openTranscriptSource, stopHost } =
+  await import("../packages/pi-sdk-driver/dist/host-sessions.js");
 
 const norm = (p) => p.replaceAll("\\", "/").toLowerCase();
 const row = (s) =>
@@ -70,5 +70,5 @@ for (const s of all) {
 console.log(
   JSON.stringify({ transcripts: { identical: tOk, mismatches: tBad, skippedOldSchema: tSkip } }),
 );
-closeSidecar();
+await stopHost();
 process.exit(listBad + tBad === 0 ? 0 : 1);

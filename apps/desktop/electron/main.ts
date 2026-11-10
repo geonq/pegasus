@@ -1302,6 +1302,9 @@ if (augmentedPath.changed && !(appTestMode && process.env.PI_APP_TEST_EXACT_PATH
 }
 
 app.setName("Pegasus");
+// The Rust host (pegasus-host) outlives windows; a packaged app replaces a host built for another
+// version once it is idle. Dev runs leave this unset and accept any host.
+if (app.isPackaged) process.env.PEGASUS_APP_VERSION ??= app.getVersion();
 
 const configuredUserDataDir = process.env.PI_APP_USER_DATA_DIR?.trim() || app.getPath("userData");
 app.setPath("userData", configuredUserDataDir);

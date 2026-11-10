@@ -35,20 +35,7 @@ pub struct FileIndex {
     pub last_activity_ms: Option<f64>,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SessionSummary {
-    pub path: String,
-    pub id: String,
-    pub cwd: String,
-    pub name: Option<String>,
-    pub parent_session_path: Option<String>,
-    pub version: u32,
-    pub created_ms: Option<f64>,
-    pub modified_ms: f64,
-    pub message_count: u32,
-    pub first_message: String,
-}
+pub use crate::protocol::SessionSummary;
 
 #[derive(Deserialize)]
 struct Line<'a> {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Local release pipeline for Pegasus (GitHub Actions is deliberately off on geonq/pegasus).
 // Usage: pnpm release [--version x.y.z] [--dry-run] [--allow-dirty] [--skip-mac] [--from <step>]
-// Steps: preflight check bump sidecar windows mac checksums notes publish
+// Steps: preflight check bump host windows mac checksums notes publish
 import { execFile, spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
@@ -23,7 +23,7 @@ const STEPS = [
   "preflight",
   "check",
   "bump",
-  "sidecar",
+  "host",
   "windows",
   "mac",
   "checksums",
@@ -208,27 +208,17 @@ const steps = {
     await git("commit", "--only", "-m", `Pegasus ${ctx.version}`, "--", ...RELEASE_PACKAGE_PATHS);
   },
 
-  async sidecar() {
-    const exe = path.join(repoDir, "crates", "target", "release", "pegasus-sidecar.exe");
-    try {
-      await run("cargo", ["build", "--release"], {
-        cwd: path.join(repoDir, "crates"),
-        log: "sidecar.log",
-      });
-    } catch (error) {
-      const stale = await stat(exe).then(
-        (s) => s.mtime.toISOString(),
-        () => undefined,
-      );
-      ctx.warnings.push(
-        stale
-          ? `sidecar build failed; the older binary from ${stale} is bundled (see logs/sidecar.log)`
-          : "sidecar build failed and no binary exists; the app falls back to pi's reader",
-      );
-      console.warn(
-        `  sidecar build failed (not blocking): ${String(error.message).split("\n")[0]}`,
-      );
-    }
+  /** The Rust backend host is required: a failed build stops the release. */
+  async host() {
+    await run("cargo", ["build", "--release", "-p", "pegasus-host"], {
+      cwd: path.join(repoDir, "crates"),
+      log: "host.log",
+      env: { ...toolEnv, PEGASUS_APP_VERSION: ctx.version },
+    });
+    await run("cargo", ["test", "--release", "-p", "pegasus-core", "-p", "pegasus-host"], {
+      cwd: path.join(repoDir, "crates"),
+      log: "host.log",
+    });
   },
 
   async windows() {

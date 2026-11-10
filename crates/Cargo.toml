@@ -1,5 +1,5 @@
 [workspace]
-members = ["pegasus-core"]
+members = ["pegasus-core", "pegasus-host"]
 resolver = "3"
 
 [profile.release]

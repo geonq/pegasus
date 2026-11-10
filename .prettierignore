@@ -62,3 +62,6 @@ patches/
 
 # Rust build output
 target/
+
+# Generated from crates/pegasus-core/src/protocol.rs; checked byte-for-byte by pnpm check:protocol.
+/packages/host-protocol/src/generated.ts

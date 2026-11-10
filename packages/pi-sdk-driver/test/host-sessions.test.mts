@@ -6,13 +6,13 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 // pi reads the agent dir from the environment at import time, so point it at a scratch dir first.
-const agentDir = await mkdtemp(join(tmpdir(), "pegasus-sidecar-"));
+const agentDir = await mkdtemp(join(tmpdir(), "pegasus-host-sessions-"));
 process.env.PI_CODING_AGENT_DIR = agentDir;
-process.env.PEGASUS_SIDECAR_CACHE = join(agentDir, "index-cache.json");
+process.env.PEGASUS_HOST_IDLE_SECS = "20";
 
 const { SessionManager } = await import("@earendil-works/pi-coding-agent");
-const { listSessionInfos, openTranscriptSource, closeSidecar } =
-  await import("../dist/sidecar-client.js");
+const { listSessionInfos, openTranscriptSource, closeHostConnection, stopHost } =
+  await import("../dist/host-sessions.js");
 const { transcriptFromSession } = await import("../dist/session-supervisor-utils.js");
 
 const cwd = join(agentDir, "work");
@@ -49,9 +49,9 @@ const lines = [
 await mkdir(sessionDir, { recursive: true });
 await writeFile(file, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
 
-type SidecarModule = typeof import("../dist/sidecar-client.js");
+type HostModule = typeof import("../dist/host-sessions.js");
 
-function isSidecarModule(mod: unknown): mod is SidecarModule {
+function isHostModule(mod: unknown): mod is HostModule {
   return (
     typeof mod === "object" &&
     mod !== null &&
@@ -59,63 +59,67 @@ function isSidecarModule(mod: unknown): mod is SidecarModule {
     typeof mod.listSessionInfos === "function" &&
     "openTranscriptSource" in mod &&
     typeof mod.openTranscriptSource === "function" &&
-    "closeSidecar" in mod &&
-    typeof mod.closeSidecar === "function"
+    "stopHost" in mod &&
+    typeof mod.stopHost === "function"
   );
 }
 
-const dev =
-  existsSync(join(import.meta.dirname, "../../../crates/target/release/pegasus-sidecar.exe")) ||
-  existsSync(join(import.meta.dirname, "../../../crates/target/release/pegasus-sidecar"));
+const exe = process.platform === "win32" ? "pegasus-host.exe" : "pegasus-host";
+const built = ["release", "debug"].some((p) =>
+  existsSync(join(import.meta.dirname, "../../../crates/target", p, exe)),
+);
 
-await test("a crashing sidecar binary falls back to pi's reader", async () => {
-  // node itself exits immediately on these arguments: stands in for a sidecar that dies at start-up.
-  process.env.PEGASUS_SIDECAR_PATH = process.execPath;
+await test("a host binary that dies at start-up falls back to pi's reader", async () => {
+  // node exits immediately on these arguments: stands in for a host that crashes at launch.
+  process.env.PEGASUS_HOST_PATH = process.execPath;
   const infos = await listSessionInfos(cwd);
   assert.equal(infos.length, 1);
   assert.equal(infos[0]?.firstMessage, "hello");
   const src = await openTranscriptSource(file);
   assert.ok(transcriptFromSession(src).length > 0);
-  delete process.env.PEGASUS_SIDECAR_PATH;
-  closeSidecar();
+  delete process.env.PEGASUS_HOST_PATH;
+  closeHostConnection();
 });
 
-await test("PEGASUS_SIDECAR=0 disables it", async () => {
-  process.env.PEGASUS_SIDECAR = "0";
+await test("PEGASUS_HOST=0 disables it", async () => {
+  process.env.PEGASUS_HOST = "0";
   assert.equal((await listSessionInfos(cwd)).length, 1);
-  delete process.env.PEGASUS_SIDECAR;
+  delete process.env.PEGASUS_HOST;
 });
 
 await test(
-  "sidecar results equal pi's (list and transcript)",
-  { skip: !dev && "sidecar binary not built" },
+  "host results equal pi's (list and transcript)",
+  { skip: !built && "pegasus-host not built" },
   async () => {
-    // The previous test started the respawn cooldown; wait it out by loading a fresh module instance.
-    const loaded: unknown = await import(`../dist/sidecar-client.js?fresh=${Date.now()}`);
-    assert.ok(isSidecarModule(loaded), "fresh sidecar-client module has the expected exports");
+    // The first test started the retry cooldown; a fresh module instance has none.
+    const loaded: unknown = await import(`../dist/host-sessions.js?fresh=${Date.now()}`);
+    assert.ok(isHostModule(loaded), "fresh host-sessions module has the expected exports");
     const fresh = loaded;
     const warnings: unknown[][] = [];
     const warn = console.warn;
     console.warn = (...a: unknown[]) => void warnings.push(a);
-    const viaRs = await fresh.listSessionInfos(cwd);
-    const viaPi = await SessionManager.list(cwd);
-    const pick = (s: (typeof viaPi)[number]) => [
-      s.id,
-      s.cwd,
-      s.created.getTime(),
-      s.modified.getTime(),
-      s.messageCount,
-      s.firstMessage,
-    ];
-    assert.deepEqual(viaRs.map(pick), viaPi.map(pick));
-    const a = JSON.stringify(transcriptFromSession(await fresh.openTranscriptSource(file)));
-    const b = JSON.stringify(transcriptFromSession(SessionManager.open(file)));
-    assert.equal(a, b);
-    console.warn = warn;
-    assert.deepEqual(warnings, [], "the sidecar must serve these without falling back");
-    fresh.closeSidecar();
+    try {
+      const viaRs = await fresh.listSessionInfos(cwd);
+      const viaPi = await SessionManager.list(cwd);
+      const pick = (s: (typeof viaPi)[number]) => [
+        s.id,
+        s.cwd,
+        s.created.getTime(),
+        s.modified.getTime(),
+        s.messageCount,
+        s.firstMessage,
+      ];
+      assert.deepEqual(viaRs.map(pick), viaPi.map(pick));
+      const a = JSON.stringify(transcriptFromSession(await fresh.openTranscriptSource(file)));
+      const b = JSON.stringify(transcriptFromSession(SessionManager.open(file)));
+      assert.equal(a, b);
+    } finally {
+      console.warn = warn;
+      await fresh.stopHost();
+    }
+    assert.deepEqual(warnings, [], "the host must serve these without falling back");
   },
 );
 
-closeSidecar();
+await stopHost();
 await rm(agentDir, { recursive: true, force: true });

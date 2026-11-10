@@ -1,5 +1,5 @@
 //! Integration tests on synthetic session files in a temp dir. Real-file equivalence against pi's
-//! own reader lives in tools/verify-sidecar.mjs.
+//! own reader lives in tools/verify-host-sessions.mjs.
 use pegasus_core::index::{parse_iso_ms, scan_file, Index};
 use pegasus_core::rpc::Server;
 use pegasus_core::session;
@@ -135,8 +135,12 @@ fn tail_returns_only_complete_new_lines() {
     assert!(session::tail(&f, t2.offset).unwrap().reset);
 }
 
+/// Mirrors the host envelope: `{"result":..}` or `{"error":{"code":..}}`.
 fn call(s: &mut Server, v: serde_json::Value) -> serde_json::Value {
-    serde_json::from_slice(&s.handle(v.to_string().as_bytes())).unwrap()
+    match s.call(v["method"].as_str().unwrap(), &v["params"]) {
+        Ok(body) => serde_json::json!({ "result": serde_json::from_slice::<serde_json::Value>(&body).unwrap() }),
+        Err((code, message)) => serde_json::json!({ "error": { "code": code, "message": message } }),
+    }
 }
 
 #[test]
@@ -165,29 +169,8 @@ fn rpc_confines_paths_to_the_sessions_root() {
     assert_eq!(code(&r), "outside_root");
     let r = call(&mut s, serde_json::json!({"v":1,"id":4,"method":"session.context","params":{"path":path,"pinType":"p","extra":1}}));
     assert_eq!(code(&r), "bad_params");
-    let r = call(&mut s, serde_json::json!({"v":2,"id":5,"method":"hello"}));
-    assert_eq!(code(&r), "unsupported_protocol");
     let r = call(&mut s, serde_json::json!({"v":1,"id":6,"method":"rm -rf"}));
     assert_eq!(code(&r), "unknown_method");
-    // Garbage body is an error response, not a crash.
-    assert!(serde_json::from_slice::<serde_json::Value>(&s.handle(b"{nope")).unwrap().get("error").is_some());
-}
-
-#[test]
-fn serve_rejects_oversized_frames_and_round_trips() {
-    let root = tmp("serve");
-    let mut s = Server::new(&root, None).unwrap();
-    let body = br#"{"v":1,"id":9,"method":"hello"}"#;
-    let mut input = (body.len() as u32).to_be_bytes().to_vec();
-    input.extend_from_slice(body);
-    let mut out = vec![];
-    s.serve(&input[..], &mut out).unwrap();
-    let n = u32::from_be_bytes(out[..4].try_into().unwrap()) as usize;
-    let v: serde_json::Value = serde_json::from_slice(&out[4..4 + n]).unwrap();
-    assert_eq!(v["id"], 9);
-    assert_eq!(v["result"]["protocol"], 1);
-    let big = (2u32 << 20).to_be_bytes();
-    assert!(s.serve(&big[..], &mut vec![]).is_err());
 }
 
 #[test]
@@ -210,4 +193,25 @@ fn nothing_here_writes_the_session_file() {
         assert!(call(&mut s, req).get("result").is_some());
     }
     assert_eq!(snapshot(&f), before);
+}
+
+#[test]
+fn results_match_the_typed_protocol() {
+    use pegasus_core::protocol::{SessionContext, SessionList, SessionSlice, SessionTail};
+    let root = tmp("typed");
+    let dir = root.join("p");
+    fs::create_dir_all(&dir).unwrap();
+    let f = dir.join("a.jsonl");
+    write(&f, &[HEADER.into(), user("u1", "null", "1"), assistant("a1", "u1")]);
+    let mut s = Server::new(&root, None).unwrap();
+    let path = f.to_string_lossy().to_string();
+    let get = |s: &mut Server, m: &str, p: serde_json::Value| s.call(m, &p).unwrap();
+    let l: SessionList = serde_json::from_slice(&get(&mut s, "index.list", serde_json::json!({"dir": dir.to_string_lossy()}))).unwrap();
+    assert_eq!(l.sessions.len(), 1);
+    let c: SessionContext = serde_json::from_slice(&get(&mut s, "session.context", serde_json::json!({"path": path, "pinType": "p"}))).unwrap();
+    assert_eq!(c.total as usize, c.entries.len());
+    let sl: SessionSlice = serde_json::from_slice(&get(&mut s, "session.slice", serde_json::json!({"path": path, "pinType": "p", "start": 0, "count": 1}))).unwrap();
+    assert_eq!(sl.entries.len(), 1);
+    let t: SessionTail = serde_json::from_slice(&get(&mut s, "session.tail", serde_json::json!({"path": path, "from": 0}))).unwrap();
+    assert_eq!(t.lines.len(), 3);
 }

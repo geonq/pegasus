@@ -119,7 +119,7 @@ import {
   workspaceToRef,
   type RunOutcome,
 } from "./session-supervisor-utils.js";
-import { listSessionInfos, openTranscriptSource } from "./sidecar-client.js";
+import { listSessionInfos, openTranscriptSource } from "./host-sessions.js";
 import { forcePersistPiSession } from "./compat/pi-session-persistence.js";
 import { createTurnCaptureExtension } from "./turn-capture.js";
 import { createTranscriptIdentityExtension } from "./transcript-identity.js";
