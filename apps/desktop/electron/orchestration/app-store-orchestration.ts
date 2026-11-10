@@ -1100,8 +1100,10 @@ async function reportFinishedChild(
       : "(no reply; read_thread for its transcript)",
   ].join("\n");
 
+  // Steer, not follow-up: a lead busy in a long turn must react to finished children now,
+  // not after the turn ends (a queued report brought back the delay 5fd6302 fixed).
   await store.submitComposerToSession(parentRef, text, [], {
-    deliverAs: "followUp",
+    deliverAs: "steer",
     allowCommands: false,
   });
 }
