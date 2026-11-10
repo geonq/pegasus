@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { Socket } from "node:net";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -70,8 +71,11 @@ class SidecarClient {
     );
     child.on("error", (error) => this.fail(error));
     child.on("exit", (code, signal) => this.fail(new Error(`sidecar exited (${code ?? signal})`)));
-    // Never keep the app alive for the sidecar.
+    // Never keep the app alive for the sidecar: neither the process nor its open pipes.
     child.unref();
+    for (const pipe of [child.stdin, child.stdout, child.stderr]) {
+      if (pipe instanceof Socket) pipe.unref();
+    }
   }
 
   call<T>(method: string, params: object): Promise<T> {

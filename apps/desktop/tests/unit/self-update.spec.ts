@@ -46,8 +46,10 @@ test("writeHealthy leaves a fresh heartbeat for the helper", async () => {
   const dir = join(await tempDir(), "self-update");
   const before = Date.now();
   await writeHealthy(dir, "1.0.24");
-  const beat = JSON.parse(await readFile(join(dir, "healthy.json"), "utf8"));
-  expect(beat.version).toBe("1.0.24");
+  const beat: unknown = JSON.parse(await readFile(join(dir, "healthy.json"), "utf8"));
+  expect(beat).toMatchObject({ version: "1.0.24" });
+  if (typeof beat !== "object" || beat === null || !("at" in beat))
+    throw new Error("no heartbeat time");
   expect(beat.at).toBeGreaterThanOrEqual(before);
 });
 

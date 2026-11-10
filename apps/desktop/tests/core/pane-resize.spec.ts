@@ -13,6 +13,21 @@ import {
   waitForWorkspaceByPath,
 } from "../helpers/electron-app";
 
+/** The slice of a React fiber the commit counter reads. */
+interface Fiber {
+  readonly sibling: Fiber | null;
+  readonly child: Fiber | null;
+  readonly flags: number;
+  readonly type: unknown;
+}
+
+declare global {
+  // Probe state kept on the page global by the DevTools hook installed below.
+  var __commits: number | undefined;
+  var __renders: Record<string, number> | undefined;
+  var __REACT_DEVTOOLS_GLOBAL_HOOK__: unknown;
+}
+
 async function width(locator: Locator): Promise<number> {
   return Math.round((await locator.boundingBox())!.width);
 }
@@ -24,18 +39,18 @@ async function drag(window: Page, handle: Locator, dx: number, steps = 60): Prom
   await window.mouse.move(box.x + box.width / 2, y);
   await window.mouse.down();
   await window.evaluate(() => {
-    (window as any).__commits = 0;
-    (window as any).__renders = {};
+    globalThis.__commits = 0;
+    globalThis.__renders = {};
   });
   await window.mouse.move(box.x + box.width / 2 + dx, y, { steps });
   await window.mouse.up();
-  const rendered = await window.evaluate(() => (window as any).__renders as Record<string, number>);
+  const rendered = await window.evaluate(() => globalThis.__renders ?? {});
   const top = Object.entries(rendered)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8)
     .map(([name, count]) => `${name}x${count}`);
   console.log(`renders during drag: ${top.join(" ")}`);
-  return window.evaluate(() => (window as any).__commits as number);
+  return window.evaluate(() => globalThis.__commits ?? 0);
 }
 
 test("file trees and the side panel drag wider, persist, and do not re-render per pointer move", async ({}, testInfo) => {
@@ -63,20 +78,22 @@ test("file trees and the side panel drag wider, persist, and do not re-render pe
     const window = await harness.firstWindow();
     // Counting React commits needs the DevTools hook before React loads; reload after installing it.
     await window.addInitScript(() => {
-      (window as any).__commits = 0;
-      (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+      globalThis.__commits = 0;
+      globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
         supportsFiber: true,
         renderers: new Map(),
         inject: () => 1,
         onScheduleFiberRoot() {},
-        onCommitFiberRoot: (_id: number, root: any) => {
-          (window as any).__commits += 1;
+        onCommitFiberRoot: (_id: number, root: { current: Fiber }) => {
+          globalThis.__commits = (globalThis.__commits ?? 0) + 1;
           // Count which components did render work, to attribute commits during a drag.
-          const names = ((window as any).__renders ??= {}) as Record<string, number>;
-          const walk = (fiber: any) => {
+          const names = (globalThis.__renders ??= {});
+          const walk = (fiber: Fiber | null) => {
             for (let f = fiber; f; f = f.sibling) {
-              if (f.flags & 1 && typeof f.type === "function")
-                names[f.type.name || "anon"] = (names[f.type.name || "anon"] ?? 0) + 1;
+              if (f.flags & 1 && typeof f.type === "function") {
+                const name = f.type.name || "anon";
+                names[name] = (names[name] ?? 0) + 1;
+              }
               if (f.child) walk(f.child);
             }
           };

@@ -15,6 +15,9 @@ import type {
   WorkspaceId,
 } from "@pi-gui/catalogs";
 
+// These tests stub pi's session reader, so keep the Rust sidecar (and its open pipes) out of the run.
+process.env.PEGASUS_SIDECAR = "0";
+
 const timestamp = "2026-07-27T00:00:00.000Z";
 
 interface Deferred {

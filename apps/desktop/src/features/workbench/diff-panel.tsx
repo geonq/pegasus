@@ -716,7 +716,11 @@ export function DiffPanel({
                     className="button button--primary"
                     type="button"
                     disabled={sendingComments}
-                    onClick={() => void sendComments()}
+                    onClick={() => {
+                      sendComments().catch((error: unknown) =>
+                        setCommentError(errorMessage(error)),
+                      );
+                    }}
                   >
                     {sendingComments
                       ? "Sending…"

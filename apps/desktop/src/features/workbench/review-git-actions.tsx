@@ -140,24 +140,23 @@ export function ReviewGitActions({
     );
   };
 
+  const reportFailure = (failure: unknown) =>
+    setError(failure instanceof Error ? failure.message : String(failure));
+
   const onClick = () => {
-    if (step.kind === "stage") void run({ reviewId, action: "stage-all" }, "stage");
-    else if (step.kind === "push") void run({ reviewId, action: "push" }, "push");
+    if (step.kind === "stage") run({ reviewId, action: "stage-all" }, "stage").catch(reportFailure);
+    else if (step.kind === "push") run({ reviewId, action: "push" }, "push").catch(reportFailure);
     else if (step.kind === "commit" || step.kind === "pr") openDialog(step.kind);
     else if (step.kind === "view-pr" && state.pullRequest)
-      void api
-        .openExternal(state.pullRequest.url)
-        .catch((failure: unknown) =>
-          setError(failure instanceof Error ? failure.message : String(failure)),
-        );
+      api.openExternal(state.pullRequest.url).catch(reportFailure);
   };
 
   const submit = () => {
     if (!dialog || !dialog.title.trim()) return;
-    void run(
+    run(
       { reviewId, action: dialog.kind, title: dialog.title, body: dialog.body },
       dialog.kind,
-    );
+    ).catch(reportFailure);
   };
 
   return (

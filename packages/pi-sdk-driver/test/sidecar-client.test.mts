@@ -46,20 +46,29 @@ const lines = [
   },
 ];
 
-test.before(async () => {
-  await mkdir(sessionDir, { recursive: true });
-  await writeFile(file, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
-});
-test.after(async () => {
-  closeSidecar();
-  await rm(agentDir, { recursive: true, force: true });
-});
+await mkdir(sessionDir, { recursive: true });
+await writeFile(file, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
+
+type SidecarModule = typeof import("../dist/sidecar-client.js");
+
+function isSidecarModule(mod: unknown): mod is SidecarModule {
+  return (
+    typeof mod === "object" &&
+    mod !== null &&
+    "listSessionInfos" in mod &&
+    typeof mod.listSessionInfos === "function" &&
+    "openTranscriptSource" in mod &&
+    typeof mod.openTranscriptSource === "function" &&
+    "closeSidecar" in mod &&
+    typeof mod.closeSidecar === "function"
+  );
+}
 
 const dev =
   existsSync(join(import.meta.dirname, "../../../crates/target/release/pegasus-sidecar.exe")) ||
   existsSync(join(import.meta.dirname, "../../../crates/target/release/pegasus-sidecar"));
 
-test("a crashing sidecar binary falls back to pi's reader", async () => {
+await test("a crashing sidecar binary falls back to pi's reader", async () => {
   // node itself exits immediately on these arguments: stands in for a sidecar that dies at start-up.
   process.env.PEGASUS_SIDECAR_PATH = process.execPath;
   const infos = await listSessionInfos(cwd);
@@ -71,18 +80,20 @@ test("a crashing sidecar binary falls back to pi's reader", async () => {
   closeSidecar();
 });
 
-test("PEGASUS_SIDECAR=0 disables it", async () => {
+await test("PEGASUS_SIDECAR=0 disables it", async () => {
   process.env.PEGASUS_SIDECAR = "0";
   assert.equal((await listSessionInfos(cwd)).length, 1);
   delete process.env.PEGASUS_SIDECAR;
 });
 
-test(
+await test(
   "sidecar results equal pi's (list and transcript)",
   { skip: !dev && "sidecar binary not built" },
   async () => {
     // The previous test started the respawn cooldown; wait it out by loading a fresh module instance.
-    const fresh = await import(`../dist/sidecar-client.js?fresh=${Date.now()}`);
+    const loaded: unknown = await import(`../dist/sidecar-client.js?fresh=${Date.now()}`);
+    assert.ok(isSidecarModule(loaded), "fresh sidecar-client module has the expected exports");
+    const fresh = loaded;
     const warnings: unknown[][] = [];
     const warn = console.warn;
     console.warn = (...a: unknown[]) => void warnings.push(a);
@@ -105,3 +116,6 @@ test(
     fresh.closeSidecar();
   },
 );
+
+closeSidecar();
+await rm(agentDir, { recursive: true, force: true });

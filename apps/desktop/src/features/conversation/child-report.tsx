@@ -75,7 +75,11 @@ export function ChildReportCard({ report }: { readonly report: ChildReport }) {
         <button
           className="child-report__open"
           type="button"
-          onClick={() => void openChildThread(report.childThreadId)}
+          onClick={() => {
+            openChildThread(report.childThreadId).catch((error: unknown) =>
+              console.error("[renderer] open child thread failed", error),
+            );
+          }}
         >
           Open thread
         </button>

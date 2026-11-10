@@ -51,14 +51,10 @@ export function SettingsProvidersSection({
   // Re-read after every runtime change: signing in or out updates the snapshot.
   useEffect(() => {
     let current = true;
-    void (async () => {
-      try {
-        const slots = await window.piApp?.getClaudeSlots?.();
-        if (current) setClaudeSlots(slots);
-      } catch (error) {
-        console.error("[renderer] getClaudeSlots failed", error);
-      }
-    })();
+    (async () => {
+      const slots = await window.piApp?.getClaudeSlots?.();
+      if (current) setClaudeSlots(slots);
+    })().catch((error: unknown) => console.error("[renderer] getClaudeSlots failed", error));
     return () => {
       current = false;
     };
