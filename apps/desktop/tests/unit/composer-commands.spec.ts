@@ -112,5 +112,9 @@ test("shows only the newest enabled model of each family", () => {
       .map((option) => option.modelId)
       .sort(),
   ).toEqual(["gpt-6-luna", "gpt-6.1-sol", "gpt-6.1-terra"]);
-  expect(isModelSelectable(value, "openai", "gpt-6-sol")).toBe(false);
+  // Hidden from the picker, but a chat saved on it keeps working.
+  expect(isModelSelectable(value, "openai", "gpt-6-sol")).toBe(true);
+  // The newer version the picker shows instead is usable too, though not enabled itself.
+  expect(isModelSelectable(value, "openai", "gpt-6.1-sol")).toBe(true);
+  expect(isModelSelectable(value, "openai", "gpt-5.6-luna")).toBe(false);
 });

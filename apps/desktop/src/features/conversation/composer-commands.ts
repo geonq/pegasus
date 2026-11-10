@@ -308,8 +308,22 @@ export function isModelSelectable(
   providerId: string | undefined,
   modelId: string | undefined,
 ): boolean {
-  return buildModelOptions(runtime).some(
-    (option) => option.providerId === providerId && option.modelId === modelId,
+  // Usable = enabled and available. The picker lists only the newest of each family, but a chat or
+  // default saved on an older version must keep working instead of showing "unavailable".
+  if (!runtime) return false;
+  const patterns = runtime.settings.enabledModelPatterns;
+  return (
+    runtime.models.some(
+      (model) =>
+        model.available &&
+        model.providerId === providerId &&
+        model.modelId === modelId &&
+        (patterns.length === 0 || patterns.includes(`${model.providerId}/${model.modelId}`)),
+    ) ||
+    // ...and the newer version the picker shows in its place is usable even if not enabled itself.
+    buildModelOptions(runtime).some(
+      (option) => option.providerId === providerId && option.modelId === modelId,
+    )
   );
 }
 

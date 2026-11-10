@@ -1,5 +1,5 @@
 import type { RuntimeSnapshot } from "@pi-gui/session-driver/runtime-types";
-import { buildModelOptions } from "../conversation/composer-commands";
+import { buildModelOptions, isModelSelectable } from "../conversation/composer-commands";
 
 export type ModelOnboardingSettingsSection = "models" | "providers";
 
@@ -29,8 +29,11 @@ export function deriveModelOnboardingState(
   currentSelection: ModelSelectionInput,
 ): ModelOnboardingState {
   const selectableModels = buildModelOptions(runtime);
+  // A saved selection is usable when enabled and available, even if the picker now lists a newer version.
   const selectableSet = new Set(
-    selectableModels.map((model) => `${model.providerId}:${model.modelId}`),
+    (runtime?.models ?? [])
+      .filter((model) => isModelSelectable(runtime, model.providerId, model.modelId))
+      .map((model) => `${model.providerId}:${model.modelId}`),
   );
   const hasSelectableModels = selectableModels.length > 0;
   const connectedProviderCount =

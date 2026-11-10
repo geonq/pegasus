@@ -78,3 +78,29 @@ test("unavailable default warnings use readable provider and model metadata", ()
   expect(missing.notice?.description).toContain("Claude · WORK / Claude Haiku 5.5");
   expect(missing.notice?.description).not.toContain("claude-code-account-1:claude-haiku-5-5");
 });
+
+test("a chat saved on an older version of a model family stays usable", () => {
+  const model = (modelId: string) => ({
+    providerId: "openai",
+    providerName: "OpenAI",
+    modelId,
+    label: modelId,
+    available: true,
+    authType: "oauth",
+    reasoning: true,
+    thinkingLevels: [],
+    supportsImages: true,
+  });
+  const runtime = {
+    workspace: { workspaceId: "workspace", path: "C:/project" },
+    providers: [{ id: "openai", name: "OpenAI", hasAuth: true }],
+    models: [model("gpt-6-sol"), model("gpt-6.1-sol")],
+    skills: [],
+    extensions: [],
+    settings: { enableSkillCommands: false, enabledModelPatterns: ["openai/gpt-6-sol"] },
+  } as unknown as RuntimeSnapshot;
+  const state = deriveModelOnboardingState(runtime, { provider: "openai", modelId: "gpt-6-sol" });
+  expect(state.notice?.title).not.toBe("Selected model unavailable");
+  const newer = deriveModelOnboardingState(runtime, { provider: "openai", modelId: "gpt-6.1-sol" });
+  expect(newer.notice?.title).not.toBe("Selected model unavailable");
+});
