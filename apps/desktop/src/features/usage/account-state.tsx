@@ -1,3 +1,4 @@
+import { isRunningLow, orderByTightestLimit } from "./limit-order";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type {
   AccountLimits,
@@ -286,7 +287,7 @@ export function AccountLimitsCard({
         </p>
       ) : null}
       {hasLimits
-        ? limits.map((account) => (
+        ? orderByTightestLimit(limits).map((account) => (
             <div className="usage-limits__account" key={account.id}>
               <div className="usage-limits__name">
                 <ProviderIcon providerId={account.id} />
@@ -297,6 +298,11 @@ export function AccountLimitsCard({
                 >
                   {account.name}
                 </span>
+                {isRunningLow(account) ? (
+                  <span className="usage-limits__low" data-testid="usage-limit-low">
+                    Low
+                  </span>
+                ) : null}
               </div>
               {account.windows.length === 0 ? (
                 <p className="usage-limits__empty">{account.note ?? "No numbers yet"}</p>
