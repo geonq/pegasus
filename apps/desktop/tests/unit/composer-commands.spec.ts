@@ -118,3 +118,17 @@ test("shows only the newest enabled model of each family", () => {
   expect(isModelSelectable(value, "openai", "gpt-6.1-sol")).toBe(true);
   expect(isModelSelectable(value, "openai", "gpt-5.6-luna")).toBe(false);
 });
+
+test("model choices are reused per runtime and follow a changed enabled list", () => {
+  const first = runtime();
+  expect(buildModelOptions(first)).toBe(buildModelOptions(first));
+  // app-global scope hands out a new runtime object that still shares models, providers and patterns
+  expect(buildModelOptions({ ...first })).toBe(buildModelOptions(first));
+  const narrowed = {
+    ...first,
+    settings: { ...first.settings, enabledModelPatterns: ["openai/other"] },
+  };
+  expect(buildModelOptions(narrowed)).toEqual([]);
+  expect(isModelSelectable(narrowed, "openai", "gpt-6")).toBe(false);
+  expect(isModelSelectable(first, "openai", "gpt-6")).toBe(true);
+});

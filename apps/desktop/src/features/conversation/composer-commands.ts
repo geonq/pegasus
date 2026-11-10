@@ -308,32 +308,65 @@ export function isModelSelectable(
   providerId: string | undefined,
   modelId: string | undefined,
 ): boolean {
-  // Usable = enabled and available. The picker lists only the newest of each family, but a chat or
-  // default saved on an older version must keep working instead of showing "unavailable".
-  if (!runtime) return false;
-  const patterns = runtime.settings.enabledModelPatterns;
-  return (
-    runtime.models.some(
-      (model) =>
-        model.available &&
-        model.providerId === providerId &&
-        model.modelId === modelId &&
-        (patterns.length === 0 || patterns.includes(`${model.providerId}/${model.modelId}`)),
-    ) ||
-    // ...and the newer version the picker shows in its place is usable even if not enabled itself.
-    buildModelOptions(runtime).some(
-      (option) => option.providerId === providerId && option.modelId === modelId,
-    )
-  );
+  return runtime ? modelChoices(runtime).selectable.has(modelKey(providerId, modelId)) : false;
 }
 
 export function buildModelOptions(
   runtime: RuntimeSnapshot | undefined,
 ): readonly ComposerModelOption[] {
-  if (!runtime) {
-    return [];
-  }
+  return runtime ? modelChoices(runtime).options : [];
+}
 
+const modelKey = (providerId: string | undefined, modelId: string | undefined) =>
+  `${providerId}\u0000${modelId}`;
+
+interface ModelChoices {
+  readonly providers: RuntimeSnapshot["providers"];
+  readonly patterns: readonly string[];
+  readonly options: readonly ComposerModelOption[];
+  readonly selectable: ReadonlySet<string>;
+}
+
+/**
+ * The picker list and the set of usable models depend only on models, providers and the enabled
+ * patterns, yet every App render and every streamed delta asks for them several times. Cache the
+ * last result per models array; app-global scope rebuilds the runtime object but not these three.
+ */
+const modelChoicesCache = new WeakMap<readonly unknown[], ModelChoices>();
+
+function modelChoices(runtime: RuntimeSnapshot): ModelChoices {
+  const patterns = runtime.settings.enabledModelPatterns;
+  const cached = modelChoicesCache.get(runtime.models);
+  if (
+    cached &&
+    cached.providers === runtime.providers &&
+    (cached.patterns === patterns ||
+      (cached.patterns.length === patterns.length &&
+        cached.patterns.every((pattern, index) => pattern === patterns[index])))
+  ) {
+    return cached;
+  }
+  const options = computeModelOptions(runtime);
+  // Usable = enabled and available. The picker lists only the newest of each family, but a chat or
+  // default saved on an older version must keep working instead of showing "unavailable", and the
+  // newer version the picker shows in its place is usable even if not enabled itself.
+  const enabled = new Set(patterns);
+  const selectable = new Set<string>();
+  for (const model of runtime.models) {
+    if (
+      model.available &&
+      (patterns.length === 0 || enabled.has(`${model.providerId}/${model.modelId}`))
+    ) {
+      selectable.add(modelKey(model.providerId, model.modelId));
+    }
+  }
+  for (const option of options) selectable.add(modelKey(option.providerId, option.modelId));
+  const choices = { providers: runtime.providers, patterns, options, selectable };
+  modelChoicesCache.set(runtime.models, choices);
+  return choices;
+}
+
+function computeModelOptions(runtime: RuntimeSnapshot): readonly ComposerModelOption[] {
   const enabledPatterns = runtime.settings.enabledModelPatterns;
   const allAvailable = enabledPatterns.length === 0;
   const enabledSet = allAvailable ? undefined : new Set(enabledPatterns);
