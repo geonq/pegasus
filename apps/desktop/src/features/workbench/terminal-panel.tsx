@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { FitAddon } from "@xterm/addon-fit";
+import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import type { WorkspaceRecord } from "../../../contracts/desktop-state";
-import { CloseIcon, PlusIcon, RefreshIcon } from "../../ui/icons";
+import { ChevronDownIcon, CloseIcon, PlusIcon, RefreshIcon } from "../../ui/icons";
 import { getSidePanelTabCommand } from "../../../contracts/ipc";
 import type {
   TerminalPanelSnapshot,
@@ -17,6 +18,24 @@ import type {
 import { appendTerminalReplay } from "../../../contracts/terminal-model";
 import { getActiveTheme, useActiveTheme } from "../../ui/active-theme";
 import { terminalThemeFor } from "./terminal-theme";
+
+/** Ten thousand lines holds a long build log; Windows Terminal and VS Code defaults are the same order. */
+const TERMINAL_SCROLLBACK = 10_000;
+
+const SEARCH_DECORATIONS = {
+  dark: {
+    matchBackground: "#5a4a00",
+    matchOverviewRuler: "#c19c00",
+    activeMatchBackground: "#c19c00",
+    activeMatchColorOverviewRuler: "#f9f1a5",
+  },
+  light: {
+    matchBackground: "#f6e58d",
+    matchOverviewRuler: "#c18401",
+    activeMatchBackground: "#ffb300",
+    activeMatchColorOverviewRuler: "#c18401",
+  },
+} as const;
 
 const TERMINAL_FONT_FAMILY =
   "'Cascadia Mono', 'Cascadia Code', Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', 'Segoe UI Symbol', 'Segoe UI Emoji', 'Apple Symbols', monospace";
@@ -38,6 +57,10 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
   const lastSizeRef = useRef<TerminalSize>({ cols: 80, rows: 24 });
   const [panel, setPanel] = useState<TerminalPanelSnapshot | null>(null);
   const [error, setError] = useState<string>("");
+  const [searchAddon, setSearchAddon] = useState<SearchAddon | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  // Bumped on every Ctrl/Cmd+F so an already open bar takes focus again.
+  const [searchFocusTick, setSearchFocusTick] = useState(0);
   const activeTheme = useActiveTheme();
 
   useEffect(() => {
@@ -222,7 +245,6 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
     const terminal = new Terminal({
       allowProposedApi: true,
       allowTransparency: true,
-      convertEol: true,
       cursorBlink: true,
       // Cascadia first (ships with Windows Terminal); the symbol/emoji tail covers glyphs
       // (⚠ ◐ ✻) that the mono faces lack, instead of rendering tofu boxes.
@@ -232,7 +254,7 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
       customGlyphs: true,
       drawBoldTextInBrightColors: true,
       minimumContrastRatio: 1,
-      scrollback: 2_000,
+      scrollback: TERMINAL_SCROLLBACK,
       theme: terminalThemeFor(getActiveTheme()),
     });
     const fitAddon = new FitAddon();
@@ -243,7 +265,9 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
       });
     });
 
+    const nextSearchAddon = new SearchAddon();
     terminal.loadAddon(fitAddon);
+    terminal.loadAddon(nextSearchAddon);
     terminal.loadAddon(clipboardAddon);
     terminal.loadAddon(webLinksAddon);
     terminal.attachCustomKeyEventHandler((event) => {
@@ -265,6 +289,14 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
       }
       const commandModifier = api.platform === "darwin" ? event.metaKey : event.ctrlKey;
       const key = event.key.toLowerCase();
+      if (commandModifier && !event.shiftKey && !event.altKey && key === "f") {
+        // Find in this terminal, not in the chat: stop the app-level Ctrl/Cmd+F listener too.
+        event.preventDefault();
+        event.stopPropagation();
+        setSearchOpen(true);
+        setSearchFocusTick((tick) => tick + 1);
+        return false;
+      }
       if (commandModifier && !event.shiftKey && key === "t") {
         void createTerminal().catch((error: unknown) => {
           setError(error instanceof Error ? error.message : String(error));
@@ -330,6 +362,7 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
     terminal.focus();
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
+    setSearchAddon(nextSearchAddon);
     window.requestAnimationFrame(fitAndResize);
 
     const resizeObserver = new ResizeObserver(() => fitAndResize());
@@ -337,6 +370,8 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
 
     return () => {
       resizeObserver.disconnect();
+      setSearchAddon(null);
+      setSearchOpen(false);
       fitAddonRef.current = null;
       terminalRef.current = null;
       activeTerminalIdRef.current = "";
@@ -423,9 +458,136 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
       {error ? (
         <div className="terminal-panel__error">{error}</div>
       ) : (
-        <div className="terminal-panel__viewport" ref={containerRef} />
+        <div className="terminal-panel__body">
+          {searchOpen && searchAddon ? (
+            <TerminalSearchBar
+              search={searchAddon}
+              focusTick={searchFocusTick}
+              dark={activeTheme.variant !== "light"}
+              onClose={() => {
+                setSearchOpen(false);
+                terminalRef.current?.focus();
+              }}
+            />
+          ) : null}
+          <div className="terminal-panel__viewport" ref={containerRef} />
+        </div>
       )}
     </section>
+  );
+}
+
+interface TerminalSearchBarProps {
+  readonly search: SearchAddon;
+  readonly focusTick: number;
+  readonly dark: boolean;
+  readonly onClose: () => void;
+}
+
+function TerminalSearchBar({ search, focusTick, dark, onClose }: TerminalSearchBarProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<{ index: number; count: number } | null>(null);
+  const decorations = dark ? SEARCH_DECORATIONS.dark : SEARCH_DECORATIONS.light;
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [focusTick]);
+
+  useEffect(() => {
+    const subscription = search.onDidChangeResults(({ resultIndex, resultCount }) =>
+      setResults({ index: resultIndex, count: resultCount }),
+    );
+    return () => {
+      subscription.dispose();
+      search.clearDecorations();
+    };
+  }, [search]);
+
+  const find = (direction: "next" | "previous", term: string, incremental = false) => {
+    if (!term) {
+      search.clearDecorations();
+      setResults(null);
+      return;
+    }
+    const options: ISearchOptions = { decorations, incremental };
+    if (direction === "next") search.findNext(term, options);
+    else search.findPrevious(term, options);
+  };
+
+  const countLabel = !query
+    ? ""
+    : !results || results.count === 0
+      ? "No results"
+      : results.index < 0
+        ? `${results.count}+`
+        : `${results.index + 1} of ${results.count}`;
+
+  return (
+    <div className="terminal-search" role="search">
+      <input
+        ref={inputRef}
+        className="terminal-search__input"
+        type="text"
+        name="terminal-find"
+        autoComplete="off"
+        spellCheck={false}
+        aria-label="Find in terminal"
+        placeholder="Find…"
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          find("next", event.target.value, true);
+        }}
+        onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing) return;
+          if (event.key === "Enter") {
+            event.preventDefault();
+            find(event.shiftKey ? "previous" : "next", query);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+          } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+            // The app's own Ctrl/Cmd+F opens chat search; here it just reselects the term.
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.select();
+          }
+        }}
+      />
+      <span className="terminal-search__count" aria-live="polite">
+        {countLabel}
+      </span>
+      <button
+        type="button"
+        className="icon-button terminal-search__button terminal-search__button--previous"
+        title="Previous match (Shift+Enter)"
+        aria-label="Previous match"
+        onClick={() => find("previous", query)}
+      >
+        <ChevronDownIcon />
+      </button>
+      <button
+        type="button"
+        className="icon-button terminal-search__button"
+        title="Next match (Enter)"
+        aria-label="Next match"
+        onClick={() => find("next", query)}
+      >
+        <ChevronDownIcon />
+      </button>
+      <button
+        type="button"
+        className="icon-button terminal-search__button"
+        title="Close (Esc)"
+        aria-label="Close find"
+        onClick={onClose}
+      >
+        <CloseIcon />
+      </button>
+    </div>
   );
 }
 

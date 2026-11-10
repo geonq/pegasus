@@ -90,6 +90,7 @@ import { buildModelOptions } from "../features/conversation/composer-commands";
 import { getDesktopShortcutLabel } from "../../contracts/ipc";
 
 import { CommandPaletteSurface } from "../features/command-palette/command-palette-surface";
+import { sessionsNeedingOwner } from "../../contracts/session-attention";
 
 import { deriveModelOnboardingState } from "../features/settings/model-onboarding";
 
@@ -1429,6 +1430,8 @@ export default function App() {
     handleSelectSession(target);
   };
 
+  const needsYouKeys = new Set(sessionsNeedingOwner(snapshot).map((entry) => entry.key));
+
   const commandPalette =
     commands.paletteMode && threadSidebarModel ? (
       <CommandPaletteSurface
@@ -1438,6 +1441,7 @@ export default function App() {
         onModeChange={commands.setPaletteMode}
         onClose={() => commands.setPaletteMode(null)}
         threads={threadSidebarModel.recencyOrder}
+        needsYouKeys={needsYouKeys}
         workspaces={threadSidebarModel.folders}
         currentThread={selectedThreadTarget}
         actions={commands.paletteActions}

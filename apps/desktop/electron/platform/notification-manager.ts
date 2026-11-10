@@ -1,4 +1,4 @@
-import { Notification, type BrowserWindow } from "electron";
+import { app, nativeImage, Notification, type BrowserWindow } from "electron";
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { DesktopAppStore } from "../application/app-store";
@@ -8,6 +8,8 @@ import { sessionKey } from "@pi-gui/session-driver";
 import type { SessionDriverEvent, SessionRef } from "@pi-gui/session-driver";
 import { getSelectedSession } from "../../contracts/desktop-state";
 import { isSessionActivelyViewed } from "../conversation/session-visibility";
+import { sessionsNeedingOwner } from "../../contracts/session-attention";
+import { renderCountBadge } from "./badge-icon";
 
 const MAX_COMPLETED_RUN_KEYS = 500;
 // An extension that throws on a frequent event repeats the same error notice; notify once per window.
@@ -29,6 +31,8 @@ export class NotificationManager {
   private lastActivelyViewedSession: SessionRef | undefined;
   private backgroundCandidateSessions: SessionRef[] = [];
   private permissionRequestPending = false;
+  private badgeCount = 0;
+  private badgeWindow: BrowserWindow | null = null;
 
   constructor(
     private readonly store: NotificationStore,
@@ -40,6 +44,7 @@ export class NotificationManager {
   start(): () => void {
     const stopState = this.store.subscribe((state) => {
       this.latestState = state;
+      this.updateAttentionBadge();
       const selectedSession = getSelectedSession(state);
       const window = this.getWindow();
       if (
@@ -64,6 +69,7 @@ export class NotificationManager {
     });
     const stopEvents = this.store.subscribeToSessionEvents((event, state) => {
       this.latestState = state;
+      this.updateAttentionBadge();
       void this.reevaluateOnboardingState().catch((error: unknown) => {
         console.error("[notification-manager] reevaluateOnboardingState failed", error);
       });
@@ -100,6 +106,7 @@ export class NotificationManager {
     }
 
     const reevaluateVisibility = () => {
+      this.updateAttentionBadge();
       void this.reevaluateOnboardingState(false).catch((error: unknown) => {
         console.error("[notification-manager] reevaluateOnboardingState failed", error);
       });
@@ -125,6 +132,53 @@ export class NotificationManager {
       this.trackedWindow?.off("closed", clearTrackedWindow);
     };
     reevaluateVisibility();
+  }
+
+  /**
+   * Taskbar/Dock badge: chats that need the owner, minus the one being looked at right now.
+   * Reads the same attention state as the sidebar and palette; seeing a chat clears it.
+   */
+  private updateAttentionBadge(): void {
+    const state = this.latestState;
+    if (!state) {
+      return;
+    }
+    const window = this.getWindow();
+    const waiting = sessionsNeedingOwner(state).filter(
+      (ref) => !isSessionActivelyViewed(state, ref, window),
+    ).length;
+    const previous = this.badgeCount;
+    if (waiting === previous && window === this.badgeWindow) {
+      return;
+    }
+    this.badgeCount = waiting;
+    this.badgeWindow = window;
+    if (process.platform === "win32") {
+      if (window && !window.isDestroyed()) {
+        if (waiting === 0) {
+          window.setOverlayIcon(null, "");
+        } else {
+          const { bitmap, size } = renderCountBadge(waiting);
+          window.setOverlayIcon(
+            nativeImage.createFromBitmap(bitmap, { width: size, height: size }),
+            `${waiting} chat${waiting === 1 ? "" : "s"} need you`,
+          );
+        }
+      }
+    } else {
+      app.setBadgeCount(waiting);
+    }
+    // Flash only when something new needs the owner while they are elsewhere.
+    if (
+      waiting > previous &&
+      window &&
+      !window.isDestroyed() &&
+      !window.isFocused() &&
+      !process.env.PI_APP_TEST_MODE &&
+      this.notificationPreferencesEnabled(state)
+    ) {
+      window.flashFrame(true);
+    }
   }
 
   private async handleEvent(event: SessionDriverEvent): Promise<void> {

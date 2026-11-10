@@ -253,3 +253,58 @@ function countOccurrences(value: string, needle: string): number {
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+test("Ctrl/Cmd+F searches the terminal output instead of the chat", async () => {
+  test.setTimeout(90_000);
+
+  const userDataDir = await makeUserDataDir();
+  const workspacePath = await makeWorkspace("terminal-search");
+  const harness = await launchDesktop(userDataDir, {
+    initialWorkspaces: [workspacePath],
+    testMode: "background",
+  });
+
+  try {
+    const window = await harness.firstWindow();
+    await waitForWorkspaceByPath(window, workspacePath);
+    await createNamedThread(window, "Terminal search thread");
+    await selectSidePanel(window, "Terminal");
+    const terminal = window.getByTestId("integrated-terminal");
+    await terminal.locator(".xterm").click();
+
+    // Lines arrive already CRLF-terminated from the PTY, so they start at column 0 without
+    // convertEol: no staircase indent on the second line.
+    await window.keyboard.type("echo needle-one");
+    await window.keyboard.press("Enter");
+    await window.keyboard.type("echo needle-two");
+    await window.keyboard.press("Enter");
+    const rows = terminal.locator(".xterm-rows > div");
+    await expect(rows.filter({ hasText: /^needle-one\s*$/ })).toHaveCount(1, { timeout: 15_000 });
+    await expect(rows.filter({ hasText: /^needle-two\s*$/ })).toHaveCount(1);
+
+    await window.keyboard.press(desktopShortcut("F"));
+    const find = terminal.getByRole("textbox", { name: "Find in terminal" });
+    await expect(find).toBeFocused();
+    // Chat search stays closed: this chord belongs to the terminal while it has focus.
+    await expect(window.getByRole("search")).toHaveCount(1);
+
+    await window.keyboard.type("needle");
+    // Each line shows twice: the typed command and its output.
+    await expect(terminal.locator(".terminal-search__count")).toHaveText(/\d+ of 4/);
+    await window.keyboard.press("Enter");
+    await window.keyboard.press("Shift+Enter");
+    await window.screenshot({
+      path: process.env.PI_SHOT_DIR
+        ? join(process.env.PI_SHOT_DIR, "terminal-search-open.png")
+        : test.info().outputPath("terminal-search-open.png"),
+    });
+    await window.keyboard.type("-nothing-here");
+    await expect(terminal.locator(".terminal-search__count")).toHaveText("No results");
+
+    await window.keyboard.press("Escape");
+    await expect(find).toHaveCount(0);
+    await expect(terminal.locator(".xterm-helper-textarea")).toBeFocused();
+  } finally {
+    await harness.close();
+  }
+});

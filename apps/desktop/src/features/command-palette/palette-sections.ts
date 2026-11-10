@@ -1,8 +1,13 @@
 import type { PaletteFilter, PaletteItem, PaletteSection } from "./command-palette";
-import { rankByFuzzy, type RankedMatch } from "./fuzzy-match";
+import { fuzzyMatch, normalizeQuery, rankByFuzzy, type RankedMatch } from "./fuzzy-match";
 
 /** An item before matching; the palette highlights its title. */
-export type PaletteCandidate = Omit<PaletteItem, "titleMatches" | "detailMatches">;
+export type PaletteCandidate = Omit<PaletteItem, "titleMatches" | "detailMatches"> & {
+  /** A chat that waits for the owner (dialog, approval, unseen failure). Ranked first. */
+  readonly needsYou?: boolean;
+  /** Folder / worktree label that also matches. Must be the start of `detail`, so highlights line up. */
+  readonly context?: string;
+};
 
 export type CommandFilter = "all" | "chats" | "workspaces" | "actions";
 
@@ -14,6 +19,10 @@ export const COMMAND_FILTERS: readonly PaletteFilter<CommandFilter>[] = [
 ];
 
 const RECENT_CHAT_COUNT = 5;
+/** About one extra word-start match: a chat that needs you beats a near-equal title, not a better one. */
+const NEEDS_YOU_BOOST = 24;
+/** A folder match ranks below any title match of the same quality. */
+const CONTEXT_PENALTY = 20;
 const ALL_FILTER_LIMITS = { chats: 8, workspaces: 5, actions: 8 } as const;
 const SINGLE_FILTER_LIMIT = 100;
 export const FILE_RESULT_LIMIT = 60;
@@ -36,6 +45,36 @@ function rankedSection(
   };
 }
 
+/** Chats by title, then by folder; chats that need the owner float up. */
+function rankedChats(
+  candidates: readonly PaletteCandidate[],
+  query: string,
+  limit: number,
+): { readonly section: PaletteSection; readonly topScore: number } {
+  const normalized = normalizeQuery(query);
+  const ranked: { item: PaletteItem; score: number; raw: number }[] = [];
+  for (const candidate of candidates) {
+    const byTitle = fuzzyMatch(normalized, candidate.title);
+    const byContext =
+      !byTitle && candidate.context ? fuzzyMatch(normalized, candidate.context) : null;
+    const match = byTitle ?? byContext;
+    if (!match) continue;
+    const raw = match.score - (byTitle ? 0 : CONTEXT_PENALTY);
+    ranked.push({
+      item: byTitle
+        ? { ...candidate, titleMatches: match.positions }
+        : { ...candidate, detailMatches: match.positions },
+      score: raw + (candidate.needsYou ? NEEDS_YOU_BOOST : 0),
+      raw,
+    });
+  }
+  ranked.sort((left, right) => right.score - left.score);
+  return {
+    section: { id: "chats", label: "Chats", items: ranked.slice(0, limit).map((r) => r.item) },
+    topScore: Math.max(Number.NEGATIVE_INFINITY, ...ranked.map((r) => r.raw)),
+  };
+}
+
 /**
  * Cmd-K results. With no query, All shows recent chats then every action; a
  * single filter lists its kind. A query ranks each kind by title, and All puts
@@ -51,16 +90,33 @@ export function buildCommandSections(input: {
 }): readonly PaletteSection[] {
   const { query, filter, chats, workspaces, actions } = input;
   if (query.trim() === "") {
+    const waiting = chats.filter((chat) => chat.needsYou);
     switch (filter) {
       case "chats":
-        return [{ id: "chats", label: "Chats", items: chats.slice(0, SINGLE_FILTER_LIMIT) }];
+        return [
+          {
+            id: "chats",
+            label: "Chats",
+            items: [...waiting, ...chats.filter((chat) => !chat.needsYou)].slice(
+              0,
+              SINGLE_FILTER_LIMIT,
+            ),
+          },
+        ];
       case "workspaces":
         return [{ id: "workspaces", label: "Workspaces", items: workspaces }];
       case "actions":
         return [{ id: "actions", label: "Actions", items: actions }];
       case "all":
         return [
-          { id: "recents", label: "Recents", items: chats.slice(0, RECENT_CHAT_COUNT) },
+          ...(waiting.length > 0
+            ? [{ id: "needs-you", label: "Needs you", items: waiting }]
+            : []),
+          {
+            id: "recents",
+            label: "Recents",
+            items: chats.filter((chat) => !chat.needsYou).slice(0, RECENT_CHAT_COUNT),
+          },
           { id: "actions", label: "Actions", items: actions },
         ];
     }
@@ -74,15 +130,12 @@ export function buildCommandSections(input: {
   ] as const;
   return kinds
     .filter((kind) => !single || kind.id === filter)
-    .map((kind) =>
-      rankedSection(
-        kind.id,
-        kind.label,
-        kind.candidates,
-        query,
-        single ? SINGLE_FILTER_LIMIT : ALL_FILTER_LIMITS[kind.id],
-      ),
-    )
+    .map((kind) => {
+      const limit = single ? SINGLE_FILTER_LIMIT : ALL_FILTER_LIMITS[kind.id];
+      return kind.id === "chats"
+        ? rankedChats(kind.candidates, query, limit)
+        : rankedSection(kind.id, kind.label, kind.candidates, query, limit);
+    })
     .filter((ranked) => ranked.section.items.length > 0)
     .sort((left, right) => right.topScore - left.topScore)
     .map((ranked) => ranked.section);

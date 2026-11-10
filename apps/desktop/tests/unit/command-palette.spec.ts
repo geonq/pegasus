@@ -137,3 +137,68 @@ test("file palette lists open tabs until a query, then splits name and directory
   expect(item?.detailMatches).toEqual([0, 1, 2, 4, 5, 6]);
   expect(item?.titleMatches).toEqual([]);
 });
+
+function waiting(id: string, title: string, context?: string): PaletteCandidate {
+  return { ...candidate(id, title), needsYou: true, context };
+}
+
+test("chats that need you come first with no query, in their own section", () => {
+  const chats = [
+    candidate("chat:a", "Recent"),
+    waiting("chat:b", "Waiting on approval"),
+    candidate("chat:c", "Older"),
+  ];
+  const actions = [candidate("action:new", "New thread")];
+  expect(
+    titles(buildCommandSections({ query: "", filter: "all", chats, workspaces: [], actions })),
+  ).toEqual([
+    ["Needs you", ["Waiting on approval"]],
+    ["Recents", ["Recent", "Older"]],
+    ["Actions", ["New thread"]],
+  ]);
+  expect(
+    titles(buildCommandSections({ query: "", filter: "chats", chats, workspaces: [], actions })),
+  ).toEqual([["Chats", ["Waiting on approval", "Recent", "Older"]]]);
+});
+
+test("a needs-you chat beats an equal title match but not a much better one", () => {
+  const chats = [
+    candidate("chat:a", "deploy site"),
+    waiting("chat:b", "deploy site"),
+    waiting("chat:c", "debug every page load of your yard"),
+  ];
+  const [section] = buildCommandSections({
+    query: "deploy",
+    filter: "chats",
+    chats,
+    workspaces: [],
+    actions: [],
+  });
+  expect(section?.items.map((item) => item.id)).toEqual(["chat:b", "chat:a", "chat:c"]);
+});
+
+test("chats also match their folder, below a title match, and highlight the folder", () => {
+  const chats = [
+    { ...candidate("chat:a", "Fix login"), context: "pi-gui", detail: "pi-gui · 2h" },
+    { ...candidate("chat:b", "pi notes"), context: "docs", detail: "docs · 1d" },
+  ];
+  const [section] = buildCommandSections({
+    query: "pigui",
+    filter: "chats",
+    chats,
+    workspaces: [],
+    actions: [],
+  });
+  expect(section?.items.map((item) => item.id)).toEqual(["chat:a"]);
+  expect(section?.items[0]?.detailMatches).toEqual([0, 1, 3, 4, 5]);
+  expect(section?.items[0]?.titleMatches).toBeUndefined();
+
+  const [byTitle] = buildCommandSections({
+    query: "pi",
+    filter: "chats",
+    chats,
+    workspaces: [],
+    actions: [],
+  });
+  expect(byTitle?.items.map((item) => item.id)).toEqual(["chat:b", "chat:a"]);
+});

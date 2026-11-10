@@ -503,3 +503,60 @@
   font-size: 12px;
   line-height: 1.5;
 }
+
+/* Terminal find (Ctrl/Cmd+F): floats over the top-right of the output. */
+.terminal-panel__body {
+  position: relative;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.terminal-search {
+  position: absolute;
+  top: 6px;
+  right: 14px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--main);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+}
+
+.terminal-search:focus-within {
+  border-color: var(--border-heavy);
+}
+
+.terminal-search__input {
+  width: 150px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.terminal-search__count {
+  min-width: 56px;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.terminal-search__button {
+  width: 24px;
+  height: 24px;
+}
+
+.terminal-search__button--previous svg {
+  transform: rotate(180deg);
+}

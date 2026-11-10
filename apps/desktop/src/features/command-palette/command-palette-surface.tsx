@@ -40,6 +40,8 @@ interface CommandPaletteSurfaceProps {
   readonly onClose: () => void;
   /** Unarchived threads across every workspace, most recently used first. */
   readonly threads: readonly ThreadListEntry[];
+  /** `workspaceId:sessionId` of chats waiting for the owner. */
+  readonly needsYouKeys: ReadonlySet<string>;
   readonly workspaces: readonly WorkspaceRecord[];
   readonly currentThread?: WorkspaceSessionTarget;
   readonly actions: readonly PaletteAction[];
@@ -63,6 +65,7 @@ export function CommandPaletteSurface({
   onModeChange,
   onClose,
   threads,
+  needsYouKeys,
   workspaces,
   currentThread,
   actions,
@@ -111,14 +114,23 @@ export function CommandPaletteSurface({
     const isCurrent =
       currentThread?.workspaceId === target.workspaceId &&
       currentThread.sessionId === target.sessionId;
+    const needsYou = needsYouKeys.has(`${target.workspaceId}:${target.sessionId}`);
     return {
       id: `chat:${target.workspaceId}:${target.sessionId}`,
+      needsYou,
+      context: thread.contextLabel,
       title: thread.session.title,
       detail: [thread.contextLabel, formatRelativeTime(sessionLastInteractedAt(thread.session))]
         .filter(Boolean)
         .join(" · "),
       icon: <ChatIcon />,
-      hint: isCurrent ? "Current" : thread.session.status === "running" ? "Running" : undefined,
+      hint: needsYou
+        ? "Needs you"
+        : isCurrent
+          ? "Current"
+          : thread.session.status === "running"
+            ? "Running"
+            : undefined,
       run: () => {
         onClose();
         onOpenThread(target);
