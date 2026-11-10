@@ -132,6 +132,14 @@ export function DiffPanel({
     }
   };
 
+  const sendToChat = useCallback(
+    async (text: string) => {
+      const result = await api.sendReviewComments({ target: { workspaceId, sessionId }, text });
+      return result.state === "sent" ? null : result.message;
+    },
+    [api, sessionId, workspaceId],
+  );
+
   const refresh = useCallback(() => {
     const nonce = ++requestNonce.current;
     setHeldPath(undefined);
@@ -508,7 +516,12 @@ export function DiffPanel({
         ) : null}
         <span className="review-panel__toolbar-spacer" />
         {review && review.scope.kind !== "turn" ? (
-          <ReviewGitActions api={api} reviewId={review.reviewId} onChanged={refresh} />
+          <ReviewGitActions
+            api={api}
+            reviewId={review.reviewId}
+            onChanged={refresh}
+            onSendToChat={sendToChat}
+          />
         ) : null}
         <button
           className="icon-button review-panel__tool"

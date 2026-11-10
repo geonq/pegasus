@@ -26,6 +26,34 @@ export interface GitActionState {
 
 export type GitActionStateResult = GitActionState | ReviewIssue;
 
+export interface PullRequestCheck {
+  readonly name: string;
+  /** gh's bucket: cancelled counts as failed, skipped and neutral as skipped. */
+  readonly state: "pass" | "fail" | "pending" | "skipped";
+  readonly link: string | null;
+}
+
+export interface PullRequestComment {
+  readonly author: string;
+  readonly body: string;
+  /** File and line for a comment on the diff; null for review summaries and conversation comments. */
+  readonly path: string | null;
+  readonly line: number | null;
+  readonly url: string | null;
+  readonly kind: "changes-requested" | "review" | "comment" | "line";
+}
+
+/** The branch's open pull request with its checks and comments, read through `gh`. */
+export type PullRequestFeedbackResult =
+  | {
+      readonly state: "feedback";
+      readonly number: number;
+      readonly url: string;
+      readonly checks: readonly PullRequestCheck[];
+      readonly comments: readonly PullRequestComment[];
+    }
+  | ReviewIssue;
+
 export interface DraftGitTextInput {
   readonly reviewId: string;
   readonly kind: "commit" | "pr";

@@ -47,6 +47,7 @@ import type {
   GitActionInput,
   GitActionResult,
   GitActionStateResult,
+  PullRequestFeedbackResult,
   SendReviewCommentsInput,
   SendReviewCommentsResult,
 } from "../contracts/git-actions";
@@ -204,6 +205,11 @@ const localPiDesktopApi = {
     ) as Promise<ChangeReviewFileStageResult>,
   getGitActions: (input: { readonly reviewId: string }) =>
     ipcRenderer.invoke(desktopIpc.getGitActions, input) as Promise<GitActionStateResult>,
+  getPullRequestFeedback: (input: { readonly reviewId: string }) =>
+    ipcRenderer.invoke(
+      desktopIpc.getPullRequestFeedback,
+      input,
+    ) as Promise<PullRequestFeedbackResult>,
   draftGitText: (input: DraftGitTextInput) =>
     ipcRenderer.invoke(desktopIpc.draftGitText, input) as Promise<DraftGitTextResult>,
   runGitAction: (input: GitActionInput) =>

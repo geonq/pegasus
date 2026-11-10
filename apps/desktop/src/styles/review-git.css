@@ -247,3 +247,117 @@
   justify-content: flex-end;
   gap: 6px;
 }
+
+.review-pr {
+  display: flex;
+  margin-right: 6px;
+}
+
+.review-pr__count {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--overlay-hover);
+  color: var(--muted-strong);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.review-pr__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.review-pr__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-round);
+  background: var(--status-neutral);
+}
+
+.review-pr__button--fail .review-pr__dot,
+.review-pr__check--fail .review-pr__dot {
+  background: var(--status-error);
+}
+
+.review-pr__button--pending .review-pr__dot,
+.review-pr__check--pending .review-pr__dot {
+  background: var(--status-running);
+}
+
+.review-pr__button--pass .review-pr__dot,
+.review-pr__check--pass .review-pr__dot {
+  background: var(--status-success);
+}
+
+.review-pr__dialog {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+}
+
+.review-pr__title,
+.review-pr__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.review-pr__title {
+  font-weight: var(--font-semibold);
+}
+
+.review-pr__title:hover,
+.review-pr__link:hover {
+  text-decoration: underline;
+}
+
+.review-pr__list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+}
+
+.review-pr__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-pr__state {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.review-pr__comment {
+  display: grid;
+  gap: 2px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.review-pr__author {
+  color: var(--muted-strong);
+  font-weight: var(--font-medium);
+}
+
+.review-pr__body {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}

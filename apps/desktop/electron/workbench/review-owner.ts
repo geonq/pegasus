@@ -1,3 +1,5 @@
+import type { PullRequestFeedbackResult } from "../../contracts/git-actions";
+import { readPullRequestFeedback } from "../platform/files/pull-request-feedback";
 import { createHash, randomUUID } from "node:crypto";
 import { realpath, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -365,6 +367,17 @@ export class ReviewOwner {
     try {
       const review = this.gitReview(input.reviewId);
       return isIssue(review) ? review : await readGitActionState(review.checkoutPath);
+    } catch (error: unknown) {
+      return failed(error);
+    }
+  }
+
+  async getPullRequestFeedback(input: {
+    readonly reviewId: string;
+  }): Promise<PullRequestFeedbackResult> {
+    try {
+      const review = this.gitReview(input.reviewId);
+      return isIssue(review) ? review : await readPullRequestFeedback(review.checkoutPath);
     } catch (error: unknown) {
       return failed(error);
     }

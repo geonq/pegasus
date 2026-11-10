@@ -23,6 +23,7 @@ export type ReviewRequestsOwner = Pick<
   | "setReviewFileReviewed"
   | "changeReviewFileStage"
   | "getGitActions"
+  | "getPullRequestFeedback"
   | "draftGitText"
   | "runGitAction"
   | "sendReviewComments"
@@ -40,6 +41,9 @@ export function registerReviewRequests(handle: MainFrameHandler, owner: ReviewRe
   );
   handle(desktopIpc.getGitActions, decodeGitActionStateInput, (input) =>
     owner.getGitActions(input),
+  );
+  handle(desktopIpc.getPullRequestFeedback, decodeGitActionStateInput, (input) =>
+    owner.getPullRequestFeedback(input),
   );
   handle(desktopIpc.draftGitText, decodeDraftGitTextInput, (input) => owner.draftGitText(input));
   handle(desktopIpc.sendReviewComments, decodeSendReviewCommentsInput, (input) =>

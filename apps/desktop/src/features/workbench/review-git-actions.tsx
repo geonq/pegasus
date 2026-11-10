@@ -2,8 +2,12 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { GitActionInput, GitActionState } from "../../../contracts/git-actions";
 import type { PiDesktopApi } from "../../../contracts/ipc";
 import { nextGitStep } from "./review-git-step";
+import { ReviewPullRequestFeedback } from "./review-pr-feedback";
 
-type Api = Pick<PiDesktopApi, "getGitActions" | "draftGitText" | "runGitAction" | "openExternal">;
+type Api = Pick<
+  PiDesktopApi,
+  "getGitActions" | "getPullRequestFeedback" | "draftGitText" | "runGitAction" | "openExternal"
+>;
 
 interface Dialog {
   readonly kind: "commit" | "pr";
@@ -29,11 +33,14 @@ export function ReviewGitActions({
   api,
   reviewId,
   onChanged,
+  onSendToChat,
 }: {
   readonly api: Api;
   readonly reviewId: string;
   /** Called after a change so the review reloads. */
   readonly onChanged: () => void;
+  /** Sends PR feedback to the chat; resolves to an error message, or null when sent. */
+  readonly onSendToChat?: (text: string) => Promise<string | null>;
 }) {
   const [state, setState] = useState<GitActionState | null>(null);
   const [busy, setBusy] = useState<keyof typeof BUSY_LABEL | null>(null);
@@ -161,6 +168,14 @@ export function ReviewGitActions({
 
   return (
     <div className="review-git" ref={root}>
+      {state.pullRequest && onSendToChat ? (
+        <ReviewPullRequestFeedback
+          key={state.pullRequest.number}
+          api={api}
+          reviewId={reviewId}
+          onSendToChat={onSendToChat}
+        />
+      ) : null}
       <button
         ref={button}
         className={`button review-git__button${step.kind === "none" ? "" : " button--primary"}`}

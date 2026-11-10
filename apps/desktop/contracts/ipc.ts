@@ -36,6 +36,7 @@ import type {
   GitActionInput,
   GitActionResult,
   GitActionStateResult,
+  PullRequestFeedbackResult,
   SendReviewCommentsInput,
   SendReviewCommentsResult,
 } from "./git-actions";
@@ -260,6 +261,7 @@ export const desktopIpc = {
   setReviewFileReviewed: "pi-gui:set-review-file-reviewed",
   changeReviewFileStage: "pi-gui:change-review-file-stage",
   getGitActions: "pi-gui:get-git-actions",
+  getPullRequestFeedback: "pi-gui:get-pull-request-feedback",
   draftGitText: "pi-gui:draft-git-text",
   runGitAction: "pi-gui:run-git-action",
   sendReviewComments: "pi-gui:send-review-comments",
@@ -982,6 +984,8 @@ export interface PiDesktopApi {
   changeReviewFileStage(input: ChangeReviewFileStageInput): Promise<ChangeReviewFileStageResult>;
   /** Where the reviewed repository stands: what the review header's git button should offer next. */
   getGitActions(input: { readonly reviewId: string }): Promise<GitActionStateResult>;
+  /** Checks and comments on the branch's open pull request, to read or send to the chat. */
+  getPullRequestFeedback(input: { readonly reviewId: string }): Promise<PullRequestFeedbackResult>;
   /** A commit message or pull request text written by the chat's model from the diff. */
   draftGitText(input: DraftGitTextInput): Promise<DraftGitTextResult>;
   /** Stages everything, commits what is staged, pushes the branch (never forced), or opens a pull request. */

@@ -44,6 +44,7 @@ export const REMOTE_DESKTOP_PI_METHODS = [
   "changeReviewFileStage",
   // Git actions and diff comments act on the host checkout and chat, scoped like review calls.
   "getGitActions",
+  "getPullRequestFeedback",
   "draftGitText",
   "runGitAction",
   "sendReviewComments",

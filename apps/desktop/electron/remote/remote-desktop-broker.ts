@@ -271,6 +271,7 @@ export class RemoteDesktopBroker {
         invocation.method === "setReviewFileReviewed" ||
         invocation.method === "changeReviewFileStage" ||
         invocation.method === "getGitActions" ||
+        invocation.method === "getPullRequestFeedback" ||
         invocation.method === "draftGitText" ||
         invocation.method === "runGitAction") &&
       !this.reviewIds.has(invocation.args[0].reviewId)

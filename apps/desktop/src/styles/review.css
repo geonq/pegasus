@@ -8,8 +8,10 @@
 .review-panel__toolbar {
   display: flex;
   flex-shrink: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
+  row-gap: 6px;
   min-height: 44px;
   padding: 6px 10px 6px 12px;
   border-bottom: 1px solid var(--border);

@@ -14,7 +14,7 @@ interface Run {
 }
 
 /** Runs a program without a shell, so branch names and messages are never parsed as commands. */
-function run(
+export function runTool(
   command: "git" | "gh",
   cwd: string,
   args: readonly string[],
@@ -89,7 +89,7 @@ function issue(code: string, message: string): ReviewIssue {
 }
 
 export async function readGitActionState(cwd: string): Promise<GitActionState | ReviewIssue> {
-  const status = await run("git", cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
+  const status = await runTool("git", cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
   if (status.code !== 0)
     return {
       state: "unavailable",
@@ -98,26 +98,26 @@ export async function readGitActionState(cwd: string): Promise<GitActionState | 
     };
   const counts = countStatus(status.stdout);
   const branch =
-    (await run("git", cwd, ["symbolic-ref", "--short", "-q", "HEAD"])).stdout.trim() || null;
-  const remotes = (await run("git", cwd, ["remote"])).stdout.split(/\r?\n/).filter(Boolean);
+    (await runTool("git", cwd, ["symbolic-ref", "--short", "-q", "HEAD"])).stdout.trim() || null;
+  const remotes = (await runTool("git", cwd, ["remote"])).stdout.split(/\r?\n/).filter(Boolean);
   const remote = remotes.includes("origin") ? "origin" : (remotes[0] ?? null);
-  const upstreamRun = await run("git", cwd, [
+  const upstreamRun = await runTool("git", cwd, [
     "rev-parse",
     "--abbrev-ref",
     "--symbolic-full-name",
     "@{u}",
   ]);
   const upstream = upstreamRun.code === 0 ? upstreamRun.stdout.trim() || null : null;
-  const hasHead = (await run("git", cwd, ["rev-parse", "--verify", "-q", "HEAD"])).code === 0;
+  const hasHead = (await runTool("git", cwd, ["rev-parse", "--verify", "-q", "HEAD"])).code === 0;
   const ahead = hasHead
     ? await countCommits(cwd, upstream ? [`${upstream}..HEAD`] : ["HEAD", "--not", "--remotes"])
     : 0;
   const base = hasHead && remote ? await defaultBase(cwd, remote) : null;
   const aheadOfBase = base ? await countCommits(cwd, [`${base.ref}..HEAD`]) : 0;
-  const ghAvailable = (await run("gh", cwd, ["--version"])).code === 0;
+  const ghAvailable = (await runTool("gh", cwd, ["--version"])).code === 0;
   let pullRequest: GitActionState["pullRequest"] = null;
   if (ghAvailable && upstream && branch && ahead === 0 && branch !== base?.name) {
-    const view = await run("gh", cwd, ["pr", "view", "--json", "number,url,state"], {
+    const view = await runTool("gh", cwd, ["pr", "view", "--json", "number,url,state"], {
       timeoutMs: 15_000,
     });
     if (view.code === 0) pullRequest = parsePullRequest(view.stdout);
@@ -159,7 +159,7 @@ function parsePullRequest(json: string): GitActionState["pullRequest"] {
 }
 
 async function countCommits(cwd: string, range: readonly string[]): Promise<number> {
-  const result = await run("git", cwd, ["rev-list", "--count", ...range]);
+  const result = await runTool("git", cwd, ["rev-list", "--count", ...range]);
   const count = Number.parseInt(result.stdout.trim(), 10);
   return result.code === 0 && Number.isFinite(count) ? count : 0;
 }
@@ -169,7 +169,7 @@ async function defaultBase(
   cwd: string,
   remote: string,
 ): Promise<{ readonly name: string; readonly ref: string } | null> {
-  const head = await run("git", cwd, [
+  const head = await runTool("git", cwd, [
     "symbolic-ref",
     "--short",
     "-q",
@@ -181,7 +181,7 @@ async function defaultBase(
     `${remote}/master`,
   ];
   for (const ref of candidates) {
-    if ((await run("git", cwd, ["rev-parse", "--verify", "-q", `refs/remotes/${ref}`])).code === 0)
+    if ((await runTool("git", cwd, ["rev-parse", "--verify", "-q", `refs/remotes/${ref}`])).code === 0)
       return { name: ref.slice(remote.length + 1), ref };
   }
   return null;
@@ -220,7 +220,7 @@ export async function stageAll(cwd: string): Promise<GitActionResult> {
       "conflicts",
       "Resolve the merge conflicts first. Staging them would mark them resolved.",
     );
-  const result = await run("git", cwd, ["add", "-A"]);
+  const result = await runTool("git", cwd, ["add", "-A"]);
   return result.code === 0
     ? { state: "done" }
     : issue("stage-failed", explainGitFailure("staging", result.stderr));
@@ -238,7 +238,7 @@ export async function commitStaged(
   if (state.staged === 0)
     return issue("nothing-staged", "Nothing is staged. Stage the changes first, then commit.");
   const message = body.trim() ? `${title.trim()}\n\n${body.trim()}\n` : `${title.trim()}\n`;
-  const result = await run("git", cwd, ["commit", "--cleanup=strip", "-F", "-"], {
+  const result = await runTool("git", cwd, ["commit", "--cleanup=strip", "-F", "-"], {
     input: message,
   });
   return result.code === 0
@@ -257,7 +257,7 @@ export async function pushBranch(cwd: string): Promise<GitActionResult> {
       "This repository has no remote. Add one with `git remote add origin <url>`, then push.",
     );
   const args = state.upstream ? ["push"] : ["push", "--set-upstream", state.remote, "HEAD"];
-  const result = await run("git", cwd, args, { timeoutMs: NETWORK_MS });
+  const result = await runTool("git", cwd, args, { timeoutMs: NETWORK_MS });
   return result.code === 0
     ? { state: "done" }
     : issue("push-failed", explainGitFailure("push", result.stderr));
@@ -278,7 +278,7 @@ export async function createPullRequest(
   if (state.pullRequest)
     return { state: "pull-request", url: state.pullRequest.url, opened: "created" };
   if (state.ghAvailable) {
-    const result = await run(
+    const result = await runTool(
       "gh",
       cwd,
       [
@@ -305,7 +305,7 @@ export async function createPullRequest(
       return issue("pr-failed", explainGitFailure("pull request", result.stderr));
   }
   if (!state.remote) return issue("no-remote", "This repository has no remote.");
-  const remoteUrl = (await run("git", cwd, ["remote", "get-url", state.remote])).stdout.trim();
+  const remoteUrl = (await runTool("git", cwd, ["remote", "get-url", state.remote])).stdout.trim();
   const url = compareUrl(remoteUrl, state.base, state.branch);
   return url
     ? { state: "pull-request", url, opened: "compare" }
@@ -336,17 +336,17 @@ export async function readDraftSource(
   if (state.state !== "available") return state;
   if (kind === "commit") {
     const [stat, diff] = await Promise.all([
-      run("git", cwd, ["diff", "--cached", "--stat", "--no-color"]),
-      run("git", cwd, ["diff", "--cached", "--no-color", "--no-ext-diff", "-U2"]),
+      runTool("git", cwd, ["diff", "--cached", "--stat", "--no-color"]),
+      runTool("git", cwd, ["diff", "--cached", "--no-color", "--no-ext-diff", "-U2"]),
     ]);
     return { summary: stat.stdout, diff: diff.stdout };
   }
   const baseRef = state.base && state.remote ? `${state.remote}/${state.base}` : null;
   if (!baseRef) return { summary: "", diff: "" };
   const [log, stat, diff] = await Promise.all([
-    run("git", cwd, ["log", "--format=%s", "--no-color", `${baseRef}..HEAD`]),
-    run("git", cwd, ["diff", "--stat", "--no-color", `${baseRef}...HEAD`]),
-    run("git", cwd, ["diff", "--no-color", "--no-ext-diff", "-U2", `${baseRef}...HEAD`]),
+    runTool("git", cwd, ["log", "--format=%s", "--no-color", `${baseRef}..HEAD`]),
+    runTool("git", cwd, ["diff", "--stat", "--no-color", `${baseRef}...HEAD`]),
+    runTool("git", cwd, ["diff", "--no-color", "--no-ext-diff", "-U2", `${baseRef}...HEAD`]),
   ]);
   return { summary: `${log.stdout}\n${stat.stdout}`, diff: diff.stdout };
 }

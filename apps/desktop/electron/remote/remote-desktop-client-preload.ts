@@ -80,6 +80,7 @@ const PASS_THROUGH_METHODS = new Set<PropertyKey>([
   "setReviewFileReviewed",
   "changeReviewFileStage",
   "getGitActions",
+  "getPullRequestFeedback",
   "draftGitText",
   "runGitAction",
   "sendReviewComments",

@@ -166,6 +166,10 @@ export type RemoteDesktopInvocation =
       readonly args: readonly [ChangeReviewFileStageInput];
     }
   | { readonly method: "getGitActions"; readonly args: readonly [{ readonly reviewId: string }] }
+  | {
+      readonly method: "getPullRequestFeedback";
+      readonly args: readonly [{ readonly reviewId: string }];
+    }
   | { readonly method: "draftGitText"; readonly args: readonly [DraftGitTextInput] }
   | { readonly method: "runGitAction"; readonly args: readonly [GitActionInput] }
   | { readonly method: "sendReviewComments"; readonly args: readonly [SendReviewCommentsInput] }
@@ -566,6 +570,10 @@ export function validateRemoteDesktopInvocation(
       return { method: allowedMethod, args: [decodeChangeReviewFileStageInput(args[0])] };
     }
     case "getGitActions": {
+      expectArgs(args, 1);
+      return { method: allowedMethod, args: [decodeGitActionStateInput(args[0])] };
+    }
+    case "getPullRequestFeedback": {
       expectArgs(args, 1);
       return { method: allowedMethod, args: [decodeGitActionStateInput(args[0])] };
     }
