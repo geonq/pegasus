@@ -89,7 +89,12 @@ function issue(code: string, message: string): ReviewIssue {
 }
 
 export async function readGitActionState(cwd: string): Promise<GitActionState | ReviewIssue> {
-  const status = await runTool("git", cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
+  const status = await runTool("git", cwd, [
+    "status",
+    "--porcelain=v1",
+    "-z",
+    "--untracked-files=all",
+  ]);
   if (status.code !== 0)
     return {
       state: "unavailable",
@@ -181,7 +186,9 @@ async function defaultBase(
     `${remote}/master`,
   ];
   for (const ref of candidates) {
-    if ((await runTool("git", cwd, ["rev-parse", "--verify", "-q", `refs/remotes/${ref}`])).code === 0)
+    if (
+      (await runTool("git", cwd, ["rev-parse", "--verify", "-q", `refs/remotes/${ref}`])).code === 0
+    )
       return { name: ref.slice(remote.length + 1), ref };
   }
   return null;

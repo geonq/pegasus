@@ -24,11 +24,19 @@ const viewJson = JSON.stringify({
   url: "https://github.com/o/r/pull/12",
   state: "OPEN",
   reviews: [
-    { author: { login: "alice" }, body: "<!-- bot-marker -->\nPlease split the parser change.", state: "CHANGES_REQUESTED" },
+    {
+      author: { login: "alice" },
+      body: "<!-- bot-marker -->\nPlease split the parser change.",
+      state: "CHANGES_REQUESTED",
+    },
     { author: { login: "bob" }, body: "", state: "APPROVED" },
   ],
   comments: [
-    { author: { login: "carol" }, body: "Does this work on Windows?", url: "https://github.com/o/r/pull/12#issuecomment-1" },
+    {
+      author: { login: "carol" },
+      body: "Does this work on Windows?",
+      url: "https://github.com/o/r/pull/12#issuecomment-1",
+    },
   ],
 });
 
@@ -41,7 +49,14 @@ const inlineJson = JSON.stringify([
     original_line: 40,
     html_url: "https://github.com/o/r/pull/12#discussion_r1",
   },
-  { user: { login: "dave" }, body: "Outdated note", path: "src/old.ts", line: null, original_line: 7, html_url: "" },
+  {
+    user: { login: "dave" },
+    body: "Outdated note",
+    path: "src/old.ts",
+    line: null,
+    original_line: 7,
+    html_url: "",
+  },
 ]);
 
 test("gh output parses into checks and comments", () => {
@@ -93,10 +108,16 @@ test("the message names failing checks and every comment; a clean PR sends nothi
   expect(message).not.toContain("CodeQL");
   expect(message).not.toContain("bot-marker");
   expect(message).toContain("- @alice (requested changes):\n  Please split the parser change.");
-  expect(message).toContain("- @alice on src/parse.ts:42:\n  Off by one here.\n  The last line is dropped.");
+  expect(message).toContain(
+    "- @alice on src/parse.ts:42:\n  Off by one here.\n  The last line is dropped.",
+  );
   expect(message).toContain("gh run view --log-failed");
 
-  const clean = { ...feedback, checks: parseChecks(checksJson).filter((c) => c.state === "pass"), comments: [] };
+  const clean = {
+    ...feedback,
+    checks: parseChecks(checksJson).filter((c) => c.state === "pass"),
+    comments: [],
+  };
   expect(formatPullRequestFeedback(clean)).toBeNull();
   expect(summarizePullRequestFeedback(clean)).toEqual({
     label: "Checks pass",

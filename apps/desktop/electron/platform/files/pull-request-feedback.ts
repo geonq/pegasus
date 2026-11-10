@@ -21,23 +21,32 @@ export async function readPullRequestFeedback(cwd: string): Promise<PullRequestF
   );
   if (view.code !== 0) {
     if (/no pull requests found|could not find any pull requests/i.test(view.stderr))
-      return { state: "unavailable", code: "no-pull-request", message: "This branch has no pull request." };
-    return { state: "failed", code: "gh-failed", message: explainGitFailure("Reading the pull request", view.stderr) };
+      return {
+        state: "unavailable",
+        code: "no-pull-request",
+        message: "This branch has no pull request.",
+      };
+    return {
+      state: "failed",
+      code: "gh-failed",
+      message: explainGitFailure("Reading the pull request", view.stderr),
+    };
   }
   const pr = parsePullRequestView(view.stdout);
   if (!pr)
-    return { state: "unavailable", code: "no-pull-request", message: "This branch has no open pull request." };
+    return {
+      state: "unavailable",
+      code: "no-pull-request",
+      message: "This branch has no open pull request.",
+    };
 
   const [checks, inline] = await Promise.all([
     runTool("gh", cwd, ["pr", "checks", String(pr.number), "--json", "name,bucket,link"], {
       timeoutMs: 20_000,
     }),
-    runTool(
-      "gh",
-      cwd,
-      ["api", `repos/{owner}/{repo}/pulls/${pr.number}/comments?per_page=100`],
-      { timeoutMs: 20_000 },
-    ),
+    runTool("gh", cwd, ["api", `repos/{owner}/{repo}/pulls/${pr.number}/comments?per_page=100`], {
+      timeoutMs: 20_000,
+    }),
   ]);
   // gh exits non-zero while checks fail or run, and when none were reported; stdout still has the list.
   return {
@@ -45,8 +54,10 @@ export async function readPullRequestFeedback(cwd: string): Promise<PullRequestF
     number: pr.number,
     url: pr.url,
     checks: parseChecks(checks.stdout),
-    comments: [...pr.comments, ...(inline.code === 0 ? parseInlineComments(inline.stdout) : [])]
-      .slice(0, MAX_COMMENTS),
+    comments: [
+      ...pr.comments,
+      ...(inline.code === 0 ? parseInlineComments(inline.stdout) : []),
+    ].slice(0, MAX_COMMENTS),
   };
 }
 
@@ -71,9 +82,11 @@ const cleanBody = (raw: unknown): string => {
   return body.length > MAX_BODY ? `${body.slice(0, MAX_BODY)}…` : body;
 };
 
-export function parsePullRequestView(
-  json: string,
-): { readonly number: number; readonly url: string; readonly comments: PullRequestComment[] } | null {
+export function parsePullRequestView(json: string): {
+  readonly number: number;
+  readonly url: string;
+  readonly comments: PullRequestComment[];
+} | null {
   const value = parseJson(json);
   if (!isRecord(value) || typeof value.number !== "number" || value.state !== "OPEN") return null;
   const comments: PullRequestComment[] = [];

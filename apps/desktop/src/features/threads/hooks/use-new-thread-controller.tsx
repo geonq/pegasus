@@ -298,94 +298,97 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
     onEnableExtension: enableMentionExtension,
   });
 
-  const startThread = useCallback((options?: { readonly background?: boolean }) => {
-    const background = options?.background === true;
-    // The prompt clears only once the thread exists, so a second Enter or click before
-    // then would otherwise start the same thread again (a worktree start takes seconds).
-    const generation = surfaceGenerationRef.current;
-    if (!api || startingGenerationRef.current === generation) {
-      return;
-    }
-    if (!rootWorkspaceId || (!prompt.trim() && attachments.length === 0)) {
-      return;
-    }
-    if (modelOnboarding.requiresModelSelection) {
-      return;
-    }
-    const treeCommand = parseTreeComposerCommand(prompt);
-    if (treeCommand?.type === "error") {
-      setComposerError(treeCommand.message);
-      return;
-    }
-    if (treeCommand?.type === "tree") {
-      setComposerError("/tree is only available inside an existing session.");
-      return;
-    }
-    // Several models: each chat works in its own worktree so their edits never collide.
-    const comparing = compareModels.filter(
-      (entry) => !(entry.provider === resolvedProvider && entry.modelId === resolvedModelId),
-    );
-    const input: StartThreadInput = {
-      rootWorkspaceId,
-      environment: comparing.length > 0 ? "worktree" : environment,
-      prompt,
-      attachments,
-      provider: resolvedProvider,
-      modelId: resolvedModelId,
-      thinkingLevel: resolvedThinkingLevel,
-      ...(Object.keys(extensionFlags).length > 0 ? { extensionFlags } : {}),
-    };
-    startingGenerationRef.current = generation;
-    recordSentPrompt(prompt);
-    void updateSnapshot(setSnapshot, async () => {
-      let state = await api.startThread(background ? { ...input, background } : input);
-      // The extra models start behind the main one, which stays open.
-      for (const entry of comparing) {
-        state = await api.startThread({
-          ...input,
-          provider: entry.provider,
-          modelId: entry.modelId,
-          background: true,
-        });
+  const startThread = useCallback(
+    (options?: { readonly background?: boolean }) => {
+      const background = options?.background === true;
+      // The prompt clears only once the thread exists, so a second Enter or click before
+      // then would otherwise start the same thread again (a worktree start takes seconds).
+      const generation = surfaceGenerationRef.current;
+      if (!api || startingGenerationRef.current === generation) {
+        return;
       }
-      return state;
-    })
-      .then(() => {
-        if (surfaceGenerationRef.current !== generation) {
-          return;
+      if (!rootWorkspaceId || (!prompt.trim() && attachments.length === 0)) {
+        return;
+      }
+      if (modelOnboarding.requiresModelSelection) {
+        return;
+      }
+      const treeCommand = parseTreeComposerCommand(prompt);
+      if (treeCommand?.type === "error") {
+        setComposerError(treeCommand.message);
+        return;
+      }
+      if (treeCommand?.type === "tree") {
+        setComposerError("/tree is only available inside an existing session.");
+        return;
+      }
+      // Several models: each chat works in its own worktree so their edits never collide.
+      const comparing = compareModels.filter(
+        (entry) => !(entry.provider === resolvedProvider && entry.modelId === resolvedModelId),
+      );
+      const input: StartThreadInput = {
+        rootWorkspaceId,
+        environment: comparing.length > 0 ? "worktree" : environment,
+        prompt,
+        attachments,
+        provider: resolvedProvider,
+        modelId: resolvedModelId,
+        thinkingLevel: resolvedThinkingLevel,
+        ...(Object.keys(extensionFlags).length > 0 ? { extensionFlags } : {}),
+      };
+      startingGenerationRef.current = generation;
+      recordSentPrompt(prompt);
+      void updateSnapshot(setSnapshot, async () => {
+        let state = await api.startThread(background ? { ...input, background } : input);
+        // The extra models start behind the main one, which stays open.
+        for (const entry of comparing) {
+          state = await api.startThread({
+            ...input,
+            provider: entry.provider,
+            modelId: entry.modelId,
+            background: true,
+          });
         }
-        setPrompt("");
-        setAttachments([]);
-        setProvider(undefined);
-        setModelId(undefined);
-        setCompareModels([]);
-        setThinkingLevel(undefined);
-        setExtensionFlagEdits({});
-        setEnvironment("local");
+        return state;
       })
-      .catch((error: unknown) => {
-        setComposerError(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        if (startingGenerationRef.current === generation) {
-          startingGenerationRef.current = undefined;
-        }
-      });
-  }, [
-    api,
-    attachments,
-    environment,
-    extensionFlags,
-    modelOnboarding.requiresModelSelection,
-    prompt,
-    recordSentPrompt,
-    resolvedModelId,
-    resolvedProvider,
-    resolvedThinkingLevel,
-    rootWorkspaceId,
-    setSnapshot,
-    compareModels,
-  ]);
+        .then(() => {
+          if (surfaceGenerationRef.current !== generation) {
+            return;
+          }
+          setPrompt("");
+          setAttachments([]);
+          setProvider(undefined);
+          setModelId(undefined);
+          setCompareModels([]);
+          setThinkingLevel(undefined);
+          setExtensionFlagEdits({});
+          setEnvironment("local");
+        })
+        .catch((error: unknown) => {
+          setComposerError(error instanceof Error ? error.message : String(error));
+        })
+        .finally(() => {
+          if (startingGenerationRef.current === generation) {
+            startingGenerationRef.current = undefined;
+          }
+        });
+    },
+    [
+      api,
+      attachments,
+      environment,
+      extensionFlags,
+      modelOnboarding.requiresModelSelection,
+      prompt,
+      recordSentPrompt,
+      resolvedModelId,
+      resolvedProvider,
+      resolvedThinkingLevel,
+      rootWorkspaceId,
+      setSnapshot,
+      compareModels,
+    ],
+  );
 
   const handleComposerPaste = useCallback(
     (event: ClipboardEvent<HTMLDivElement>) => {

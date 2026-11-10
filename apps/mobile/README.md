@@ -35,6 +35,6 @@ Your iPhone: `pnpm ios:device` with the phone connected and your Apple Developme
   (the Camera app opens these links). The key is kept in the Keychain, this device only.
 - API: `POST /v1/invoke` and `GET /v1/events` (server-sent events), the same remote desktop API the
   Mac client uses, served by the Rust host on the PC.
-- Wire types: `src/api/types.ts`; `apps/desktop/contracts/mobile-wire-types.check.ts` fails the
+- Wire types: `src/api/types.ts`; `apps/desktop/electron/remote/mobile-wire-types.check.ts` fails the
   desktop typecheck if the desktop's types stop fitting them.
 - End to end: `apps/desktop/tests/production/phone-remote.spec.ts` (set `PEGASUS_PHONE_E2E_MAC`).

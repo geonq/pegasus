@@ -1,7 +1,7 @@
 /**
  * The part of the desktop's wire types the phone reads. Source of truth: apps/desktop/contracts
  * (desktop-state.ts, timeline-types.ts) and packages/session-driver/src/transcript.ts.
- * apps/desktop/tests/unit/mobile-wire-types.spec.ts checks at compile time that the desktop types
+ * apps/desktop/electron/remote/mobile-wire-types.check.ts checks at compile time that the desktop types
  * are assignable to these, so a breaking change there fails the desktop typecheck instead of the phone.
  */
 

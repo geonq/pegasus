@@ -3,14 +3,14 @@
  * types it reads. If a desktop change stops the real types fitting the phone's view, this file fails
  * `pnpm typecheck` here, instead of the phone breaking at run time. Nothing in it runs.
  */
-import type * as Mobile from "../../mobile/src/api/types";
+import type * as Mobile from "../../../mobile/src/api/types";
 import type {
   DesktopAppState,
   SelectedTranscriptRecord,
   SessionRecord,
   WorkspaceRecord,
-} from "./desktop-state";
-import type { RemoteDesktopEvent } from "../electron/remote/remote-desktop-protocol";
+} from "../../contracts/desktop-state";
+import type { RemoteDesktopEvent } from "./remote-desktop-protocol";
 
 type Assignable<From, To> = [From] extends [To] ? true : never;
 

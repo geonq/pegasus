@@ -75,6 +75,12 @@ export function ReviewPullRequestFeedback({
   const message = formatPullRequestFeedback(feedback);
   const shownChecks = feedback.checks.filter((check) => check.state !== "skipped");
 
+  const reportFailure = (failure: unknown) =>
+    setNote(failure instanceof Error ? failure.message : String(failure));
+  const openLink = (url: string) => {
+    api.openExternal(url).catch(reportFailure);
+  };
+
   const send = async () => {
     if (!message) return;
     setSending(true);
@@ -116,24 +122,27 @@ export function ReviewPullRequestFeedback({
         ) : null}
       </button>
       {open ? (
-        <div className="review-git__dialog review-pr__dialog" role="dialog" aria-label="Pull request feedback">
-          <button
-            className="review-pr__title"
-            type="button"
-            onClick={() => void api.openExternal(feedback.url)}
-          >
+        <div
+          className="review-git__dialog review-pr__dialog"
+          role="dialog"
+          aria-label="Pull request feedback"
+        >
+          <button className="review-pr__title" type="button" onClick={() => openLink(feedback.url)}>
             Pull request #{feedback.number}
           </button>
           {shownChecks.length > 0 ? (
             <ul className="review-pr__list" aria-label="Checks">
               {shownChecks.map((check) => (
-                <li key={check.name} className={`review-pr__check review-pr__check--${check.state}`}>
+                <li
+                  key={check.name}
+                  className={`review-pr__check review-pr__check--${check.state}`}
+                >
                   <span className="review-pr__dot" aria-hidden="true" />
                   {check.link ? (
                     <button
                       className="review-pr__link"
                       type="button"
-                      onClick={() => void api.openExternal(check.link ?? feedback.url)}
+                      onClick={() => openLink(check.link ?? feedback.url)}
                     >
                       {check.name}
                     </button>
@@ -153,7 +162,9 @@ export function ReviewPullRequestFeedback({
                 <li key={`${comment.url ?? ""}:${index}`} className="review-pr__comment">
                   <span className="review-pr__author">
                     @{comment.author}
-                    {comment.path ? ` · ${comment.path}${comment.line === null ? "" : `:${comment.line}`}` : ""}
+                    {comment.path
+                      ? ` · ${comment.path}${comment.line === null ? "" : `:${comment.line}`}`
+                      : ""}
                   </span>
                   <span className="review-pr__body">{comment.body}</span>
                 </li>
@@ -171,7 +182,9 @@ export function ReviewPullRequestFeedback({
               className="button button--primary"
               type="button"
               disabled={!message || sending}
-              onClick={() => void send()}
+              onClick={() => {
+                send().catch(reportFailure);
+              }}
             >
               {sending ? "Sending…" : "Send to chat"}
             </button>

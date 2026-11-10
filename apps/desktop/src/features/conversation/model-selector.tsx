@@ -241,7 +241,8 @@ export function ModelSelector({
                 ))}
                 {onToggleCompareModel && groupedModels.length > 0 ? (
                   <div className="model-selector__hint">
-                    Shift-click to also start this chat with another model, each in its own worktree.
+                    Shift-click to also start this chat with another model, each in its own
+                    worktree.
                   </div>
                 ) : null}
                 {groupedModels.length === 0 ? (
