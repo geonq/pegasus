@@ -28,6 +28,7 @@
     "test:release-helpers": "node --test apps/desktop/scripts/release-artifacts.test.mjs apps/desktop/scripts/github-release-state.test.mjs apps/desktop/scripts/github-download-retry.test.mjs apps/desktop/scripts/verify-linux-release.test.mjs scripts/verify-release-version.test.mjs",
     "verify:install-copy": "node scripts/verify-install-copy.mjs",
     "verify:release-config": "node apps/desktop/scripts/verify-release-config.mjs",
+    "release": "node scripts/release.mjs",
     "verify:release-version": "node scripts/verify-release-version.mjs",
     "verify:homebrew-flow": "node scripts/verify-homebrew-flow.mjs",
     "release:homebrew-sync": "node scripts/release-homebrew-sync.mjs",

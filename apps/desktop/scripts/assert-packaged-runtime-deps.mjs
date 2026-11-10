@@ -43,12 +43,7 @@ const requiredPackages = [
   "@smithy/types",
   "@smithy/util-buffer-from",
   "@smithy/util-utf8",
-  "@xterm/addon-clipboard",
-  "@xterm/addon-fit",
-  "@xterm/addon-unicode11",
-  "@xterm/addon-web-links",
-  "@xterm/addon-webgl",
-  "@xterm/xterm",
+  // @xterm/* and the other renderer-only packages are bundled into out/renderer and left out of app.asar.
   "ansi-regex",
   "balanced-match",
   "bowser",
