@@ -269,7 +269,10 @@ export class RemoteDesktopBroker {
     if (
       (invocation.method === "getReviewFile" ||
         invocation.method === "setReviewFileReviewed" ||
-        invocation.method === "changeReviewFileStage") &&
+        invocation.method === "changeReviewFileStage" ||
+        invocation.method === "getGitActions" ||
+        invocation.method === "draftGitText" ||
+        invocation.method === "runGitAction") &&
       !this.reviewIds.has(invocation.args[0].reviewId)
     ) {
       // Review IDs are host-wide; a device may only reach reviews of its own authorized workspaces.

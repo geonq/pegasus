@@ -118,12 +118,13 @@ export function DiffPanel({
     setSendingComments(true);
     setCommentError(null);
     try {
-      const next = await api.submitComposer(
-        formatCommentsPrompt(comments),
-        sessionStatus === "running" ? { deliverAs: "followUp" } : undefined,
-      );
-      if (next.lastError) setCommentError(next.lastError);
-      else changeComments(() => []);
+      // Posts only the comments (queued as a follow-up while the chat runs); the draft stays put.
+      const result = await api.sendReviewComments({
+        target: { workspaceId, sessionId },
+        text: formatCommentsPrompt(comments),
+      });
+      if (result.state === "sent") changeComments(() => []);
+      else setCommentError(result.message);
     } catch (error: unknown) {
       setCommentError(errorMessage(error));
     } finally {

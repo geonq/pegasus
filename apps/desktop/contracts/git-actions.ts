@@ -1,3 +1,4 @@
+import type { SessionRef } from "@pi-gui/session-driver/types";
 import type { ReviewIssue } from "./review";
 
 /** What the review header's one git button needs to know about the repository being reviewed. */
@@ -61,6 +62,38 @@ export type GitActionResult =
   /** A pull request was created (`gh`) or the compare page must be opened by the caller. */
   | { readonly state: "pull-request"; readonly url: string; readonly opened: "created" | "compare" }
   | ReviewIssue;
+
+/** Diff comments, sent to a chat as one message without touching its composer draft or attachments. */
+export interface SendReviewCommentsInput {
+  readonly target: SessionRef;
+  readonly text: string;
+}
+
+export type SendReviewCommentsResult = { readonly state: "sent" } | ReviewIssue;
+
+export function decodeSendReviewCommentsInput(value: unknown): SendReviewCommentsInput {
+  const input = record(value, ["target", "text"]);
+  const target = record(input.target, ["workspaceId", "sessionId"]);
+  const id = (field: unknown, label: string) => {
+    if (typeof field !== "string" || !field || field.length > 512 || field.includes("\0"))
+      return fail(label);
+    return field;
+  };
+  if (
+    typeof input.text !== "string" ||
+    !input.text.trim() ||
+    input.text.length > 100_000 ||
+    input.text.includes("\0")
+  )
+    fail("text");
+  return {
+    target: {
+      workspaceId: id(target.workspaceId, "workspaceId"),
+      sessionId: id(target.sessionId, "sessionId"),
+    },
+    text: input.text,
+  };
+}
 
 export function decodeGitActionStateInput(value: unknown): { readonly reviewId: string } {
   return { reviewId: reviewId(record(value, ["reviewId"])) };

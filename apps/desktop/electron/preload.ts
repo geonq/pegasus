@@ -40,6 +40,8 @@ import type {
   GitActionInput,
   GitActionResult,
   GitActionStateResult,
+  SendReviewCommentsInput,
+  SendReviewCommentsResult,
 } from "../contracts/git-actions";
 import type {
   TurnChangesInput,
@@ -199,6 +201,8 @@ const localPiDesktopApi = {
     ipcRenderer.invoke(desktopIpc.draftGitText, input) as Promise<DraftGitTextResult>,
   runGitAction: (input: GitActionInput) =>
     ipcRenderer.invoke(desktopIpc.runGitAction, input) as Promise<GitActionResult>,
+  sendReviewComments: (input: SendReviewCommentsInput) =>
+    ipcRenderer.invoke(desktopIpc.sendReviewComments, input) as Promise<SendReviewCommentsResult>,
   onStateChanged: (listener: (state: DesktopAppState) => void) => {
     const handle = (_event: Electron.IpcRendererEvent, state: DesktopAppState) => {
       listener(state);

@@ -35,6 +35,8 @@ import type {
   GitActionInput,
   GitActionResult,
   GitActionStateResult,
+  SendReviewCommentsInput,
+  SendReviewCommentsResult,
 } from "./git-actions";
 import type {
   AppView,
@@ -254,6 +256,7 @@ export const desktopIpc = {
   getGitActions: "pi-gui:get-git-actions",
   draftGitText: "pi-gui:draft-git-text",
   runGitAction: "pi-gui:run-git-action",
+  sendReviewComments: "pi-gui:send-review-comments",
   getThemeMode: "pi-gui:get-theme-mode",
   getResolvedTheme: "pi-gui:get-resolved-theme",
   setThemeMode: "pi-gui:set-theme-mode",
@@ -966,6 +969,8 @@ export interface PiDesktopApi {
   draftGitText(input: DraftGitTextInput): Promise<DraftGitTextResult>;
   /** Stages everything, commits what is staged, pushes the branch (never forced), or opens a pull request. */
   runGitAction(input: GitActionInput): Promise<GitActionResult>;
+  /** Sends diff comments to the chat as one message; the composer draft and attachments stay as they are. */
+  sendReviewComments(input: SendReviewCommentsInput): Promise<SendReviewCommentsResult>;
   toggleWindowMaximize(): Promise<void>;
   openExternal(url: string): Promise<void>;
   getThemeMode(): Promise<"system" | "light" | "dark">;

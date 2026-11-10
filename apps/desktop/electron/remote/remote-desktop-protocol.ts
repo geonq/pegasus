@@ -42,6 +42,11 @@ export const REMOTE_DESKTOP_PI_METHODS = [
   "getReviewFile",
   "setReviewFileReviewed",
   "changeReviewFileStage",
+  // Git actions and diff comments act on the host checkout and chat, scoped like review calls.
+  "getGitActions",
+  "draftGitText",
+  "runGitAction",
+  "sendReviewComments",
   // Terminals run on the host, owned by this device's hidden view, so one device only reaches its own.
   "ensureTerminalPanel",
   "createTerminalSession",

@@ -18,6 +18,15 @@ import type { RemoteDesktopMethod, RemoteDesktopPiMethod } from "./remote-deskto
 import { isRemoteDesktopMethod } from "./remote-desktop-protocol";
 import type { TerminalSize } from "../../contracts/ipc";
 import {
+  decodeDraftGitTextInput,
+  decodeGitActionInput,
+  decodeGitActionStateInput,
+  decodeSendReviewCommentsInput,
+  type DraftGitTextInput,
+  type GitActionInput,
+  type SendReviewCommentsInput,
+} from "../../contracts/git-actions";
+import {
   decodeChangeReviewFileStageInput,
   decodeGetReviewInput,
   decodeReviewFileInput,
@@ -156,6 +165,10 @@ export type RemoteDesktopInvocation =
       readonly method: "changeReviewFileStage";
       readonly args: readonly [ChangeReviewFileStageInput];
     }
+  | { readonly method: "getGitActions"; readonly args: readonly [{ readonly reviewId: string }] }
+  | { readonly method: "draftGitText"; readonly args: readonly [DraftGitTextInput] }
+  | { readonly method: "runGitAction"; readonly args: readonly [GitActionInput] }
+  | { readonly method: "sendReviewComments"; readonly args: readonly [SendReviewCommentsInput] }
   | {
       readonly method: "ensureTerminalPanel" | "createTerminalSession";
       readonly args: readonly [string, string] | readonly [string, string, Partial<TerminalSize>];
@@ -551,6 +564,24 @@ export function validateRemoteDesktopInvocation(
     case "changeReviewFileStage": {
       expectArgs(args, 1);
       return { method: allowedMethod, args: [decodeChangeReviewFileStageInput(args[0])] };
+    }
+    case "getGitActions": {
+      expectArgs(args, 1);
+      return { method: allowedMethod, args: [decodeGitActionStateInput(args[0])] };
+    }
+    case "draftGitText": {
+      expectArgs(args, 1);
+      return { method: allowedMethod, args: [decodeDraftGitTextInput(args[0])] };
+    }
+    case "runGitAction": {
+      expectArgs(args, 1);
+      return { method: allowedMethod, args: [decodeGitActionInput(args[0])] };
+    }
+    case "sendReviewComments": {
+      expectArgs(args, 1);
+      const input = decodeSendReviewCommentsInput(args[0]);
+      expectAuthorizedWorkspace(input.target.workspaceId, workspaceIds);
+      return { method: allowedMethod, args: [input] };
     }
     case "ensureTerminalPanel":
     case "createTerminalSession": {

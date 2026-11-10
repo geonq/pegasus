@@ -26,6 +26,8 @@ import type {
   GitActionInput,
   GitActionResult,
   GitActionStateResult,
+  SendReviewCommentsInput,
+  SendReviewCommentsResult,
 } from "../../contracts/git-actions";
 import {
   commitStaged,
@@ -91,6 +93,8 @@ export interface ReviewOwnerOptions {
     prompt: string,
     signal: AbortSignal,
   ) => Promise<string | null>;
+  /** Queues a message for the chat without touching its composer draft or attachments. */
+  readonly sendInstruction?: (target: SessionRef, text: string) => Promise<void>;
   readonly checkpoints?: ReviewCheckpointSource;
   /** Repository roots holding files the task changed, newest first. */
   readonly touchedRepositories?: (
@@ -341,6 +345,17 @@ export class ReviewOwner {
         if (isIssue(current)) return current;
         return changeGitReviewFileStage(current.review.snapshot, input.fileId, input.action);
       });
+    } catch (error: unknown) {
+      return failed(error);
+    }
+  }
+
+  async sendReviewComments(input: SendReviewCommentsInput): Promise<SendReviewCommentsResult> {
+    try {
+      if (!this.options.validateTask(input.target) || !this.options.sendInstruction)
+        return unavailable("task-unavailable", "This task is unavailable.");
+      await this.options.sendInstruction(input.target, input.text);
+      return { state: "sent" };
     } catch (error: unknown) {
       return failed(error);
     }

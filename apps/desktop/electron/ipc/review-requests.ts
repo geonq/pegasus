@@ -10,6 +10,7 @@ import {
   decodeDraftGitTextInput,
   decodeGitActionInput,
   decodeGitActionStateInput,
+  decodeSendReviewCommentsInput,
 } from "../../contracts/git-actions";
 import type { ReviewOwner } from "../workbench/review-owner";
 import type { MainFrameHandler } from "./main-frame-ipc";
@@ -24,6 +25,7 @@ export type ReviewRequestsOwner = Pick<
   | "getGitActions"
   | "draftGitText"
   | "runGitAction"
+  | "sendReviewComments"
 >;
 
 export function registerReviewRequests(handle: MainFrameHandler, owner: ReviewRequestsOwner): void {
@@ -38,5 +40,8 @@ export function registerReviewRequests(handle: MainFrameHandler, owner: ReviewRe
   );
   handle(desktopIpc.getGitActions, decodeGitActionStateInput, (input) => owner.getGitActions(input));
   handle(desktopIpc.draftGitText, decodeDraftGitTextInput, (input) => owner.draftGitText(input));
+  handle(desktopIpc.sendReviewComments, decodeSendReviewCommentsInput, (input) =>
+    owner.sendReviewComments(input),
+  );
   handle(desktopIpc.runGitAction, decodeGitActionInput, (input) => owner.runGitAction(input));
 }

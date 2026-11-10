@@ -93,7 +93,12 @@ test("line comments: click a line, extend with the keyboard, send them as one pr
 
     const bar = panel.getByTestId("review-comments-bar");
     await expect(bar).toContainText("2 comments");
+    // The owner's half-typed message must survive sending the comments.
+    const composer = window.getByTestId("composer");
+    await composer.fill("half-typed draft stays");
     await bar.getByRole("button", { name: "Send 2 comments to agent" }).click();
+    await expect(bar).toHaveCount(0, { timeout: 15_000 });
+    await expect(composer).toHaveValue("half-typed draft stays");
     // The prompt reaches the chat as one message with references and quoted code.
     const message = window.locator(".message--user, [data-role='user']").last();
     await expect(window.getByText("Review comments on the current changes (2 comments)")).toBeVisible({
