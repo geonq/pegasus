@@ -564,7 +564,7 @@ test("failed, unseen and running chats leave the time buckets for Needs you and 
   expect(model.workspaceGroups[0]!.threads).toHaveLength(5);
 });
 
-test("shortcut order follows the screen: pinned, needs you, working, then the buckets", () => {
+test("shortcut order follows the screen: needs you, working, pinned, then the buckets", () => {
   const model = buildThreadSidebarModel(
     state([
       workspace("alpha", "Alpha", [
@@ -580,8 +580,8 @@ test("shortcut order follows the screen: pinned, needs you, working, then the bu
     visibleThreadShortcutOrder({ grouping: "time", model, workingFolded }).map(
       (entry) => entry.session.id,
     );
-  expect(ids(false)).toEqual(["pinned", "failed", "running", "plain"]);
-  expect(ids(true)).toEqual(["pinned", "failed", "plain"]);
+  expect(ids(false)).toEqual(["failed", "running", "pinned", "plain"]);
+  expect(ids(true)).toEqual(["failed", "pinned", "plain"]);
   expect(
     visibleThreadShortcutOrder({ grouping: "workspace", model }).map((entry) => entry.session.id),
   ).toEqual(["pinned", "plain", "running", "failed"]);

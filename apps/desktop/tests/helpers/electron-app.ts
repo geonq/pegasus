@@ -2041,8 +2041,8 @@ export async function chooseThreadGrouping(
   grouping: "time" | "workspace",
 ): Promise<void> {
   await window
-    .getByRole("group", { name: "Thread grouping" })
-    .getByRole("button", { name: grouping === "time" ? "Threads" : "Folders", exact: true })
+    .getByRole("group", { name: "Sidebar view" })
+    .getByRole("button", { name: grouping === "time" ? "Chats" : "Folders", exact: true })
     .click();
   await expectThreadGrouping(window, grouping);
 }
@@ -2053,8 +2053,8 @@ export async function expectThreadGrouping(
 ): Promise<void> {
   await expect(
     window
-      .getByRole("group", { name: "Thread grouping" })
-      .getByRole("button", { name: grouping === "time" ? "Threads" : "Folders", exact: true }),
+      .getByRole("group", { name: "Sidebar view" })
+      .getByRole("button", { name: grouping === "time" ? "Chats" : "Folders", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
 }
 

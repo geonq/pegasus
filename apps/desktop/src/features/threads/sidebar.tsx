@@ -436,8 +436,6 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
         bounds={sidebarWidthBounds}
         onResize={setSidebarWidth}
         onReset={() => setSidebarWidth(undefined)}
-        cssVar="--sidebar-width"
-        cssVarOn="pane"
       />
       <div className="sidebar__top">
         <AppBrand />
@@ -590,6 +588,34 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
             <ThreadShortcutContext.Provider value={shortcutByKey}>
               <ChatFoldContext.Provider value={chatFold}>
                 <div className="workspace-list" data-testid="workspace-list">
+                  {threadGrouping === "time" ? (
+                    <>
+                      <AttentionSection
+                        kind="needs-you"
+                        label="Needs you"
+                        threads={threadSidebarModel.needsYouThreads}
+                        selectedWorkspace={selectedWorkspace}
+                        selectedSession={selectedSession}
+                        threadMenu={threadMenu}
+                        onArchiveSession={onArchiveSession}
+                        onSelectSession={onSelectSession}
+                        onSetSessionPinned={onSetSessionPinned}
+                      />
+                      <AttentionSection
+                        kind="working"
+                        label="Working"
+                        threads={threadSidebarModel.workingThreads}
+                        folded={workingFolded}
+                        onToggleFolded={() => setWorkingFolded((current) => !current)}
+                        selectedWorkspace={selectedWorkspace}
+                        selectedSession={selectedSession}
+                        threadMenu={threadMenu}
+                        onArchiveSession={onArchiveSession}
+                        onSelectSession={onSelectSession}
+                        onSetSessionPinned={onSetSessionPinned}
+                      />
+                    </>
+                  ) : null}
                   <SortableContext items={rootGroupIds} strategy={verticalListSortingStrategy}>
                     {rootGroups.map((group) => (
                       <SortableWorkspaceFolder
@@ -671,34 +697,6 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
                       onSelectSession={onSelectSession}
                       onSetSessionPinned={onSetSessionPinned}
                     />
-                  ) : null}
-                  {threadGrouping === "time" ? (
-                    <>
-                      <AttentionSection
-                        kind="needs-you"
-                        label="Needs you"
-                        threads={threadSidebarModel.needsYouThreads}
-                        selectedWorkspace={selectedWorkspace}
-                        selectedSession={selectedSession}
-                        threadMenu={threadMenu}
-                        onArchiveSession={onArchiveSession}
-                        onSelectSession={onSelectSession}
-                        onSetSessionPinned={onSetSessionPinned}
-                      />
-                      <AttentionSection
-                        kind="working"
-                        label="Working"
-                        threads={threadSidebarModel.workingThreads}
-                        folded={workingFolded}
-                        onToggleFolded={() => setWorkingFolded((current) => !current)}
-                        selectedWorkspace={selectedWorkspace}
-                        selectedSession={selectedSession}
-                        threadMenu={threadMenu}
-                        onArchiveSession={onArchiveSession}
-                        onSelectSession={onSelectSession}
-                        onSetSessionPinned={onSetSessionPinned}
-                      />
-                    </>
                   ) : null}
                   {threadGrouping === "time"
                     ? threadSidebarModel.recencySections.map((section) => (

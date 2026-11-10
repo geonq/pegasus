@@ -356,8 +356,8 @@ export function visibleThreadShortcutOrder(
         ]
       : [];
   return [
-    ...options.model.pinnedThreads,
     ...attention,
+    ...options.model.pinnedThreads,
     ...unpinned,
     ...(options.archivedOpen ? options.model.archivedThreads : []),
   ];

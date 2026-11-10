@@ -37,14 +37,13 @@ test("caps each time bucket at five and hides workspace headers", async () => {
     await createHistoryThreads(window, workspaceA.id, numberedThreadTitles("A", 6));
     await createHistoryThreads(window, workspaceB.id, numberedThreadTitles("B", 2));
 
-    const customize = window.getByRole("button", { name: "Customize Sidebar" });
-    await customize.hover();
-    await expect(window.getByRole("tooltip", { name: "Customize Sidebar" })).toBeVisible();
     await chooseThreadGrouping(window, "time");
     const today = recencySection(window, "Today");
     await expect(today).toBeVisible();
     await expect(today.locator(".session-row")).toHaveCount(5);
-    await expect(window.locator(".workspace-row")).toHaveCount(0);
+    // Chats keeps one folder row per folder that has a chat, with no threads nested under it.
+    await expect(window.locator(".workspace-row")).toHaveCount(2);
+    await expect(window.locator(".workspace-group .session-row")).toHaveCount(0);
     await today.getByRole("button", { name: "Show more Today" }).click();
     await expect(today.locator(".session-row")).toHaveCount(8);
     await today.getByRole("button", { name: "Show less Today" }).click();

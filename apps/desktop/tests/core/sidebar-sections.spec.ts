@@ -109,3 +109,69 @@ test("Chats view lifts failed and running chats into Needs you and Working, and 
     await harness.close();
   }
 });
+
+test("Needs you and Working head the Chats list, and Archive takes a real click at the narrowest sidebar", async () => {
+  test.setTimeout(90_000);
+  const userDataDir = await makeUserDataDir("pi-app-user-data-sections-narrow-");
+  const workspacePaths = await Promise.all(
+    ["narrow-a", "narrow-b", "narrow-c", "narrow-d", "narrow-e", "narrow-f"].map(makeWorkspace),
+  );
+  const harness = await launchDesktop(userDataDir, {
+    initialWorkspaces: workspacePaths,
+    testMode: "background",
+  });
+
+  try {
+    const window = await harness.firstWindow();
+    const workspaces = await Promise.all(
+      workspacePaths.map((path) => waitForWorkspaceByPath(window, path)),
+    );
+    await createSessionViaIpc(window, workspaces[0]!.id, "Needs a long title to crowd the row far past the edge");
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    await createSessionViaIpc(window, workspaces[1]!.id, "Builds");
+    await window
+      .getByRole("group", { name: "Sidebar view" })
+      .getByRole("button", { name: "Chats", exact: true })
+      .click();
+    await setStatus(
+      harness,
+      window,
+      "Needs a long title to crowd the row far past the edge",
+      "failed",
+    );
+    await setStatus(harness, window, "Builds", "running");
+
+    const needsYou = window.getByRole("region", { name: "Needs you" });
+    const working = window.getByRole("region", { name: "Working" });
+    await expect(needsYou.locator(".session-row")).toHaveCount(1);
+    await expect(working.locator(".session-row")).toHaveCount(1);
+    // Both sit above the project folder rows, so many projects never push them off screen.
+    const firstFolder = (await window.locator(".workspace-row").first().boundingBox())!;
+    expect((await needsYou.boundingBox())!.y).toBeLessThan(firstFolder.y);
+    expect((await working.boundingBox())!.y).toBeLessThan(firstFolder.y);
+
+    const handle = window.getByRole("separator", { name: "Sidebar width" });
+    const box = (await handle.boundingBox())!;
+    await window.mouse.move(box.x + box.width / 2, box.y + 300);
+    await window.mouse.down();
+    await window.mouse.move(0, box.y + 300, { steps: 8 });
+    await window.mouse.up();
+    await expect
+      .poll(async () => Math.round((await window.locator("aside.sidebar").boundingBox())!.width))
+      .toBeLessThanOrEqual(204);
+
+    if (proofDir) {
+      await window.mouse.move(box.x + 400, box.y + 600);
+      await expect(needsYou).toHaveCSS("opacity", "1");
+      await window.locator(".sidebar").screenshot({ path: join(proofDir, "sidebar-narrow.png") });
+    }
+
+    const row = needsYou.locator(".session-row");
+    await row.hover();
+    await row.getByLabel(/Archive chat/).click();
+    await expect(needsYou).toHaveCount(0);
+    await expect(window.getByRole("status").filter({ hasText: "Chat archived" })).toBeVisible();
+  } finally {
+    await harness.close();
+  }
+});
