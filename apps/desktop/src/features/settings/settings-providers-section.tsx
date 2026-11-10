@@ -78,7 +78,13 @@ export function SettingsProvidersSection({
   const accountIds = new Set(
     accountGroups.flatMap((group) => group.accounts.map((provider) => provider.id)),
   );
-  const connectedProviders = providers.filter((provider) => provider.hasAuth);
+  // Subscription sign-ins and their Claude Code slots are listed once, in Connected accounts below.
+  const connectedProviders = providers.filter(
+    (provider) =>
+      provider.hasAuth &&
+      !accountIds.has(provider.id) &&
+      !provider.id.startsWith("claude-code-account-"),
+  );
   const defaultProviderId = runtime?.settings.defaultProvider;
   const attentionProviders = providers.filter(
     (provider) => provider.id === defaultProviderId && !provider.hasAuth,
