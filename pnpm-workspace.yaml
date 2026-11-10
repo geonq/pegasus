@@ -1,5 +1,7 @@
 packages:
   - apps/*
+  # The iPhone app has its own install on the Mac (native Expo/React Native dependencies).
+  - "!apps/mobile"
   - packages/*
   - video
 
