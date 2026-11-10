@@ -1,17 +1,22 @@
-export type Brand = "claude" | "codex" | "antigravity";
+export type Brand = "claude" | "codex" | "antigravity" | "openscale";
 export type BrandWeights = Partial<Record<Brand, number>>;
 
 export const BRAND_HEX: Readonly<Record<Brand, string>> = {
   claude: "#D97757",
   codex: "#7C5CFC",
   antigravity: "#4285F4",
+  openscale: "#34E3A0",
 };
+/** OpenScale's own orange-to-cyan glow, for fills where a gradient reads (meters); BRAND_HEX elsewhere. */
+export const OPENSCALE_GRADIENT =
+  "linear-gradient(45deg, #EA7841, #EAB83F 30%, #A9EA8C 55%, #34E3A0 75%, #31C2EA)";
 /** Providers without a brand (compaction & cache, unknown) keep the owner's blue. */
 export const NEUTRAL_HEX = "#0253c4";
 /** Above 1, the busiest provider pulls the blend harder than its plain share would. */
 const LEAN = 1.6;
 
 export function brandOf(providerId: string): Brand | null {
+  if (/openscale/i.test(providerId)) return "openscale";
   if (/claude|anthropic/i.test(providerId)) return "claude";
   if (/openai|codex|gpt/i.test(providerId)) return "codex";
   if (/antigravity|agy|gemini|google/i.test(providerId)) return "antigravity";
@@ -23,6 +28,7 @@ export const BRAND_LABEL: Readonly<Record<Brand, string>> = {
   claude: "Claude",
   codex: "Codex",
   antigravity: "Antigravity",
+  openscale: "OpenScale",
 };
 export const OTHER_LABEL = "Other";
 export const seriesColor = (label: string): string => {

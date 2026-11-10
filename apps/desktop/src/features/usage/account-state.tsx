@@ -6,7 +6,7 @@ import type {
   SignInStatus,
 } from "../../../contracts/usage";
 import { ProviderIcon } from "../../ui/icons";
-import { providerColor } from "./brand-color";
+import { OPENSCALE_GRADIENT, brandOf, providerColor } from "./brand-color";
 
 const LABELS: Record<ProviderState, string> = {
   ready: "Ready",
@@ -319,6 +319,9 @@ export function AccountLimitsCard({
                         style={{
                           width: `${remaining}%`,
                           backgroundColor: `color-mix(in srgb, ${brand} ${remaining}%, color-mix(in srgb, ${brand} 35%, white))`,
+                          ...(brandOf(account.id) === "openscale"
+                            ? { backgroundImage: OPENSCALE_GRADIENT }
+                            : {}),
                         }}
                       />
                     </div>
