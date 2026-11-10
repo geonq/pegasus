@@ -17,6 +17,37 @@
   background: var(--main);
 }
 
+/* Tabs shrink to a minimum with ellipsis titles; past that the strip scrolls and its edges fade
+   (scroll-driven, so the fade shows only while there is more to scroll to). */
+@property --tabs-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --tabs-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes tabs-edge-fade {
+  0% {
+    --tabs-fade-start: 0px;
+    --tabs-fade-end: 20px;
+  }
+  5% {
+    --tabs-fade-start: 20px;
+  }
+  95% {
+    --tabs-fade-end: 20px;
+  }
+  100% {
+    --tabs-fade-start: 20px;
+    --tabs-fade-end: 0px;
+  }
+}
+
 .workbench__tabs {
   display: flex;
   flex: 1 1 auto;
@@ -24,14 +55,24 @@
   scrollbar-width: none;
   gap: 2px;
   min-width: 0;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--tabs-fade-start),
+    #000 calc(100% - var(--tabs-fade-end)),
+    transparent
+  );
+  animation: tabs-edge-fade linear both;
+  animation-timeline: scroll(self inline);
 }
 
 .workbench__tab-wrapper {
   display: flex;
   align-items: center;
-  min-width: 0;
+  position: relative;
+  min-width: 84px;
   max-width: 180px;
-  flex: none;
+  flex: 0 1 auto;
   border-radius: var(--radius-sm);
 }
 
@@ -45,7 +86,8 @@
   gap: 6px;
   min-width: 0;
   height: 34px;
-  padding: 0 4px 0 8px;
+  flex: 1 1 auto;
+  padding: 0 8px;
   border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 12px;
@@ -81,13 +123,40 @@
   color: var(--text-strong);
 }
 
+/* The close button floats over the tab's end: always on the active tab, on hover or focus for
+   the rest, so labels keep the width. */
 .workbench__tab-close {
-  flex: none;
+  position: absolute;
+  top: 50%;
+  right: 4px;
   width: 22px;
   height: 22px;
-  margin-right: 4px;
+  translate: 0 -50%;
   border-radius: var(--radius-xs);
   color: var(--muted-soft);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.workbench__tab-wrapper:hover .workbench__tab-close,
+.workbench__tab-wrapper:focus-within .workbench__tab-close,
+.workbench__tab-wrapper:has(.workbench__tab--active) .workbench__tab-close,
+.workbench__tab-close:focus-visible {
+  opacity: 1;
+}
+
+.workbench__tab-wrapper:not(:has(.workbench__tab--active)):hover .workbench__tab-close,
+.workbench__tab-wrapper:not(:has(.workbench__tab--active)):focus-within .workbench__tab-close {
+  background: var(--surface-muted);
+}
+
+.workbench__tab-wrapper:has(.workbench__tab--active) {
+  /* The selected tab keeps its whole title; the others give way. */
+  flex-shrink: 0;
+}
+
+.workbench__tab-wrapper:has(.workbench__tab--active) .workbench__tab {
+  padding-right: 30px;
 }
 
 .workbench__tab-close svg {

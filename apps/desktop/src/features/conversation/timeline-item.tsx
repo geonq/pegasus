@@ -28,6 +28,8 @@ import { parseAnnotatedPrompt } from "./annotations/annotation-prompt";
 import { SentAnnotations } from "./annotations/sent-annotations";
 import { ExtensionCardItem, type RunExtensionAction } from "./extension-card";
 import { ImageAttachmentThumb } from "./image-attachment-thumb";
+import { ErrorText } from "../../ui/error-text";
+import { ChildReportCard, parseChildReport } from "./child-report";
 import { MessageMarkdown } from "./message-markdown";
 import { stringifyToolValue, toolOutputImageSrc, toolOutputImages } from "./tool-output-images";
 import { TurnChangesCard, type OpenTurnChange } from "./turn-changes-card";
@@ -78,7 +80,9 @@ export function TimelineItem({
       return <TimelineTurnMarkerItem item={item} />;
     case "turn-changes":
       return <TurnChangesCard turn={item.turn} onOpen={onOpenTurnChange} />;
-    case "message":
+    case "message": {
+      const childReport = item.role === "user" ? parseChildReport(item.text) : null;
+      if (childReport) return <ChildReportCard report={childReport} />;
       return (
         <TimelineMessage
           item={item}
@@ -91,6 +95,7 @@ export function TimelineItem({
           onOpenAnnotation={onOpenAnnotation}
         />
       );
+    }
     case "activity":
       return <TimelineActivityItem item={item} />;
     case "tool":
@@ -406,7 +411,13 @@ function TimelineActivityItem({ item }: { readonly item: TimelineActivity }) {
   return (
     <div className={`timeline-activity timeline-activity--${item.tone ?? "neutral"}`}>
       {item.tone === "working" ? <StateOrb state={item.activityState ?? "solving"} /> : null}
-      <ActivityLabel label={item.label} working={item.tone === "working"} />
+      {item.tone === "error" ? (
+        <span className="timeline-activity__label">
+          <ErrorText text={item.label} />
+        </span>
+      ) : (
+        <ActivityLabel label={item.label} working={item.tone === "working"} />
+      )}
       {item.detail ? <span className="timeline-activity__detail">{item.detail}</span> : null}
       {item.metadata ? <span className="timeline-activity__meta">{item.metadata}</span> : null}
     </div>

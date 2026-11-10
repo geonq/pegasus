@@ -627,7 +627,7 @@
   min-width: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  /* The panel behind paints the surface (glass or opaque); xterm stays transparent. */
+  /* The terminal paints its own opaque theme background (terminal-theme.ts). */
   color: var(--text);
   overflow: hidden;
   position: relative;
@@ -3698,4 +3698,36 @@ mark.thread-find-active {
   color: var(--muted-soft);
   font-size: 12px;
   line-height: 1.5;
+}
+
+/* Provider errors: a plain sentence first, the provider's own text one click away. */
+.error-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.error-text__details > summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: var(--font-normal);
+}
+
+.error-text__details > summary:hover {
+  color: var(--text-strong);
+}
+
+.error-text__details code {
+  display: block;
+  margin-top: 4px;
+  max-height: 140px;
+  overflow: auto;
+  color: var(--muted-strong);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: var(--font-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

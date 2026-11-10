@@ -244,7 +244,6 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
     activeTerminalIdRef.current = activeSession.id;
     const terminal = new Terminal({
       allowProposedApi: true,
-      allowTransparency: true,
       cursorBlink: true,
       // Cascadia first (ships with Windows Terminal); the symbol/emoji tail covers glyphs
       // (⚠ ◐ ✻) that the mono faces lack, instead of rendering tofu boxes.
@@ -470,7 +469,12 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
               }}
             />
           ) : null}
-          <div className="terminal-panel__viewport" ref={containerRef} />
+          <div
+            className="terminal-panel__viewport"
+            ref={containerRef}
+            // Opaque and theme-coloured in both renderers; the padding ring matches the canvas.
+            style={{ backgroundColor: terminalThemeFor(activeTheme).background }}
+          />
         </div>
       )}
     </section>

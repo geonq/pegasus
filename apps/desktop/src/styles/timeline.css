@@ -1294,3 +1294,138 @@
   line-height: inherit;
   color: inherit;
 }
+
+/* ---- Child thread report ------------------------------------------------ */
+
+.child-report {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--status-neutral);
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.child-report--finished {
+  border-left-color: var(--status-success);
+}
+
+.child-report--failed {
+  border-left-color: var(--status-error);
+}
+
+.child-report__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.child-report__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--status-success);
+}
+
+.child-report--failed .child-report__dot {
+  background: var(--status-error);
+}
+
+.child-report__title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-weight: var(--font-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.child-report__state {
+  flex: none;
+  color: var(--status-success);
+  font-size: 12px;
+  font-weight: var(--font-medium);
+}
+
+.child-report--failed .child-report__state {
+  color: var(--status-error);
+}
+
+.child-report__open {
+  flex: none;
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--muted-strong);
+  font-size: 12px;
+}
+
+.child-report__open:hover {
+  background: var(--overlay-hover);
+  color: var(--text-strong);
+}
+
+.child-report__git {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  color: var(--muted-strong);
+  font-size: 12px;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.child-report__git li {
+  display: grid;
+  gap: 1px;
+}
+
+.child-report__git code {
+  padding-left: 12px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.child-report__reply {
+  min-width: 0;
+  color: var(--text);
+}
+
+.child-report__reply .message__content {
+  font-size: inherit;
+  line-height: inherit;
+  gap: 8px;
+}
+
+/* Beyond about four lines the reply is cut with a fade until the reader opens it. */
+.child-report__reply[data-collapsed] {
+  max-height: calc(1.5em * 4);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 60%, transparent);
+}
+
+.child-report__empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+.child-report__toggle {
+  justify-self: start;
+  padding: 0;
+  color: var(--muted-strong);
+  font-size: 12px;
+}
+
+.child-report__toggle:hover {
+  color: var(--text-strong);
+}

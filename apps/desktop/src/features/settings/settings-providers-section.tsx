@@ -206,61 +206,76 @@ export function SettingsProvidersSection({
             </p>
           </div>
           <div className="subscription-accounts__grid">
-            {accountGroups.map((group) => (
-              <section
-                className="subscription-account-card"
-                key={group.id}
-                aria-label={`${group.name} accounts`}
-              >
-                <header className="subscription-account-card__header">
-                  <span
-                    className={`subscription-account-card__mark subscription-account-card__mark--${group.id}`}
-                    aria-hidden="true"
-                  >
-                    {group.mark}
-                  </span>
-                  <div className="subscription-account-card__heading">
-                    <h4>{group.name}</h4>
-                    <p>
-                      {group.connected} of {group.accounts.length} connected
-                    </p>
-                  </div>
-                  {group.next ? (
-                    <button
-                      className="button button--secondary"
-                      type="button"
-                      onClick={() => onLoginProvider(group.next!.id)}
+            {accountGroups.map((group) => {
+              // Claude's sign-in state is the CLI slot's, so the header must count the same thing its rows show.
+              const signedIn = group.accounts.map((provider) =>
+                group.id === "anthropic"
+                  ? claudeRowView(provider.id, provider.hasAuth, claudeSlots).signedIn
+                  : provider.hasAuth,
+              );
+              const connected = signedIn.filter(Boolean).length;
+              const next =
+                group.id === "anthropic"
+                  ? group.accounts.find(
+                      (provider, index) => !signedIn[index] && provider.oauthSupported,
+                    )
+                  : group.next;
+              return (
+                <section
+                  className="subscription-account-card"
+                  key={group.id}
+                  aria-label={`${group.name} accounts`}
+                >
+                  <header className="subscription-account-card__header">
+                    <span
+                      className={`subscription-account-card__mark subscription-account-card__mark--${group.id}`}
+                      aria-hidden="true"
                     >
-                      Add {group.shortName} account
-                    </button>
-                  ) : (
-                    <span className="subscription-account-card__complete">All connected</span>
-                  )}
-                </header>
-                <div className="subscription-account-card__rows">
-                  {group.accounts.map((provider) =>
-                    group.id === "anthropic" ? (
-                      <ClaudeAccountRow
-                        key={provider.id}
-                        providerId={provider.id}
-                        view={claudeRowView(provider.id, provider.hasAuth, claudeSlots)}
-                        onLoginProvider={onLoginProvider}
-                        onLogoutProvider={onLogoutProvider}
-                      />
+                      {group.mark}
+                    </span>
+                    <div className="subscription-account-card__heading">
+                      <h4>{group.name}</h4>
+                      <p>
+                        {connected} of {group.accounts.length} connected
+                      </p>
+                    </div>
+                    {next ? (
+                      <button
+                        className="button button--secondary"
+                        type="button"
+                        onClick={() => onLoginProvider(next.id)}
+                      >
+                        Add {group.shortName} account
+                      </button>
                     ) : (
-                      <ProviderRow
-                        key={provider.id}
-                        provider={{
-                          ...provider,
-                          name: `Account ${subscriptionAccount(provider.id)!.number}`,
-                        }}
-                        {...rowHandlers}
-                      />
-                    ),
-                  )}
-                </div>
-              </section>
-            ))}
+                      <span className="subscription-account-card__complete">All connected</span>
+                    )}
+                  </header>
+                  <div className="subscription-account-card__rows">
+                    {group.accounts.map((provider) =>
+                      group.id === "anthropic" ? (
+                        <ClaudeAccountRow
+                          key={provider.id}
+                          providerId={provider.id}
+                          view={claudeRowView(provider.id, provider.hasAuth, claudeSlots)}
+                          onLoginProvider={onLoginProvider}
+                          onLogoutProvider={onLogoutProvider}
+                        />
+                      ) : (
+                        <ProviderRow
+                          key={provider.id}
+                          provider={{
+                            ...provider,
+                            name: `Account ${subscriptionAccount(provider.id)!.number}`,
+                          }}
+                          {...rowHandlers}
+                        />
+                      ),
+                    )}
+                  </div>
+                </section>
+              );
+            })}
           </div>
           <p className="settings-section__description">
             Choose a model and account when starting a thread. Additional accounts do not combine

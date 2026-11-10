@@ -8,6 +8,7 @@ import {
   type RefObject,
 } from "react";
 import type { ComposerAttachment } from "../../../contracts/desktop-state";
+import { ErrorText } from "../../ui/error-text";
 import type { MentionOption } from "./hooks/use-mention-menu";
 import type {
   ComposerSlashCommand,
@@ -265,7 +266,7 @@ export function ComposerSurface({
           data-testid="composer-error-banner"
           role="alert"
         >
-          {lastError}
+          <ErrorText text={lastError} />
         </div>
       ) : null}
       <div className="composer__editor">

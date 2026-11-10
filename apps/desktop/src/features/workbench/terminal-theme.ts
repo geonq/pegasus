@@ -51,7 +51,8 @@ export function terminalThemeFor(theme: ActiveTheme): ITheme {
   const token = (name: `--${string}`): string => tokens[name] ?? "";
   return {
     ...(theme.variant === "light" ? ONE_HALF_LIGHT : CAMPBELL),
-    background: "#00000000",
+    // Opaque: xterm's DOM renderer paints its viewport #000 when the background is transparent.
+    background: token("--main"),
     foreground: token("--text"),
     cursor: token("--text-strong"),
     cursorAccent: token("--main"),

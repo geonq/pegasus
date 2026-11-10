@@ -8,6 +8,7 @@ import {
   filterScheduledTasks,
   formatScheduledTaskRowMeta,
 } from "../../../contracts/scheduled-tasks";
+import { ErrorText } from "../../ui/error-text";
 import type { PiDesktopApi } from "../../../contracts/ipc";
 import type { Dispatch, SetStateAction } from "react";
 import type { ScheduledEditorState } from "./scheduled-task-editor";
@@ -126,7 +127,11 @@ export function ScheduledTasksView({
         </div>
       </div>
 
-      {lastError ? <p className="error-banner">{lastError}</p> : null}
+      {lastError ? (
+        <p className="error-banner">
+          <ErrorText text={lastError} />
+        </p>
+      ) : null}
 
       {visible.length === 0 ? (
         <div className="empty-panel" data-testid="scheduled-tasks-empty">
