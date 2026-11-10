@@ -61,6 +61,11 @@ impl Server {
         Ok(Server { root: plain(std::fs::canonicalize(root)?), index: Index::new(cache), rows: None })
     }
 
+    /// The canonical sessions root every path must resolve inside.
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
     fn inside(&self, p: &str) -> Result<PathBuf, Fail> {
         if p.contains('\0') {
             return Err((ErrorCode::BadPath, "NUL in path".into()));

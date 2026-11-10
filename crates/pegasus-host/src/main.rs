@@ -76,7 +76,9 @@ async fn main() {
     let _ = std::fs::create_dir_all(&a.sessions_root);
     let sessions = Sessions::new(&a.sessions_root, a.cache.clone())
         .unwrap_or_else(|e| fail(2, &format!("sessions root {}: {e}", a.sessions_root.display())));
-    let host = Host::new(sessions, a.orphan_grace);
+    // Next to the session index cache: `<dir>/pegasus-usage-cache.json`.
+    let usage_cache = a.cache.as_ref().map(|c| c.with_file_name("pegasus-usage-cache.json"));
+    let host = Host::new(sessions, pegasus_core::usage::UsageIndex::new(usage_cache), a.orphan_grace);
     info!("pegasus-host {} pid {} on {}", host::HOST_VERSION, std::process::id(), a.endpoint);
 
     let mut exiting = host.exiting.subscribe();

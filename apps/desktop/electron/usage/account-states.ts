@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { AccountState, AccountStatus } from "../../contracts/usage";
-import { resolveAgentDir } from "../application/app-store";
+import { resolveAgentDir } from "../platform/agent-dir";
 
 interface AccountRecord {
   readonly approved?: boolean;

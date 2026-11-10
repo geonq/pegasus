@@ -53,6 +53,9 @@ impl Conn {
 
 pub struct Host {
     sessions: Arc<Mutex<Sessions>>,
+    /// Usage scans the same root with its own lock, so a long first scan never blocks session reads.
+    usage: Arc<pegasus_core::usage::UsageIndex>,
+    sessions_root: std::path::PathBuf,
     clients: AtomicU32,
     pub terminals: Arc<Terminals>,
     pub remote: Arc<crate::remote::Remote>,
@@ -97,10 +100,17 @@ pub fn now_ms() -> f64 {
 }
 
 impl Host {
-    pub fn new(sessions: Sessions, orphan_grace: std::time::Duration) -> Arc<Self> {
+    pub fn new(
+        sessions: Sessions,
+        usage: pegasus_core::usage::UsageIndex,
+        orphan_grace: std::time::Duration,
+    ) -> Arc<Self> {
         let events = broadcast::channel(1024).0;
+        let sessions_root = sessions.root().to_path_buf();
         Arc::new(Host {
             sessions: Arc::new(Mutex::new(sessions)),
+            usage: Arc::new(usage),
+            sessions_root,
             clients: AtomicU32::new(0),
             terminals: Arc::new(Terminals::new(events.clone())),
             remote: Arc::new(crate::remote::Remote::default()),
@@ -260,6 +270,23 @@ impl Host {
                 tokio::task::spawn_blocking(move || review_call(&method, params))
                     .await
                     .map_err(|e| HostError::new(ErrorCode::Internal, format!("review task failed: {e}")))?
+            }
+            "usage.scan" => {
+                let _: Empty = parse(params)?;
+                let (usage, root) = (self.usage.clone(), self.sessions_root.clone());
+                tokio::task::spawn_blocking(move || {
+                    let started = Instant::now();
+                    let scan = usage.scan_root(&root);
+                    crate::info!(
+                        "usage scan: {} sessions, {} unreadable, {} ms",
+                        scan.sessions.len(),
+                        scan.unreadable,
+                        started.elapsed().as_millis()
+                    );
+                    to_body(&scan)
+                })
+                .await
+                .map_err(|e| HostError::new(ErrorCode::Internal, format!("usage task failed: {e}")))?
             }
             "remote.serve" => {
                 let p: pegasus_core::protocol::RemoteServeParams = parse(params)?;

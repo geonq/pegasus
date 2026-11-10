@@ -207,6 +207,26 @@ export type TreeChanges = { files: Array<TurnChangedFile>, };
 
 export type ReviewCheckResult = { issue: ReviewIssue | null, };
 
+export type UsageMessage = { role: string, provider?: string, model?: string, 
+/**
+ * pi's usage object, passed through unparsed.
+ */
+usage?: unknown, timestamp?: number, stopReason?: string, };
+
+export type UsageEntry = { type: string, timestamp?: string, usage?: unknown, message?: UsageMessage, };
+
+export type UsageSession = { path: string, id: string, cwd: string, name?: string, 
+/**
+ * First user message text, "" when there is none (pi's listAll says "(no messages)").
+ */
+firstMessage: string, entries: Array<UsageEntry>, };
+
+export type UsageScan = { sessions: Array<UsageSession>, 
+/**
+ * Session files that could not be read.
+ */
+unreadable: number, };
+
 export interface HostMethods {
   "hello": { params: HelloParams; result: HelloResult };
   "status": { params: Empty; result: StatusResult };
@@ -231,4 +251,5 @@ export interface HostMethods {
   "remote.reply": { params: RemoteReplyParams; result: Empty };
   "remote.publish": { params: RemotePublishParams; result: Empty };
   "remote.stop": { params: Empty; result: Empty };
+  "usage.scan": { params: Empty; result: UsageScan };
 }

@@ -1,25 +1,29 @@
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { totalTokens, type ModelPerformance } from "../../contracts/usage";
 import type { apiCostUsd } from "./api-pricing";
+import type { UsageRecord } from "./usage-records";
 
 /** Saved message time is request start; entry time is persistence after completion. */
 export function modelPerformance(
-  entries: readonly SessionEntry[],
+  records: readonly UsageRecord[],
   price: typeof apiCostUsd,
 ): readonly ModelPerformance[] {
   const rows = new Map<string, { -readonly [K in keyof ModelPerformance]: ModelPerformance[K] }>();
   let task:
     | { start: number; models: Set<string>; cost: number; priced: boolean; tokens: number }
     | undefined;
-  for (const entry of entries) {
-    if (entry.type !== "message") continue;
-    const message = entry.message;
-    const end = Date.parse(entry.timestamp);
-    if (message.role === "user") {
-      task = { start: message.timestamp, models: new Set(), cost: 0, priced: true, tokens: 0 };
+  for (const message of records) {
+    const end = message.time;
+    if (message.kind === "user") {
+      task = {
+        start: message.startedAt ?? Number.NaN,
+        models: new Set(),
+        cost: 0,
+        priced: true,
+        tokens: 0,
+      };
       continue;
     }
-    if (message.role !== "assistant") continue;
+    if (message.kind !== "assistant") continue;
     const key = `${message.provider}/${message.model}`;
     const day = new Date(end);
     day.setHours(0, 0, 0, 0);
@@ -45,7 +49,7 @@ export function modelPerformance(
       };
       rows.set(group, row);
     }
-    const elapsed = end - message.timestamp;
+    const elapsed = end - (message.startedAt ?? Number.NaN);
     const succeeded = message.stopReason === "stop" || message.stopReason === "toolUse";
     if (succeeded) {
       row.promptTokens += message.usage.input + message.usage.cacheRead + message.usage.cacheWrite;

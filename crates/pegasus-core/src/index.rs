@@ -124,6 +124,11 @@ fn content_text(raw: &RawValue) -> String {
 impl FileIndex {
     /// Fold one JSON line into the state. Returns false when the file is not a pi session
     /// (first parsed line is not a header).
+    /// The same fold for callers that stream lines themselves (the usage index).
+    pub fn apply_line(&mut self, line: &[u8], first: bool) -> bool {
+        self.apply(line, first)
+    }
+
     fn apply(&mut self, line: &[u8], first: bool) -> bool {
         let Ok(l) = serde_json::from_slice::<Line>(line) else { return true }; // malformed lines are skipped, as pi does
         let ty = l.ty.as_deref().unwrap_or("");

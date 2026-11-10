@@ -1,3 +1,4 @@
+import { resolveAgentDir } from "../platform/agent-dir";
 import { JsonCatalogStore } from "@pi-gui/catalogs/node";
 import { sessionKey } from "@pi-gui/session-driver";
 import type { ExtensionFlagValues, SessionSchemaInfo } from "@pi-gui/session-driver";
@@ -5238,14 +5239,7 @@ function withHomeAsTilde(path: string): string {
   return path.startsWith(`${home}${sep}`) ? `~${path.slice(home.length)}` : path;
 }
 
-export function resolveAgentDir(): string {
-  const override = process.env.PI_CODING_AGENT_DIR;
-  return override
-    ? override.startsWith("~")
-      ? join(homedir(), override.slice(1))
-      : override
-    : join(homedir(), ".pi", "agent");
-}
+export { resolveAgentDir } from "../platform/agent-dir";
 
 function resolveGlobalSettingsPath(): string {
   return join(resolveAgentDir(), "settings.json");

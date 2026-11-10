@@ -4,3 +4,4 @@ pub mod protocol;
 pub mod review_types;
 pub mod rpc;
 pub mod session;
+pub mod usage;

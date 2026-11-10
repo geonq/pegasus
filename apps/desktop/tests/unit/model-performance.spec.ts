@@ -2,8 +2,10 @@ import { expect, test } from "@playwright/test";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import { modelPerformance as measure } from "../../electron/usage/model-performance";
 import { openscaleApiCost } from "../../electron/usage/openscale-pricing";
+import { toUsageRecords } from "../../electron/usage/usage-records";
 
-const modelPerformance = (entries: readonly SessionEntry[]) => measure(entries, openscaleApiCost);
+const modelPerformance = (entries: readonly SessionEntry[]) =>
+  measure(toUsageRecords(entries), openscaleApiCost);
 const apiCostUsd = (
   model: string,
   tokens: Parameters<typeof openscaleApiCost>[1],
