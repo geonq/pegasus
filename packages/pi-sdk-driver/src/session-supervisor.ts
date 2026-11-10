@@ -119,6 +119,7 @@ import {
   workspaceToRef,
   type RunOutcome,
 } from "./session-supervisor-utils.js";
+import { listSessionInfos, openTranscriptSource } from "./sidecar-client.js";
 import { forcePersistPiSession } from "./compat/pi-session-persistence.js";
 import { createTurnCaptureExtension } from "./turn-capture.js";
 import { createTranscriptIdentityExtension } from "./transcript-identity.js";
@@ -533,7 +534,7 @@ export class SessionSupervisor {
         const scanned = await Promise.all(
           targets.map(async ({ sourcePath, workspace }) => {
             try {
-              const infos = await SessionManager.list(workspace.path);
+              const infos = await listSessionInfos(workspace.path);
               const existingSessions = sessionsByWorkspace.get(workspace.workspaceId) ?? [];
               const existingByKey = new Map(
                 existingSessions.map((session) => [sessionKey(session.sessionRef), session]),
@@ -647,7 +648,7 @@ export class SessionSupervisor {
   }
 
   private async syncWorkspaceNow(workspace: WorkspaceRef): Promise<SyncWorkspaceResult> {
-    const infos = await SessionManager.list(workspace.path);
+    const infos = await listSessionInfos(workspace.path);
     const existingSessions = (await this.catalogs.sessions.listSessions(workspace.workspaceId))
       .sessions;
     const existingByKey = new Map(
@@ -826,8 +827,7 @@ export class SessionSupervisor {
       throw new Error(`Session ${sessionKey(sessionRef)} has no tracked session file.`);
     }
 
-    const sessionManager = SessionManager.open(sessionFile);
-    return transcriptFromSession(sessionManager, sessionEntry?.updatedAt);
+    return transcriptFromSession(await openTranscriptSource(sessionFile), sessionEntry?.updatedAt);
   }
 
   private async resolveSessionFilePath(
@@ -868,7 +868,7 @@ export class SessionSupervisor {
     if (!workspace) {
       return undefined;
     }
-    const infos = await SessionManager.list(workspace.path);
+    const infos = await listSessionInfos(workspace.path);
     return infos.find((info) => info.id === sessionRef.sessionId)?.path;
   }
 

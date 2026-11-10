@@ -1,0 +1,4 @@
+# No MSVC Build Tools on this PC: gnullvm toolchain + llvm-mingw (unpacked in D:\Pi\scratch\toolchains) as linker.
+[target.x86_64-pc-windows-gnullvm]
+linker = "D:/Pi/scratch/toolchains/llvm-mingw-20261104-ucrt-x86_64/bin/x86_64-w64-mingw32-clang.exe"
+rustflags = ["-C", "link-arg=-static-libgcc", "-L", "native=D:/Pi/pi-gui/crates/.libs"]
