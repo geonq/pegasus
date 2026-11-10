@@ -9,6 +9,7 @@ import {
   launchDesktop,
   makeUserDataDir,
   makeWorkspace,
+  widenSidePanel,
 } from "../helpers/electron-app";
 
 test("shows workspace file mentions from the composer and inserts the selected file", async () => {
@@ -40,11 +41,12 @@ test("shows workspace file mentions from the composer and inserts the selected f
       "Extensions",
       "Files",
     ]);
-    // pi-gui's two tools, pi's three add-ons (MCP, code mode, tool search) and two files.
-    await expect(mentionMenu.locator(".mention-menu__item")).toHaveCount(7);
+    // pi-gui's three tools, pi's three add-ons (MCP, code mode, tool search) and two files.
+    await expect(mentionMenu.locator(".mention-menu__item")).toHaveCount(8);
     await expect(mentionMenu).toContainText("MCP servers");
     await expect(mentionMenu).toContainText("Thread orchestration");
     await expect(mentionMenu).toContainText("Scheduled tasks");
+    await expect(mentionMenu).toContainText("Interactive cards");
 
     await composer.pressSequentially("README");
     await expect(mentionMenu.locator(".mention-menu__item")).toHaveCount(1);
@@ -120,13 +122,16 @@ test("toggles the diff panel from the keyboard shortcut and renders changed file
     await window.keyboard.press(desktopShortcut("R"));
     await expect(diffPanel).toBeVisible();
     await expect(diffPanel).toHaveAttribute("aria-label", "Review");
-    await expect(diffPanel.locator(".diff-panel__file-path")).toHaveText("README.md");
 
     const mainBox = await window.locator(".main").boundingBox();
     const panelBox = await diffPanel.boundingBox();
     expect(mainBox).not.toBeNull();
     expect(panelBox).not.toBeNull();
     expect(panelBox?.x ?? 0).toBeGreaterThan((mainBox?.x ?? 0) + (mainBox?.width ?? 0) / 2);
+
+    // The changed-file tree needs a wider panel than the default.
+    await widenSidePanel(window);
+    await expect(diffPanel.locator(".diff-panel__file-path")).toHaveText("README.md");
 
     await diffPanel.locator(".diff-panel__file-name").click();
     const combined = diffPanel.getByRole("region", { name: "Diff", exact: true });
