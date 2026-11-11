@@ -213,8 +213,9 @@ async fn detached_host_holds_no_launcher_pipes_and_reaps_orphaned_terminals() {
     std::fs::create_dir_all(&root).unwrap();
     let ep = endpoint("detach");
     // The launcher's stdout is a pipe we read to EOF: it must close as soon as the launcher exits,
-    // even though the host it started keeps running.
-    let started = Instant::now();
+    // even though the host it started keeps running. Had the host held the pipes, output() would
+    // return only once the host idled out (2 s), and the connect below would find no host. That is
+    // the proof; a wall-clock bound was not, since parallel tests slow a healthy launch past it.
     let out = Command::new(env!("CARGO_BIN_EXE_pegasus-host"))
         .args(["--detach", "--endpoint", &ep, "--sessions-root"]).arg(&root)
         .args(["--idle-exit-secs", "2", "--orphan-grace-secs", "1"])
@@ -222,7 +223,6 @@ async fn detached_host_holds_no_launcher_pipes_and_reaps_orphaned_terminals() {
         .stdout(Stdio::piped()).stderr(Stdio::piped())
         .output().unwrap();
     assert!(out.status.success(), "{out:?}");
-    assert!(started.elapsed() < Duration::from_secs(5), "launcher pipes stayed open");
 
     let mut c = connect(&ep).await;
     let (sh, args) = shell();
