@@ -118,8 +118,10 @@ test("the iPhone app pairs over Tailscale and lists this PC's chats", async () =
         "UDID=$(cat /tmp/pegasus-sim)",
         "xcrun simctl bootstatus $UDID -b >/dev/null",
         "xcrun simctl terminate $UDID dev.geonq.pegasus >/dev/null 2>&1 || true",
-        // A fresh install clears the app's Keychain item, so the phone starts unpaired.
         "xcrun simctl uninstall $UDID dev.geonq.pegasus >/dev/null 2>&1 || true",
+        // iOS keeps Keychain items across an uninstall, and a paired phone ignores new pairing links
+        // (by design). Resetting this test simulator's keychain makes every run start unpaired.
+        "xcrun simctl keychain $UDID reset",
         "xcrun simctl install $UDID ~/Pi/pegasus-mobile/ios/build/Build/Products/Release-iphonesimulator/Pegasus.app",
         // Opening a link would need a tap on iOS's confirmation; a launch argument pairs directly.
         `xcrun simctl launch $UDID dev.geonq.pegasus -PegasusPairingLink '${link}' >/dev/null`,

@@ -339,6 +339,7 @@ impl Remote {
             };
         }
         if !header(&headers, "host").is_some_and(|h| server.hosts.contains(h)) {
+            crate::info!("remote request with Host {:?}; allowed {:?}", header(&headers, "host"), server.hosts);
             return early!(error(400, "invalid_host", "The loopback Host header is invalid.", None));
         }
         // Browsers always send Origin on these requests, so a present one must be allowed. A native
@@ -799,6 +800,8 @@ fn base_json(status: u16, body: Vec<u8>, origin: Option<&str>, br: bool) -> Resp
 }
 
 fn error(status: u16, code: &str, message: &str, origin: Option<&str>) -> Response<Body> {
+    // Every refused remote request is logged: a client that silently fails to connect is otherwise opaque.
+    crate::info!("remote request refused: {status} {code}");
     let body = serde_json::to_vec(&serde_json::json!({ "version": 1, "error": { "code": code, "message": message } })).unwrap_or_default();
     base_json(status, body, origin, false)
 }
