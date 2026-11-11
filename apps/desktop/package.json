@@ -8,7 +8,7 @@
   "homepage": "https://github.com/geonq/pegasus",
   "main": "out/main/main.js",
   "scripts": {
-    "build:deps": "pnpm --dir ../.. --filter @pi-gui/session-driver --filter @pi-gui/pi-sdk-driver --filter @pi-gui/extension-ui --filter @pi-gui/catalogs run build",
+    "build:deps": "pnpm --dir ../.. --filter @pi-gui/host-protocol --filter @pi-gui/session-driver --filter @pi-gui/pi-sdk-driver --filter @pi-gui/extension-ui --filter @pi-gui/catalogs run build",
     "build:notification-helper": "node scripts/build-notification-status-helper.mjs",
     "dev": "node scripts/dev.mjs",
     "build": "pnpm run build:deps && pnpm run build:notification-helper && electron-vite build",
