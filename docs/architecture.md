@@ -10,6 +10,14 @@ The renderer calls the browser-safe `window.piApp` API exposed by preload. Elect
 
 Start tracing in [main](../apps/desktop/electron/main.ts), [window owner](../apps/desktop/electron/windows/window-owner.ts), [IPC registration](../apps/desktop/electron/ipc/register-desktop-ipc.ts), [application store](../apps/desktop/electron/application/app-store.ts), and [Pi SDK driver](../packages/pi-sdk-driver/src/pi-sdk-driver.ts). Renderer, preload, and main remain separate bundles configured by [electron-vite](../apps/desktop/electron.vite.config.mjs).
 
+## Rust backend host
+
+`crates/pegasus-host` is a long-lived process per pi profile (`<agentDir>`), reached over a named pipe on Windows and a 0600 unix socket elsewhere. Electron attaches through `@pi-gui/host-protocol/shared`; a second instance for the same profile exits, and the host exits when idle. Packaged builds run it from a per-version copy in `<agentDir>/host-bin/<version>`. Its log is `<agentDir>/logs/pegasus-host.log`.
+
+The host owns terminals (ConPTY/portable-pty, kept alive 30 s after their window leaves), Git review snapshots and tree diffs, the usage index (every session file read in one streaming pass, cached by size and mtime in `pegasus-usage-cache.json`), the session index, and the remote HTTP API (`POST /v1/invoke`, `GET /v1/events`) for the Mac client and paired phones, which it relays to Electron's per-device brokers. Agent runs, the pi SDK and application state stay in Electron main.
+
+One schema in [`crates/pegasus-core/src/protocol.rs`](../crates/pegasus-core/src/protocol.rs) defines every request, result and event; it generates [`packages/host-protocol/src/generated.ts`](../packages/host-protocol/src/generated.ts), and `pnpm check:protocol` fails when that file is stale. Unknown fields are rejected and every failure carries a typed error code.
+
 ## Owners and boundaries
 
 | Owner                | Responsibility                                                                 | Enforced interface                                                                                                                                             |

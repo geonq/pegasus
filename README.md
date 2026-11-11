@@ -18,8 +18,9 @@
 
 Pegasus is the app I use every day to run coding agents. One Windows PC does the work:
 it runs every conversation, model call and tool. My Mac is a native client for that same
-backend, so a chat started on one machine continues on the other. Codex (ChatGPT), Claude and
-Antigravity all sit side by side, with their quota and history in one place.
+backend, and an iPhone app follows and answers chats over Tailscale, so a chat started on one
+device continues on the others. Codex (ChatGPT), Claude and Antigravity all sit side by side,
+with their quota and history in one place.
 
 It started as a fork of [pi-gui](https://github.com/minghinmatthewlam/pi-gui) by Matthew Lam
 and still runs every session through [pi](https://github.com/earendil-works/pi), so sessions,
@@ -45,6 +46,19 @@ models, sign-ins and tools behave exactly as they do in the pi CLI.
   its own skills without restarting running chats.
 - **Faster start.** Startup writes the workspace catalog once in a batch instead of once per
   folder.
+- **Rust backend host.** A long-lived `pegasus-host` process per profile runs terminals, Git
+  review, usage scanning and the remote API, off Electron's main thread and behind one typed
+  protocol (generated TypeScript types, checked in `pnpm check`). Terminals keep running when a
+  window reloads; a 2000-file review takes 0.5 s instead of 1.6 s.
+- **Phone.** **Settings → Phone** pairs an iPhone with a QR code over Tailscale (per-phone token,
+  revocable). The iPhone app lives in [`apps/mobile`](apps/mobile/README.md).
+- **Compare models.** Shift-click more models in the new-chat picker and the same prompt starts
+  once per model, each in its own worktree.
+- **Pull request feedback.** The Review header shows the open PR's checks and comments; one click
+  sends the failing checks and review comments to the chat.
+- **Snooze.** Put a chat away for an hour or until tomorrow; it comes back unread.
+- **Usage that counts everything.** Every saved session is read, however large, and plan limits
+  are sorted tightest first with a warning at 80 %.
 
 Everything pi-gui does is still here: parallel threads with optional git worktrees, the
 review tab, a real terminal and file editor, scheduled tasks, extensions, the command palette,
@@ -79,14 +93,18 @@ optional and stay off until configured.
 | <kbd>⌘</kbd> <kbd>R</kbd>                          | Toggle the Review tab                 |
 | <kbd>Enter</kbd> while a run is going              | Queue a follow-up                     |
 | <kbd>⌘</kbd> <kbd>Enter</kbd> while a run is going | Steer the current run                 |
+| <kbd>⌘</kbd> <kbd>Enter</kbd> in a new chat        | Start it and stay to write the next   |
+| <kbd>Shift</kbd>-click a model in a new chat       | Also run the prompt with that model   |
 
 ## Build from source
 
-Requires Node 22.19 or newer and [pnpm](https://pnpm.io) through `corepack`.
+Requires Node 22.19 or newer, [pnpm](https://pnpm.io) through `corepack`, and a stable
+[Rust](https://rustup.rs) toolchain for the backend host (on Windows with the MSVC build tools).
 
 ```bash
 corepack enable
 pnpm install
+(cd crates && cargo build -p pegasus-host)        # the backend host the app starts
 pnpm dev                                         # run the app with hot reload
 pnpm check                                       # format, lint, boundaries, types and unit tests
 pnpm --filter @pi-gui/desktop run package:win    # Windows installer (on Windows)
@@ -96,13 +114,16 @@ pnpm --filter @pi-gui/desktop run package        # macOS app (on a Mac)
 The app is an Electron shell with a typed IPC boundary between the React renderer
 (`apps/desktop/src`), the preload bridge and the main process (`apps/desktop/electron`).
 `packages/pi-sdk-driver` adapts the pi coding agent without forking it, and pi's own session
-files stay the source of truth. See [docs/architecture.md](docs/architecture.md).
+files stay the source of truth. `crates/pegasus-host` is the Rust host; its protocol schema in
+`crates/pegasus-core/src/protocol.rs` generates `packages/host-protocol`. See
+[docs/architecture.md](docs/architecture.md).
 
 ## Roadmap
 
-- **Rust core.** Moving the runtime, terminal, file and update layers to Rust, with a
-  GPU-rendered desktop UI on [Rune](https://github.com/anomalyco/rune).
-- **iOS companion.** Follow and answer running agents from the phone.
+- **More of the backend in Rust.** The agent runtime as a worker process under the host, so
+  runs survive an app quit or update, and per-chat updates instead of whole-state pushes. The
+  React UI stays.
+- **iPhone app in TestFlight**, with push notifications and the usage and approval screens.
 - **Self-update from inside.** A Pegasus agent can change, rebuild and restart Pegasus, then
   pick its own chat back up.
 
@@ -114,6 +135,8 @@ files stay the source of truth. See [docs/architecture.md](docs/architecture.md)
   [`@earendil-works/pi-coding-agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent),
   the agent runtime underneath.
 - [Bklit UI](https://github.com/bklit/bklit-ui) for the usage charts.
+- [T3 Code](https://github.com/pingdotgg/t3code) for the mobile app's native modules (MIT, see
+  `apps/mobile/LICENSE-T3`).
 
 ## License
 

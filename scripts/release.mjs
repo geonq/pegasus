@@ -310,7 +310,11 @@ ditto -c -k --sequesterRsrc --keepParent "$app" "$HOME/Pi/release-staging/${zip}
     const subjects = (await git("log", "--no-merges", "--format=%s", `${last}..HEAD`))
       .split("\n")
       .filter((subject) => subject && !/^Pegasus \d+\.\d+\.\d+$/.test(subject));
-    const body = `Pegasus ${ctx.version}\n\nChanges since ${last}:\n\n${subjects.map((s) => `- ${s}`).join("\n")}\n`;
+    // A written summary (docs/pegasus-<version>.md) leads when there is one; the commit list follows.
+    const summary = await readFile(path.join(repoDir, "docs", `pegasus-${ctx.version}.md`), "utf8")
+      .then((text) => `${text.trim()}\n\n`)
+      .catch(() => `Pegasus ${ctx.version}\n\n`);
+    const body = `${summary}Changes since ${last}:\n\n${subjects.map((s) => `- ${s}`).join("\n")}\n`;
     await writeFile(path.join(ctx.stage, "RELEASE_NOTES.md"), body);
     console.log(`  ${subjects.length} commits since ${last}`);
   },
