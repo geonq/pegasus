@@ -2394,6 +2394,9 @@ export class DesktopAppStore {
       return;
     }
     this.persistenceReadiness = "ready";
+    // Rewrite state once after startup so an upgraded install's oversized ui-state.json is replaced
+    // by the bounded, compact form without waiting for the first user action.
+    this.schedulePersistUiState();
 
     try {
       const loadedTasks = await readScheduledTasksFile(this.scheduledTasksFilePath);

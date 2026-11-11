@@ -89,11 +89,15 @@ function issue(code: string, message: string): ReviewIssue {
 }
 
 export async function readGitActionState(cwd: string): Promise<GitActionState | ReviewIssue> {
-  const status = await runTool("git", cwd, [
-    "status",
-    "--porcelain=v1",
-    "-z",
-    "--untracked-files=all",
+  // Two rounds of independent git/gh calls instead of one long serial chain: each round waits only
+  // for its slowest call. Every call is still spawned once, so the parsed results are unchanged.
+  const [status, branchRun, remotesRun, upstreamRun, headRun, ghRun] = await Promise.all([
+    runTool("git", cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]),
+    runTool("git", cwd, ["symbolic-ref", "--short", "-q", "HEAD"]),
+    runTool("git", cwd, ["remote"]),
+    runTool("git", cwd, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]),
+    runTool("git", cwd, ["rev-parse", "--verify", "-q", "HEAD"]),
+    runTool("gh", cwd, ["--version"]),
   ]);
   if (status.code !== 0)
     return {
@@ -102,31 +106,26 @@ export async function readGitActionState(cwd: string): Promise<GitActionState | 
       message: "This folder is not a Git repository.",
     };
   const counts = countStatus(status.stdout);
-  const branch =
-    (await runTool("git", cwd, ["symbolic-ref", "--short", "-q", "HEAD"])).stdout.trim() || null;
-  const remotes = (await runTool("git", cwd, ["remote"])).stdout.split(/\r?\n/).filter(Boolean);
+  const branch = branchRun.stdout.trim() || null;
+  const remotes = remotesRun.stdout.split(/\r?\n/).filter(Boolean);
   const remote = remotes.includes("origin") ? "origin" : (remotes[0] ?? null);
-  const upstreamRun = await runTool("git", cwd, [
-    "rev-parse",
-    "--abbrev-ref",
-    "--symbolic-full-name",
-    "@{u}",
-  ]);
   const upstream = upstreamRun.code === 0 ? upstreamRun.stdout.trim() || null : null;
-  const hasHead = (await runTool("git", cwd, ["rev-parse", "--verify", "-q", "HEAD"])).code === 0;
-  const ahead = hasHead
-    ? await countCommits(cwd, upstream ? [`${upstream}..HEAD`] : ["HEAD", "--not", "--remotes"])
-    : 0;
-  const base = hasHead && remote ? await defaultBase(cwd, remote) : null;
-  const aheadOfBase = base ? await countCommits(cwd, [`${base.ref}..HEAD`]) : 0;
-  const ghAvailable = (await runTool("gh", cwd, ["--version"])).code === 0;
+  const hasHead = headRun.code === 0;
+  const ghAvailable = ghRun.code === 0;
+  const [ahead, base] = await Promise.all([
+    hasHead
+      ? countCommits(cwd, upstream ? [`${upstream}..HEAD`] : ["HEAD", "--not", "--remotes"])
+      : Promise.resolve(0),
+    hasHead && remote ? defaultBase(cwd, remote) : Promise.resolve(null),
+  ]);
+  const [aheadOfBase, view] = await Promise.all([
+    base ? countCommits(cwd, [`${base.ref}..HEAD`]) : Promise.resolve(0),
+    ghAvailable && upstream && branch && ahead === 0 && branch !== base?.name
+      ? runTool("gh", cwd, ["pr", "view", "--json", "number,url,state"], { timeoutMs: 15_000 })
+      : Promise.resolve(undefined),
+  ]);
   let pullRequest: GitActionState["pullRequest"] = null;
-  if (ghAvailable && upstream && branch && ahead === 0 && branch !== base?.name) {
-    const view = await runTool("gh", cwd, ["pr", "view", "--json", "number,url,state"], {
-      timeoutMs: 15_000,
-    });
-    if (view.code === 0) pullRequest = parsePullRequest(view.stdout);
-  }
+  if (view?.code === 0) pullRequest = parsePullRequest(view.stdout);
   return {
     state: "available",
     branch,
