@@ -859,8 +859,36 @@ export function toPersistedOrchestrationChildren(
     ...child,
     latestTranscript: child.childSessionId ? child.goal : child.latestTranscript,
     transcript: child.childSessionId ? [] : child.transcript,
-    evidence: capEvidenceRecords(child.evidence),
+    evidence: capPersistedEvidence(child.evidence),
   }));
+}
+
+// ui-state.json is read and rewritten whole on every persist; evidence grew to ~8 MB across 168
+// children and made boot and every save stall the main thread. The live state keeps the full
+// evidence; only the persisted copy is bounded.
+const MAX_PERSISTED_EVIDENCE_RECORDS_PER_CHILD = 20;
+const MAX_PERSISTED_EVIDENCE_DETAIL_CHARS = 512;
+const MAX_PERSISTED_EVIDENCE_COMMAND_CHARS = 256;
+
+function capPersistedEvidence(
+  records: readonly OrchestrationEvidenceRecord[],
+): readonly OrchestrationEvidenceRecord[] {
+  const bounded = capEvidenceRecords(records).slice(0, MAX_PERSISTED_EVIDENCE_RECORDS_PER_CHILD);
+  return bounded.map((record) => {
+    const detail = record.detail;
+    const command = record.command;
+    return {
+      ...record,
+      detail:
+        detail && detail.length > MAX_PERSISTED_EVIDENCE_DETAIL_CHARS
+          ? `${detail.slice(0, MAX_PERSISTED_EVIDENCE_DETAIL_CHARS - 3)}...`
+          : detail,
+      command:
+        command && command.length > MAX_PERSISTED_EVIDENCE_COMMAND_CHARS
+          ? `${command.slice(0, MAX_PERSISTED_EVIDENCE_COMMAND_CHARS - 3)}...`
+          : command,
+    };
+  });
 }
 
 export function nextSupervisionRunAt(

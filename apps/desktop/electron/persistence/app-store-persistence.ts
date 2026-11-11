@@ -147,14 +147,11 @@ export async function writePersistedUiState(
   uiStateFilePath: string,
   payload: PersistedUiState,
 ): Promise<void> {
-  const serialized = `${JSON.stringify(
-    {
-      ...payload,
-      version: 19,
-    } satisfies PersistedUiState,
-    null,
-    2,
-  )}\n`;
+  // Compact JSON: indenting a multi-megabyte state file cost seconds of main-thread time per save.
+  const serialized = `${JSON.stringify({
+    ...payload,
+    version: 19,
+  } satisfies PersistedUiState)}\n`;
   decodePersistedUiState(payload);
   await writeFileAtomicQueued(uiStateFilePath, serialized, decodePersistedUiState, {
     preserveExistingAs: (validated) => {

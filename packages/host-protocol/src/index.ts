@@ -91,6 +91,7 @@ export class HostClient {
   private readonly pending = new Map<number, Pending>();
   private readonly listeners = new Set<(event: HostEvent) => void>();
   private buffer: Buffer = Buffer.alloc(0);
+  private bufferEnd = 0;
   private closedError: Error | undefined;
   hello: HelloResult | undefined;
 
@@ -210,20 +211,42 @@ export class HostClient {
     });
   }
 
+  // Reassembly is amortized linear: bytes are appended into a buffer that doubles when full, and
+  // consumed frames are compacted once per chunk. Concatenating the whole pending buffer on every
+  // socket chunk made a multi-megabyte frame quadratic and froze the Electron main thread.
   private onData(chunk: Buffer): void {
-    this.buffer = this.buffer.length === 0 ? chunk : Buffer.concat([this.buffer, chunk]);
-    while (this.buffer.length >= 4) {
-      const length = this.buffer.readUInt32BE(0);
+    this.reserve(chunk.length);
+    chunk.copy(this.buffer, this.bufferEnd);
+    this.bufferEnd += chunk.length;
+    let start = 0;
+    while (this.bufferEnd - start >= 4) {
+      const length = this.buffer.readUInt32BE(start);
       if (length > MAX_FRAME) {
         this.fail(new HostUnavailableError(`host sent a ${length}-byte frame`));
         this.socket.destroy();
+        this.buffer = Buffer.alloc(0);
+        this.bufferEnd = 0;
         return;
       }
-      if (this.buffer.length < 4 + length) return;
-      const body = this.buffer.subarray(4, 4 + length);
-      this.buffer = this.buffer.subarray(4 + length);
+      if (this.bufferEnd - start < 4 + length) break;
+      const body = this.buffer.subarray(start + 4, start + 4 + length);
+      start += 4 + length;
       this.onFrame(body);
     }
+    if (start > 0) {
+      this.buffer.copyWithin(0, start, this.bufferEnd);
+      this.bufferEnd -= start;
+    }
+  }
+
+  private reserve(extra: number): void {
+    const needed = this.bufferEnd + extra;
+    if (needed <= this.buffer.length) return;
+    let capacity = Math.max(this.buffer.length * 2, 64 * 1024);
+    while (capacity < needed) capacity *= 2;
+    const next = Buffer.allocUnsafe(capacity);
+    this.buffer.copy(next, 0, 0, this.bufferEnd);
+    this.buffer = next;
   }
 
   private onFrame(body: Buffer): void {
