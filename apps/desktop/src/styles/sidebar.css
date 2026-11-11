@@ -599,8 +599,6 @@
   color: var(--muted);
   font-size: 11px;
   font-weight: var(--font-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
 }
 
 .pinned-thread-group__head svg {
@@ -1065,8 +1063,6 @@
   color: var(--muted);
   font-size: 11px;
   font-weight: var(--font-semibold);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
   text-align: left;
 }
 
@@ -1232,8 +1228,6 @@
   color: var(--muted-strong);
   font-size: 11px;
   font-weight: var(--font-semibold);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
   text-align: left;
 }
 

@@ -474,7 +474,6 @@
   color: var(--muted-soft);
   font-size: 11px;
   font-weight: var(--font-bold);
-  text-transform: uppercase;
 }
 
 .file-workbench__tree {
@@ -1182,9 +1181,9 @@
   opacity: 1;
 }
 
+/* The message being edited is marked quietly, like a hovered row, not with a focus ring. */
 .queued-composer-message--editing {
-  border-color: var(--focus-ring-border);
-  box-shadow: var(--focus-ring);
+  background: var(--surface-muted);
 }
 
 .queued-composer-message__header {
@@ -1463,8 +1462,6 @@
   color: var(--muted-soft);
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
 }
 
 .secondary-surface__search {
@@ -1686,8 +1683,6 @@
   color: var(--muted);
   font-size: 10px;
   font-weight: var(--font-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
   margin-left: auto;
 }
 
@@ -1859,8 +1854,6 @@
   color: var(--muted-soft);
   font-size: 11px;
   font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0;
 }
 
 .mention-menu__item {
@@ -1956,8 +1949,6 @@
   color: var(--muted);
   font-size: 10px;
   font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0;
 }
 
 .mention-menu__enable {
@@ -3283,8 +3274,6 @@ details.provider-sign-in-help[open] > p.settings-row__description {
   color: var(--muted-soft);
   font-size: 12px;
   font-weight: var(--font-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .tree-modal__title {

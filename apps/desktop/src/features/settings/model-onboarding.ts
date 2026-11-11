@@ -168,7 +168,7 @@ function readableAccountLabel(providerId: string, name: string): string {
   if (separator < 0) return name;
   const providerName = name.slice(0, separator).trim();
   const accountName = name.slice(separator + 3).trim();
-  return accountName ? `${providerName} · ${accountName.toUpperCase()}` : name;
+  return accountName ? `${providerName} · ${accountName.charAt(0).toUpperCase()}${accountName.slice(1)}` : name;
 }
 
 function readableIdentifier(value: string): string {

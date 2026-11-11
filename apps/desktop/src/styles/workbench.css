@@ -131,6 +131,8 @@
   right: 4px;
   width: 22px;
   height: 22px;
+  /* Buttons keep the browser's side padding otherwise, which pushes the X off-centre. */
+  padding: 0;
   translate: 0 -50%;
   border-radius: var(--radius-xs);
   color: var(--muted-soft);
@@ -158,7 +160,8 @@
   max-width: min(180px, 100%);
 }
 
-.workbench__tab-wrapper:has(.workbench__tab--active) .workbench__tab {
+/* Every tab keeps room for its close button, so the X never lands on the label when it appears. */
+.workbench__tab {
   padding-right: 30px;
 }
 
@@ -487,8 +490,6 @@
   color: var(--muted);
   font-size: 11px;
   font-weight: var(--font-medium);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   font-variant-numeric: tabular-nums;
 }
 
