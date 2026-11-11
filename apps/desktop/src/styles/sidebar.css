@@ -1327,6 +1327,97 @@
   outline: 2px solid var(--focus-ring-color);
 }
 
+/* Chat-needs-you notice: fixed to the window so it reads even when the sidebar is scrolled. Enters
+   with transform and opacity only, from a 0.96 scale, and leaves at the same speed it entered. */
+.attention-toast {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 60;
+  max-width: min(360px, calc(100vw - 24px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface-glass);
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  transition:
+    opacity 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
+  transform-origin: top right;
+  @starting-style {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+}
+
+.enable-transparency .attention-toast {
+  backdrop-filter: var(--glass-blur) var(--glass-saturation);
+}
+
+.attention-toast__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.attention-toast__message {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--font-medium);
+}
+
+.attention-toast__action,
+.attention-toast__close {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: var(--radius-md);
+  color: var(--accent);
+  font-weight: var(--font-semibold);
+}
+
+.attention-toast__close {
+  color: var(--muted-strong);
+  font-size: var(--text-base);
+  line-height: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .attention-toast__action:hover,
+  .attention-toast__close:hover {
+    background: var(--overlay-hover);
+  }
+}
+
+.attention-toast__action:active,
+.attention-toast__close:active {
+  transform: scale(0.97);
+}
+
+.attention-toast__action:focus-visible,
+.attention-toast__close:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attention-toast {
+    transition: opacity 120ms ease-out;
+    transform: none;
+    @starting-style {
+      transform: none;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .attention-group,
   .undo-toast {

@@ -475,9 +475,12 @@ test("caps a long Last 7 Days bucket and sorts the folder by last send", async (
       findSession(await getDesktopState(window), "Catalog newer").session.lastInteractedAt,
     ).toBe(before);
 
+    // ui-state is written compact, so compare the parsed value rather than the JSON text.
     await expect
-      .poll(async () => readFile(join(userDataDir, "ui-state.json"), "utf8"))
-      .toContain('"threadGrouping": "workspace"');
+      .poll(async () =>
+        JSON.parse(await readFile(join(userDataDir, "ui-state.json"), "utf8")).threadGrouping,
+      )
+      .toBe("workspace");
   } finally {
     await secondRun.close();
   }

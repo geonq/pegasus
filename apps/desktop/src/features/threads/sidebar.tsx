@@ -83,6 +83,7 @@ import {
   type ThreadSidebarModel,
   type ThreadListEntry,
 } from "./thread-groups";
+import { AttentionToastHost, useAttentionToasts } from "./attention-toast";
 import { UndoToastHost } from "./undo-toast";
 import { useThreadShortcutHintsVisible } from "./thread-shortcut-hints";
 import { useSignIns } from "../usage/account-state";
@@ -207,6 +208,10 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
     setFolded: setChatParentFolded,
   };
   const threadSidebarModel = foldThreadSidebarModel(unfoldedSidebarModel, foldedChatParents);
+  useAttentionToasts({
+    needsYou: threadSidebarModel.needsYouThreads,
+    selectedSessionId: selectedSession?.id,
+  });
   const [expandedHistory, setExpandedHistory] = useState<ReadonlySet<string>>(() => new Set());
   const commandHeld = useThreadShortcutHintsVisible(api.platform);
   const collapsedFolderIds = new Set(collapsedWorkspaceIds);
@@ -780,6 +785,7 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
           </DndContext>
         )}
       </div>
+      <AttentionToastHost onView={onSelectSession} />
       <UndoToastHost />
       <UpdateBanner api={api} />
     </aside>

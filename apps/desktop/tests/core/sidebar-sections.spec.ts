@@ -237,3 +237,36 @@ test("snoozing moves a chat into Snoozed with Undo, and it wakes unread when its
     await harness.close();
   }
 });
+
+test("a chat that starts needing you while another is open raises a View notice that opens it", async () => {
+  test.setTimeout(90_000);
+  const userDataDir = await makeUserDataDir("pi-app-user-data-attention-toast-");
+  const workspacePath = await makeWorkspace("attention-toast");
+  const harness = await launchDesktop(userDataDir, {
+    initialWorkspaces: [workspacePath],
+    testMode: "background",
+  });
+
+  try {
+    const window = await harness.firstWindow();
+    const workspace = await waitForWorkspaceByPath(window, workspacePath);
+    for (const title of ["Alpha", "Beta"]) {
+      await createSessionViaIpc(window, workspace.id, title);
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    await window.locator(".session-row", { hasText: "Alpha" }).first().click();
+    const alphaId = (await getDesktopState(window)).selectedSessionId;
+
+    await setStatus(harness, window, "Beta", "failed");
+    const notice = window.getByRole("status").filter({ hasText: "Beta needs you" });
+    await expect(notice).toBeVisible();
+    await expect(notice.getByRole("button", { name: "View" })).toBeVisible();
+
+    await notice.getByRole("button", { name: "View" }).click();
+    await expect(notice).toHaveCount(0);
+    const afterView = await getDesktopState(window);
+    expect(afterView.selectedSessionId).not.toBe(alphaId);
+  } finally {
+    await harness.close();
+  }
+});
