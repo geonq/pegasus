@@ -53,7 +53,13 @@
   flex: none;
 }
 
-.model-selector__badge > span {
+/* The company logo in its Usage color (set inline); one per company heading, none per model row. */
+.model-selector__brand {
+  display: inline-flex;
+  flex: none;
+}
+
+.model-selector__badge > span:not(.model-selector__brand) {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -135,11 +141,14 @@
   align-items: center;
   gap: 6px;
   padding: 6px 10px 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--font-semibold);
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--muted-strong);
+}
+
+/* Model names line up with the company name above them (10px pad + 14px logo + 6px gap). */
+.model-selector__list .model-selector__item {
+  padding-left: 30px;
 }
 
 .model-selector__empty {

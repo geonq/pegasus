@@ -8,6 +8,7 @@ import {
 } from "./composer-commands";
 import { CheckIcon, ProviderIcon, ReasoningIcon } from "../../ui/icons";
 import { ProviderStatusBadge, useProviderStatuses } from "../usage/account-state";
+import { providerColor } from "../usage/brand-color";
 
 /** The provider logo stands in for the brand, so labels drop "Claude", "GPT", "(Claude Code)" etc. */
 const withoutBrand = (label: string) =>
@@ -15,14 +16,17 @@ const withoutBrand = (label: string) =>
     .replace(/\(Claude Code\)/i, "")
     .replace(/\b(Claude Code|Claude|OpenAI|Codex|GPT)\b[\s-]*/gi, "")
     .trim();
+const capitalized = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
 const accountHeading = (providerId: string, label: string) =>
   providerId === "antigravity"
-    ? "AGY"
-    : (
+    ? "Antigravity"
+    : capitalized(
         withoutBrand(label)
           .replace(/^[\s·:-]+/, "")
-          .trim() || label
-      ).toLocaleUpperCase();
+          .trim() || label,
+      );
+/** The company's color from Usage, so a logo reads as Claude, Codex or Gemini at a glance. */
+const brandStyle = (providerId: string) => ({ color: providerColor(providerId) });
 const modelName = (option: ComposerModelOption) =>
   withoutBrand(option.label.split(" · ").at(-1) ?? "");
 
@@ -108,7 +112,9 @@ export function ModelSelector({
   const modelBadgeLabel =
     provider && modelId ? (
       <>
-        <ProviderIcon providerId={provider} modelId={modelId} />
+        <span className="model-selector__brand" style={brandStyle(provider)}>
+          <ProviderIcon providerId={provider} modelId={modelId} />
+        </span>
         <span>{activeModel ? modelName(activeModel) : modelId}</span>
       </>
     ) : hasAvailableModelOptions ? (
@@ -188,7 +194,9 @@ export function ModelSelector({
                 {groupedModels.map((group) => (
                   <div key={group.provider}>
                     <div className="model-selector__group-title">
-                      <ProviderIcon providerId={group.provider} />
+                      <span className="model-selector__brand" style={brandStyle(group.provider)}>
+                        <ProviderIcon providerId={group.provider} />
+                      </span>
                       {accountHeading(
                         group.provider,
                         group.items[0]?.label.split(" · ").slice(0, -1).join(" · ") ?? "",
@@ -224,7 +232,6 @@ export function ModelSelector({
                             closeDropdown();
                           }}
                         >
-                          <ProviderIcon providerId={option.providerId} modelId={option.modelId} />
                           <span className="model-selector__item-label" title={option.modelId}>
                             {modelName(option)}
                           </span>
