@@ -179,11 +179,7 @@ export function WorkspaceFolderPicker({
       const selected = await onOpenResult(result);
       if (selected) onClose();
       else {
-        setNotice(
-          device === "mac" && listing.relativePath
-            ? `Folders under ${currentRoot?.label ?? "this location"} cannot be opened as projects yet. Pick your Mac home as the location and browse to the same folder.`
-            : "Open a folder inside this location; the location itself cannot be a project.",
-        );
+        setNotice("Open a folder inside this location; the location itself cannot be a project.");
       }
     } catch (cause) {
       setError(errorMessage(cause));
