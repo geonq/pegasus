@@ -348,13 +348,15 @@ export function applyTimelineEvent(
         ? latestErrorToolDetail(transcript, metrics.startedAt)
         : undefined;
       const failureLabel = clearerRunFailureLabel(event.error.message, latestToolError);
-      const failureDetail = event.error.code;
+      // A generic code ("ERROR") says nothing the red text does not; the turn's own
+      // "Worked for" marker already shows the time, so the row carries only the message.
+      const code = event.error.code;
+      const failureDetail = code && !/^error$/i.test(code) ? code : undefined;
       clearRunState(transcript, key, event.sessionRef, state);
       transcript.push(
         makeActivityItem(failureLabel, {
           tone: "error",
-          metadata: metrics ? workedForLabel(metrics.startedAt, event.timestamp) : undefined,
-          detail: failureDetail,
+          ...(failureDetail ? { detail: failureDetail } : {}),
         }),
       );
       break;
