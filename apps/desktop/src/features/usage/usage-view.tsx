@@ -111,17 +111,6 @@ function breakdownTokens(row: UsageBreakdown): number {
   return row.byProvider ? sumValues(Object.values(row.byProvider)) : totalTokens(row.tokens);
 }
 
-function rankBreakdowns(
-  rows: readonly UsageBreakdown[],
-  limit: number,
-): readonly { readonly row: UsageBreakdown; readonly amount: number }[] {
-  return rows
-    .map((row) => ({ row, amount: breakdownTokens(row) }))
-    .filter((entry) => entry.amount > 0)
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, limit);
-}
-
 let lastUsageReport: UsageReport | null = null;
 
 /** Token usage per account and model across every saved session, drawn with Bklit UI charts. */
@@ -289,7 +278,6 @@ export function UsageView({ workspaces }: { readonly workspaces: readonly Worksp
   }, [report, period, account, workspaces, accountName]);
 
   const history = report?.history;
-  const potentialOverlap = history?.potentialOverlap;
 
   return (
     <section className="canvas usage-view" data-testid="usage-view">
@@ -532,39 +520,6 @@ export function UsageView({ workspaces }: { readonly workspaces: readonly Worksp
               <Breakdown title="Workspaces, all time" rows={view.workspaces} />
               <Breakdown title="Threads, all time" rows={view.threads} />
             </div>
-            {potentialOverlap ? (
-              <section className="usage-card" data-testid="usage-potential-overlap">
-                <h3>{potentialOverlap.label}</h3>
-                <p className="usage-view__note">
-                  {compact.format(totalTokens(potentialOverlap.totals))} recorded tokens across{" "}
-                  {compact.format(potentialOverlap.sessions)} sessions. Kept separate from combined
-                  totals because these events may overlap native Pi usage. Some cache metrics were
-                  not recorded; cost is unavailable.
-                </p>
-                {/* Lists sit inside this card, so they drop their own card chrome; empty ones are left out. */}
-                <div className="usage-view__split usage-view__split--bare">
-                  {potentialOverlap.models.some((model) => model.label !== "unknown") ? (
-                    <Breakdown
-                      bare
-                      title="Models"
-                      rows={rankBreakdowns(potentialOverlap.models, 6)}
-                    />
-                  ) : null}
-                  {potentialOverlap.workspaces.length ? (
-                    <Breakdown
-                      bare
-                      title="Historical workspaces"
-                      rows={rankBreakdowns(potentialOverlap.workspaces, 6)}
-                    />
-                  ) : null}
-                  <Breakdown
-                    bare
-                    title="Largest sessions"
-                    rows={rankBreakdowns(potentialOverlap.threads, 8)}
-                  />
-                </div>
-              </section>
-            ) : null}
             {report.unreadable ? (
               <p className="usage-view__note">
                 {report.unreadable} thread files could not be read.
@@ -614,15 +569,13 @@ function breakdownLabel(row: UsageBreakdown): string {
 function Breakdown({
   title,
   rows,
-  bare = false,
 }: {
   readonly title: string;
   readonly rows: readonly { readonly row: UsageBreakdown; readonly amount: number }[];
-  readonly bare?: boolean;
 }) {
   const max = Math.max(1, ...rows.map((entry) => entry.amount));
   return (
-    <section className={bare ? "usage-breakdown" : "usage-card"}>
+    <section className="usage-card">
       <h3>{title}</h3>
       {rows.length === 0 ? <p className="usage-card__empty">Nothing recorded yet.</p> : null}
       <ul className="usage-list">

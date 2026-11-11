@@ -191,23 +191,6 @@
   list-style: none;
 }
 
-/* Lists nested in a card (historical overlap) keep the card's padding, not their own chrome. */
-.usage-view__split--bare {
-  margin-top: 14px;
-  gap: 24px;
-}
-
-.usage-breakdown {
-  min-width: 0;
-}
-
-.usage-breakdown h3 {
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: var(--font-medium);
-}
-
 .usage-list li {
   position: relative;
   display: flex;
