@@ -5,7 +5,6 @@ import {
   dialog,
   Menu,
   nativeImage,
-  nativeTheme,
   net,
   Notification,
   protocol,
@@ -750,6 +749,9 @@ function setWindowTransparency(window: BrowserWindow, enabled: boolean): void {
   } else if (process.platform === "win32") {
     // Apply DWM material after updating the underlying window surface.
     window.setBackgroundMaterial(nativeGlassEnabled ? "acrylic" : "none");
+    // Material "none" resets the window colour to white; an opaque window gets its theme colour back,
+    // or a dark theme flashes white while resizing.
+    if (!nativeGlassEnabled) window.setBackgroundColor(currentWindowBackground());
   }
   if (nativeGlassEnabled) {
     opaqueAppWindows.delete(window);
@@ -1640,7 +1642,7 @@ app
         : store.snapshot().themeMode,
     );
     integratedTerminalShell = (await store.getState()).integratedTerminalShell;
-    nativeTheme.on("updated", refreshWindowBackgrounds);
+    themeManager.onChange(refreshWindowBackgrounds);
     let windowBackgroundPresetId = store.snapshot().themePresetId;
     let preparedCheckoutId: string | undefined;
     stopPruningTerminals = store.subscribe((state) => {
@@ -1925,10 +1927,7 @@ app
           const next = { ...remoteDesktopClientPreferences, ...patch };
           await persistRemoteDesktopClientPreferences(configuredUserDataDir, next);
           remoteDesktopClientPreferences = next;
-          if (patch.themeMode !== undefined) {
-            themeManager.setMode(next.themeMode);
-            refreshWindowBackgrounds();
-          }
+          if (patch.themeMode !== undefined) themeManager.setMode(next.themeMode);
           if (patch.themePresetId !== undefined) refreshWindowBackgrounds();
           if (patch.enableTransparency !== undefined) {
             for (const currentWindow of windowOwner.allWindows()) {

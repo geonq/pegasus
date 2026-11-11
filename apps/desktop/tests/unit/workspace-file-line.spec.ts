@@ -51,6 +51,26 @@ test("parseWorkspaceFileLine accepts the chosen spellings", () => {
   });
 });
 
+test("Windows absolute paths inside the workspace link, in either slash style and any case", () => {
+  const windowsWorkspace = "C:\\Users\\me\\repo";
+  const expected = { path: "src/app.ts", line: 3, endLine: 3 };
+  expect(parseWorkspaceFileLine("C:\\Users\\me\\repo\\src\\app.ts:3", windowsWorkspace)).toEqual(
+    expected,
+  );
+  expect(parseWorkspaceFileLine("C:\\Users\\me\\repo/src/app.ts:3", windowsWorkspace)).toEqual(
+    expected,
+  );
+  expect(parseWorkspaceFileLine("c:/users/me/repo/src/app.ts:3", windowsWorkspace)).toEqual(
+    expected,
+  );
+  expect(parseWorkspaceFileLine("C:\\Users\\me\\other\\app.ts:3", windowsWorkspace)).toBeNull();
+  expect(parseWorkspaceFileLine("C:\\Users\\me\\repo-x\\app.ts:3", windowsWorkspace)).toBeNull();
+  expect(parseWorkspaceFileLine("C:\\Users\\me\\repo\\..\\x.ts:3", windowsWorkspace)).toBeNull();
+  expect(parseWorkspaceFileLine("C:\\Users\\me\\repo\\src\\app.ts:3", "/repo")).toBeNull();
+  // A backslash that is not part of a drive path is still an escape, never a path.
+  expect(parseWorkspaceFileLine("src\\app.ts:3", windowsWorkspace)).toBeNull();
+});
+
 test("react-markdown passes file lines on the data attribute, not the href", () => {
   const file = { path: "src/app.ts", line: 3, endLine: 3 };
   const encoded = encodeWorkspaceFileLine(file);

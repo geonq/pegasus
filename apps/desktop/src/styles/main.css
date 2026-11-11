@@ -3178,13 +3178,18 @@ details.provider-sign-in-help[open] > p.settings-row__description {
    dialog instead of running past its edge, and a very long command scrolls. */
 .extension-dialog__body {
   margin: 0;
-  max-height: 40vh;
-  overflow-y: auto;
   color: var(--muted-strong);
   font-size: 14px;
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* Only an extension's confirm message scrolls (a long command to approve). Elsewhere a scroll container
+   would let a squeezed dialog collapse its text to zero height. */
+.extension-dialog__body--message {
+  max-height: 40vh;
+  overflow-y: auto;
 }
 
 .extension-dialog__options {

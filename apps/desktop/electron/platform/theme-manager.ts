@@ -5,6 +5,7 @@ import type { ThemeMode } from "../../contracts/desktop-state";
 export class ThemeManager {
   private mode: ThemeMode = "system";
   private readonly windows = new Set<BrowserWindow>();
+  private readonly listeners = new Set<() => void>();
 
   constructor() {
     nativeTheme.on("updated", () => {
@@ -20,6 +21,15 @@ export class ThemeManager {
     win.once("closed", () => {
       this.windows.delete(win);
     });
+  }
+
+  /**
+   * Runs after every change of the resolved theme source: the app's own setMode and system changes.
+   * Windows does not emit nativeTheme "updated" when the app sets themeSource itself.
+   */
+  onChange(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   getMode(): ThemeMode {
@@ -44,6 +54,7 @@ export class ThemeManager {
   }
 
   private broadcast() {
+    for (const listener of this.listeners) listener();
     for (const window of this.windows) {
       if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
         window.webContents.send(desktopIpc.themeChanged, this.getResolvedTheme());

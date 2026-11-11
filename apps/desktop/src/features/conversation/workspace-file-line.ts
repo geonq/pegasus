@@ -10,6 +10,9 @@ export interface WorkspaceFileLine {
 const FILE_LINE_PATTERN = /^(.*?)(?::(\d+)(?:-(\d+)|:(\d+))?|#L(\d+))$/;
 const PATH_START = /^[\p{L}\p{N}./_~@]$/u;
 const LINE_NUMBER = /^[1-9]\d{0,6}$/;
+/** `C:\x` or `C:/x`: agents on Windows print absolute paths this way. */
+const WINDOWS_ABSOLUTE = /^[A-Za-z]:[\\/]/;
+const forwardSlashes = (path: string) => path.replace(/\\/g, "/");
 
 interface MarkdownNode {
   type: string;
@@ -25,10 +28,18 @@ export function parseWorkspaceFileLine(
   raw: string,
   workspacePath: string | null,
 ): WorkspaceFileLine | null {
-  const trimmed = raw.trim();
-  if (!trimmed || /\s/.test(trimmed) || trimmed.includes("\\") || trimmed.includes("://")) {
+  const rawTrimmed = raw.trim();
+  const windowsAbsolute = WINDOWS_ABSOLUTE.test(rawTrimmed);
+  // Backslashes only as Windows path separators; anywhere else they are escapes, not paths.
+  if (
+    !rawTrimmed ||
+    /\s/.test(rawTrimmed) ||
+    (rawTrimmed.includes("\\") && !windowsAbsolute) ||
+    rawTrimmed.includes("://")
+  ) {
     return null;
   }
+  const trimmed = windowsAbsolute ? forwardSlashes(rawTrimmed) : rawTrimmed;
   if (/^(https?|mailto|file):/i.test(trimmed)) {
     return null;
   }
@@ -40,7 +51,7 @@ export function parseWorkspaceFileLine(
   const rawPath = match[1];
   const lineText = match[5] ?? match[2];
   const endText = match[3];
-  if (!rawPath || rawPath.includes(":")) {
+  if (!rawPath || rawPath.slice(windowsAbsolute ? 2 : 0).includes(":")) {
     return null;
   }
   const line = parseLineNumber(lineText);
@@ -195,6 +206,14 @@ function decodeLinkDestination(url: string): string {
 
 function toWorkspaceRelative(rawPath: string, workspacePath: string | null): string | null {
   let path = rawPath.startsWith("./") ? rawPath.slice(2) : rawPath;
+  if (WINDOWS_ABSOLUTE.test(path)) {
+    // Windows paths compare without regard to case or separator style.
+    if (!workspacePath || !WINDOWS_ABSOLUTE.test(workspacePath)) return null;
+    const root = forwardSlashes(workspacePath).replace(/\/+$/, "");
+    if (!path.toLowerCase().startsWith(`${root.toLowerCase()}/`)) return null;
+    path = path.slice(root.length + 1);
+    return path.startsWith("./") ? path.slice(2) : path;
+  }
   if (!path.startsWith("/")) {
     return path;
   }

@@ -151,8 +151,11 @@
 }
 
 .workbench__tab-wrapper:has(.workbench__tab--active) {
-  /* The selected tab keeps its whole title; the others give way. */
+  /* The selected tab keeps its whole title; the others give way. In a strip narrower than the tab
+     (the narrowest panel) it fits the strip and its title ellipsizes, so it is never cut off. */
   flex-shrink: 0;
+  min-width: min(84px, 100%);
+  max-width: min(180px, 100%);
 }
 
 .workbench__tab-wrapper:has(.workbench__tab--active) .workbench__tab {
