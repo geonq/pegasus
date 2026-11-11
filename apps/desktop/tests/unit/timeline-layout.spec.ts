@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import type { DisplayTimelineItem } from "../../contracts/timeline-types";
 import {
+  activityMarker,
   layoutRows,
   compensateAnchorShift,
   anchorAt,
@@ -97,4 +98,20 @@ test("an extension card re-estimates when its rows change and keeps its estimate
   const threeRows = layoutRows([card(3)], new Map(), 700, estimates)[0]!.height;
   expect(threeRows).toBeGreaterThan(oneRow);
   expect(estimates.get("card-entry")?.height).toBe(threeRows);
+});
+
+test("activity marker follows the growing reply, not the status and turn rows after it", () => {
+  const working: DisplayTimelineItem = {
+    kind: "activity",
+    id: "working",
+    createdAt: "2026-11-11T00:00:00Z",
+    label: "Working",
+  };
+  const turn: DisplayTimelineItem = { kind: "turn-marker", id: "turn-marker:a", durationMs: 10 };
+  const before = activityMarker([message("a", "hello"), turn, working]);
+  const grown = activityMarker([message("a", "hello world"), turn, working]);
+  expect(grown).not.toBe(before);
+  // The same content gives the same marker, so nothing reads as new.
+  expect(activityMarker([message("a", "hello world"), turn, working])).toBe(grown);
+  expect(activityMarker([working])).toBe("1");
 });

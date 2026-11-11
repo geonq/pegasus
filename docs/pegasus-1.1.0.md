@@ -41,8 +41,5 @@ Windows with every failure it found fixed or explained.
 - Dialog descriptions (custom endpoints) could collapse to zero height.
 - Sidebar folder names and icons now line up with chat titles.
 - The active side-panel tab is no longer cut off in the narrowest panel.
-
-## Known open
-
-- `streaming-publish.spec.ts` (jump-to-latest button while scrolled up during a stream) fails in
-  Windows background test mode; it predates this release and is being investigated.
+- Scrolled up during a reply, the jump-to-latest button now appears: new text was missed while
+  the Working row sat last.

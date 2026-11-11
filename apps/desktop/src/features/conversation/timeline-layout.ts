@@ -61,6 +61,41 @@ export interface RowEstimate {
   readonly width: number;
   readonly height: number;
 }
+/**
+ * Changes whenever the chat gets new content, so a reader scrolled up can be told. Reads the last row
+ * that holds content: the working status row ("activity") and the derived turn rows stay at the end
+ * while a reply grows above them.
+ */
+export function activityMarker(rows: readonly DisplayTimelineItem[]): string {
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const row = rows[index]!;
+    const size = ((): string | null => {
+      switch (row.kind) {
+        case "activity":
+        case "turn-marker":
+        case "turn-changes":
+          return null;
+        case "message":
+        case "thinking":
+        case "custom":
+          return String(row.text.length);
+        case "tool":
+          return `${row.status}:${row.detail?.length ?? 0}`;
+        case "tool-group":
+          return `${row.tools.length}:${row.tools.at(-1)?.status ?? ""}`;
+        case "summary":
+          return row.label;
+        case "card":
+          return String(row.card.rows.length);
+        default:
+          return unhandledKind(row, "");
+      }
+    })();
+    if (size !== null) return `${rows.length}:${row.id}:${size}`;
+  }
+  return String(rows.length);
+}
+
 export function sameRowContent(a: DisplayTimelineItem, b: DisplayTimelineItem): boolean {
   if (a.kind !== b.kind) return false;
   switch (a.kind) {
