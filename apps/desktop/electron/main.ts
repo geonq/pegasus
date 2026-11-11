@@ -98,6 +98,7 @@ import {
 import { watchMainThreadStalls, watchRendererStalls } from "./platform/main-thread-stalls";
 import { installAppTray } from "./platform/app-tray";
 import { registerUpdateIpc } from "./platform/register-update-ipc";
+import { keepAgyUpdateCheckQuiet } from "./platform/agy-update-quiet";
 import { ThemeManager } from "./platform/theme-manager";
 import { windowBackgroundFor } from "../contracts/theme";
 import { TerminalService } from "./platform/terminal-service";
@@ -250,10 +251,8 @@ let macProjectsPath: string | undefined;
 let remoteDesktopClientPreferences: RemoteDesktopClientPreferences =
   DEFAULT_REMOTE_DESKTOP_CLIENT_PREFERENCES;
 const remoteDesktopBrokers = new Set<RemoteDesktopBroker>();
-// Every agy this app starts (usage, sign-ins, the Antigravity provider) would spawn agy's own background
-// updater, whose console Windows Terminal turns into a visible window, hourly and unasked. The CLIs are
-// updated on purpose by pi-ecosystem's update-clis instead.
-process.env.AGY_CLI_DISABLE_AUTO_UPDATE ??= "1";
+// agy's background self-updater opens a visible terminal window on Windows (see agy-update-quiet.ts).
+if (process.platform === "win32") keepAgyUpdateCheckQuiet();
 
 const themeManager = new ThemeManager();
 let mainWindow: BrowserWindow | null = null;
