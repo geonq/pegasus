@@ -63,6 +63,11 @@ fn fail(code: i32, msg: &str) -> ! {
 #[tokio::main]
 async fn main() {
     let raw: Vec<String> = std::env::args().skip(1).collect();
+    // The app version this binary was built for; the release checks it before packaging.
+    if raw.first().is_some_and(|a| a == "--version") {
+        println!("pegasus-host {}", host::HOST_VERSION);
+        return;
+    }
     if raw.first().is_some_and(|a| a == "--detach") {
         match detach::launch(&raw[1..]) {
             Ok(_) => std::process::exit(0),

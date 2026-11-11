@@ -210,15 +210,25 @@ const steps = {
 
   /** The Rust backend host is required: a failed build stops the release. */
   async host() {
-    await run("cargo", ["build", "--release", "-p", "pegasus-host"], {
-      cwd: path.join(repoDir, "crates"),
-      log: "host.log",
-      env: { ...toolEnv, PEGASUS_APP_VERSION: ctx.version },
-    });
+    // Same environment for both, tests first: a test build without PEGASUS_APP_VERSION rebuilds the
+    // binary as 0.1.0, and the app would then replace (restart) its host on every start.
+    const env = { ...toolEnv, PEGASUS_APP_VERSION: ctx.version };
     await run("cargo", ["test", "--release", "-p", "pegasus-core", "-p", "pegasus-host"], {
       cwd: path.join(repoDir, "crates"),
       log: "host.log",
+      env,
     });
+    await run("cargo", ["build", "--release", "-p", "pegasus-host"], {
+      cwd: path.join(repoDir, "crates"),
+      log: "host.log",
+      env,
+    });
+    const { stdout } = await execFileAsync(
+      path.join(repoDir, "crates", "target", "release", "pegasus-host"),
+      ["--version"],
+    );
+    if (stdout.trim() !== `pegasus-host ${ctx.version}`)
+      throw new Error(`pegasus-host reports '${stdout.trim()}', not ${ctx.version}`);
   },
 
   async windows() {
@@ -272,7 +282,7 @@ before=$(git rev-parse HEAD)
 git merge --ff-only windows-sync
 test "$(git rev-parse HEAD)" = "${sha}"
 if ! git diff --quiet "$before" HEAD -- pnpm-lock.yaml; then pnpm install --frozen-lockfile; fi
-(cd crates && PEGASUS_APP_VERSION=${ctx.version} cargo build --release -p pegasus-host && cargo test --release -p pegasus-core -p pegasus-host)
+(cd crates && export PEGASUS_APP_VERSION=${ctx.version} && cargo test --release -p pegasus-core -p pegasus-host && cargo build --release -p pegasus-host && test "$(target/release/pegasus-host --version)" = "pegasus-host ${ctx.version}")
 cd apps/desktop
 rm -rf release/mac-arm64
 pnpm run build

@@ -2,6 +2,7 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -88,7 +89,12 @@ function runnableCopy(bundled: string, agentDir: string): string {
   const root = join(agentDir, "host-bin");
   const target = join(root, version, binaryName());
   try {
-    if (!existsSync(target) || statSync(target).size !== statSync(bundled).size) {
+    // Same size is not same binary (a rebuild with another version string keeps the size).
+    if (
+      !existsSync(target) ||
+      statSync(target).size !== statSync(bundled).size ||
+      !readFileSync(target).equals(readFileSync(bundled))
+    ) {
       mkdirSync(dirname(target), { recursive: true });
       const partial = `${target}.partial`;
       copyFileSync(bundled, partial);
