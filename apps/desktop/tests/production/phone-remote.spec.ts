@@ -20,7 +20,10 @@ import {
  * on the Mac opens the pairing link and must list this profile's chat. Opt-in: set
  * PEGASUS_PHONE_E2E_MAC=user@host (the Mac with the simulator build from apps/mobile).
  */
-const run = promisify(execFile);
+const execFileAsync = promisify(execFile);
+// windowsHide: ssh and scp are console programs; without it each call opens a terminal window on Windows.
+const run = (file: string, args: readonly string[], options: { timeout?: number } = {}) =>
+  execFileAsync(file, args, { ...options, windowsHide: true });
 const mac = process.env.PEGASUS_PHONE_E2E_MAC;
 
 function tailscaleAddress(): string | undefined {

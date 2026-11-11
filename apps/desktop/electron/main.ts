@@ -250,6 +250,11 @@ let macProjectsPath: string | undefined;
 let remoteDesktopClientPreferences: RemoteDesktopClientPreferences =
   DEFAULT_REMOTE_DESKTOP_CLIENT_PREFERENCES;
 const remoteDesktopBrokers = new Set<RemoteDesktopBroker>();
+// Every agy this app starts (usage, sign-ins, the Antigravity provider) would spawn agy's own background
+// updater, whose console Windows Terminal turns into a visible window, hourly and unasked. The CLIs are
+// updated on purpose by pi-ecosystem's update-clis instead.
+process.env.AGY_CLI_DISABLE_AUTO_UPDATE ??= "1";
+
 const themeManager = new ThemeManager();
 let mainWindow: BrowserWindow | null = null;
 // Windows-only frame shown before the store starts; it receives the content afterwards.
