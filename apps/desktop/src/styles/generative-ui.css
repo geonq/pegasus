@@ -6,9 +6,9 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-3xl);
   background: var(--surface);
-  padding: 12px 14px;
+  padding: 16px 18px;
   display: grid;
-  gap: 10px;
+  gap: 14px;
 }
 
 .generative-ui__title {
@@ -63,17 +63,36 @@
 .generative-ui__diagram ul,
 .generative-ui__agent-map ul {
   list-style: none;
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   padding: 0;
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
+/* Rows breathe: each item is its own line with room above and below, a note sits close under it. */
 .generative-ui__check {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  column-gap: 6px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 2px;
   align-items: baseline;
+  padding: 6px 4px;
+  border-radius: var(--radius-md);
+  line-height: 1.45;
+}
+
+.generative-ui__check + .generative-ui__check {
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  border-radius: 0;
+}
+
+.generative-ui__check-label {
+  color: var(--ink);
+}
+
+.generative-ui__check--running .generative-ui__check-label {
+  color: var(--text-strong);
+  font-weight: var(--font-medium);
 }
 
 .generative-ui__check-mark {
@@ -490,10 +509,11 @@
 
 .generative-ui__agent {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  column-gap: 6px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  column-gap: 8px;
   align-items: baseline;
-  padding: 2px 0;
+  padding: 6px 4px;
+  line-height: 1.45;
 }
 
 .generative-ui__agent--running .generative-ui__check-mark {
