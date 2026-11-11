@@ -163,6 +163,9 @@ test("every preset recolours the same design instead of restyling it", async () 
         await expectDerivedTokens(window, preset.id, variant);
         await window.getByRole("button", { name: "Back to app" }).click();
         await expect(window.locator(".main")).toBeVisible();
+        // "Back to app" sits where "New chat" appears once settings close; a pointer left there
+        // shows New chat's hover colour instead of its resting surface.
+        await window.locator(".topbar").hover();
         await expectSameDesign(window);
       }
     }

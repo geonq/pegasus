@@ -59,15 +59,16 @@ test("a second pi-gui process cannot open a thread the first one holds", async (
     );
 
     const [leasePath] = await findLeaseFiles(agentDir);
-    const firstPid = first.electronApp.process().pid;
-    expect(await leaseHolderPid(leasePath)).toBe(firstPid);
+    // The lease names Electron's main process; on Windows that is not the process Playwright spawned.
+    const mainPid = (harness: DesktopHarness) => harness.electronApp.evaluate(() => process.pid);
+    expect(await leaseHolderPid(leasePath)).toBe(await mainPid(first));
 
     // Once the holder quits its lease is dead, so the thread opens here and
     // this process takes the lease over.
     await first.close();
     await selectSession(secondWindow, title);
     await expect(secondWindow.getByTestId("composer-error-banner")).toHaveCount(0);
-    await expect.poll(() => leaseHolderPid(leasePath)).toBe(second.electronApp.process().pid);
+    await expect.poll(() => leaseHolderPid(leasePath)).toBe(await mainPid(second));
   } finally {
     await second?.close();
     await first.close().catch(() => {});

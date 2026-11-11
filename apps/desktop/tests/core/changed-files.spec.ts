@@ -21,12 +21,19 @@ test("preserves an exact changed-file path through diff and stage actions", asyn
   test.setTimeout(30_000);
   const userDataDir = await makeUserDataDir();
   const workspacePath = await makeWorkspace("changed-file-path");
-  const filePath = ' leading\t"quoted" -> destination\n.txt ';
-  const displayCollisionPath = JSON.stringify(filePath);
+  // Windows file names cannot hold tabs, newlines, double quotes, < > or a trailing space, so there is
+  // also no file named like Git's quoted form; a leading space, quotes, an arrow and non-ASCII still
+  // must survive diff and stage exactly.
+  const windows = process.platform === "win32";
+  const filePath = windows
+    ? " leading 'quoted' → destination ü.txt"
+    : ' leading\t"quoted" -> destination\n.txt ';
+  const displayCollisionPath = windows ? undefined : JSON.stringify(filePath);
   await initGitRepo(workspacePath);
   await commitAllInGitRepo(workspacePath, "init");
   await writeFile(join(workspacePath, filePath), "exact path contents\n", "utf8");
-  await writeFile(join(workspacePath, displayCollisionPath), "distinct path contents\n", "utf8");
+  if (displayCollisionPath)
+    await writeFile(join(workspacePath, displayCollisionPath), "distinct path contents\n", "utf8");
 
   const harness = await launchDesktop(userDataDir, {
     initialWorkspaces: [workspacePath],
@@ -41,18 +48,20 @@ test("preserves an exact changed-file path through diff and stage actions", asyn
 
     const diffPanel = window.locator(".diff-panel");
     const changedRows = diffPanel.locator(".diff-panel__file");
-    await expect(changedRows).toHaveCount(2);
+    await expect(changedRows).toHaveCount(displayCollisionPath ? 2 : 1);
     const rowPaths = await changedRows.evaluateAll((rows) =>
       rows.map((row) => row.getAttribute("data-file-path")),
     );
     const changedRow = changedRows.nth(rowPaths.indexOf(filePath));
     await expect(changedRow).toHaveAttribute("data-file-path", filePath);
-    expect(await changedRow.locator(".diff-panel__file-path").textContent()).toBe(
-      JSON.stringify(filePath),
-    );
-    expect(await changedRows.locator(".diff-panel__file-path").allTextContents()).toEqual(
-      expect.arrayContaining([JSON.stringify(filePath), JSON.stringify(displayCollisionPath)]),
-    );
+    if (displayCollisionPath) {
+      expect(await changedRow.locator(".diff-panel__file-path").textContent()).toBe(
+        JSON.stringify(filePath),
+      );
+      expect(await changedRows.locator(".diff-panel__file-path").allTextContents()).toEqual(
+        expect.arrayContaining([JSON.stringify(filePath), JSON.stringify(displayCollisionPath)]),
+      );
+    }
 
     await changedRow.locator(".diff-panel__file-name").click();
     await expect(
