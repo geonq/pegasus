@@ -31,7 +31,7 @@ export const Markdown = memo(function Markdown({ text }: { readonly text: string
         padding: 12,
         fontSize: 13,
       },
-      link: { color: palette.accent },
+      link: { color: palette.accentText },
     }),
     [palette],
   );

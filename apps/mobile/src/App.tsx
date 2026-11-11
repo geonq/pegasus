@@ -85,7 +85,7 @@ function Root() {
                       )
                     }
                   >
-                    <Text style={{ color: palette.accent, fontSize: 17 }}>•••</Text>
+                    <Text style={{ color: palette.accentText, fontSize: 17 }}>•••</Text>
                   </Pressable>
                 ),
               }}

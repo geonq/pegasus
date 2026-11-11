@@ -1,9 +1,9 @@
 import { useColorScheme } from "react-native";
 
 /**
- * Every color the app draws comes from these tokens. They follow the desktop "Default" preset
- * (apps/desktop/contracts/theme.ts: neutral surfaces, the owner's blue accent #0253C4) until the
- * iOS palette arrives: replace the two objects below and the whole app follows.
+ * Every color the app draws comes from these tokens. The palette is rito's (the owner's logos in
+ * iCloud/rito): obsidian #09090B, white #FFFFFF and electric blue #0066FF. Obsidian leads; the light
+ * scheme mirrors it. Change a value here and the whole app follows.
  */
 export interface Palette {
   readonly background: string;
@@ -12,7 +12,10 @@ export interface Palette {
   readonly line: string;
   readonly text: string;
   readonly textMuted: string;
+  /** Fills: buttons, the send button, status. Text on it uses onAccent. */
   readonly accent: string;
+  /** Accent as text (links, small controls), lighter on obsidian so it stays readable. */
+  readonly accentText: string;
   readonly onAccent: string;
   readonly success: string;
   readonly danger: string;
@@ -20,34 +23,38 @@ export interface Palette {
   readonly userBubble: string;
 }
 
+const brand = { obsidian: "#09090b", white: "#ffffff", electricBlue: "#0066ff" } as const;
+
 const light: Palette = {
-  background: "#fafafa",
-  surface: "#ffffff",
-  surfaceRaised: "#f0f0f0",
-  line: "#e3e3e3",
-  text: "#0a0a0a",
-  textMuted: "#6b6b6b",
-  accent: "#0253c4",
-  onAccent: "#ffffff",
-  success: "#2f825a",
-  danger: "#b84e59",
-  warning: "#ac711c",
-  userBubble: "#eef3fb",
+  background: brand.white,
+  surface: "#f6f6f8",
+  surfaceRaised: "#ececf0",
+  line: "#e2e2e7",
+  text: brand.obsidian,
+  textMuted: "#6c6c75",
+  accent: brand.electricBlue,
+  accentText: "#0057d9",
+  onAccent: brand.white,
+  success: "#1f8a55",
+  danger: "#c8323f",
+  warning: "#b36b00",
+  userBubble: "#e6efff",
 };
 
 const dark: Palette = {
-  background: "#161616",
-  surface: "#1e1e1e",
-  surfaceRaised: "#262626",
-  line: "#2e2e2e",
-  text: "#f5f5f5",
-  textMuted: "#9a9a9a",
-  accent: "#0253c4",
-  onAccent: "#ffffff",
-  success: "#40c977",
-  danger: "#e05467",
-  warning: "#d97706",
-  userBubble: "#1d2a3d",
+  background: brand.obsidian,
+  surface: "#121216",
+  surfaceRaised: "#1b1b21",
+  line: "#25252c",
+  text: brand.white,
+  textMuted: "#8d8d97",
+  accent: brand.electricBlue,
+  accentText: "#3d8bff",
+  onAccent: brand.white,
+  success: "#34c77b",
+  danger: "#ff5468",
+  warning: "#f0a020",
+  userBubble: "#0b2350",
 };
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;

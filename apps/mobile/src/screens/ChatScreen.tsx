@@ -186,7 +186,7 @@ const Row = memo(function Row({ item }: { readonly item: TranscriptItem }) {
       item.status === "error"
         ? palette.danger
         : item.status === "running"
-          ? palette.accent
+          ? palette.accentText
           : palette.textMuted;
     return (
       <Text numberOfLines={2} style={[styles.tool, { color }]}>
