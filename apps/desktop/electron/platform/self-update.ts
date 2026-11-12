@@ -99,7 +99,11 @@ export function watchQuitRequest(dir: string, onQuit: () => void): () => void {
     const createdAt = (await readJson(file))?.createdAt;
     if (handled || typeof createdAt !== "number") return;
     // fs.watch fires several events per write; claim the request before awaiting so only one check quits.
-    const fresh = Date.now() - createdAt <= QUIT_REQUEST_MAX_AGE_MS;
+    // A request older than this process was meant for the app that ran when the update was scheduled.
+    // When none ran, it is still lying here as the new build starts, and obeying it quit the freshly
+    // installed Pegasus 5 s after it reported healthy.
+    const fresh =
+      createdAt >= performance.timeOrigin && Date.now() - createdAt <= QUIT_REQUEST_MAX_AGE_MS;
     if (fresh) handled = true;
     await rm(file, { force: true });
     if (fresh) setTimeout(onQuit, QUIT_DELAY_MS);

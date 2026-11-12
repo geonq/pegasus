@@ -53,6 +53,23 @@ test("writeHealthy leaves a fresh heartbeat for the helper", async () => {
   expect(beat.at).toBeGreaterThanOrEqual(before);
 });
 
+test("a quit request written before this process started is not obeyed", async () => {
+  // The update was scheduled while no Pegasus ran: the request still lies there when the new build
+  // starts, minutes young but older than the process. Obeying it quit the freshly installed app.
+  const dir = join(await tempDir(), "self-update");
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, "quit.request"),
+    JSON.stringify({ createdAt: Math.floor(performance.timeOrigin) - 1_000 }),
+  );
+  let quits = 0;
+  const stop = watchQuitRequest(dir, () => (quits += 1));
+  await expect.poll(() => existsSync(join(dir, "quit.request"))).toBe(false);
+  await new Promise((resolve) => setTimeout(resolve, 3_500));
+  stop();
+  expect(quits).toBe(0);
+});
+
 test("watchQuitRequest quits once for a fresh request and ignores a stale one", async () => {
   const dir = join(await tempDir(), "self-update");
   await mkdir(dir, { recursive: true });
