@@ -4,13 +4,44 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import {
+  consumePausedRuns,
   consumeResume,
+  pausedRunMessage,
+  readResumeSessionId,
   resumeMessage,
   watchQuitRequest,
   writeHealthy,
+  writePausedRuns,
 } from "../../electron/platform/self-update";
 
 const tempDir = () => mkdtemp(join(tmpdir(), "self-update-"));
+
+test("paused runs survive one restart, are read once, and go stale", async () => {
+  const dir = await tempDir();
+  expect(await consumePausedRuns(dir)).toEqual([]);
+  await writePausedRuns(dir, [{ workspaceId: "w1", sessionId: "s1" }]);
+  expect(await consumePausedRuns(dir)).toEqual([{ workspaceId: "w1", sessionId: "s1" }]);
+  expect(await consumePausedRuns(dir)).toEqual([]);
+  const stale = { createdAt: Date.now() - 60 * 60_000, runs: [{ workspaceId: "w", sessionId: "s" }] };
+  await writeFile(join(dir, "paused.json"), JSON.stringify(stale));
+  expect(await consumePausedRuns(dir)).toEqual([]);
+  const mixed = { createdAt: Date.now(), runs: [{ workspaceId: "w" }, "x", { workspaceId: "w", sessionId: "s" }] };
+  await writeFile(join(dir, "paused.json"), JSON.stringify(mixed));
+  expect(await consumePausedRuns(dir)).toEqual([{ workspaceId: "w", sessionId: "s" }]);
+});
+
+test("the scheduling chat is read from the resume marker without consuming it", async () => {
+  const dir = await tempDir();
+  expect(await readResumeSessionId(dir)).toBeUndefined();
+  await writeFile(join(dir, "resume.json"), JSON.stringify({ sessionId: "s9", note: "" }));
+  expect(await readResumeSessionId(dir)).toBe("s9");
+  expect((await consumeResume(dir))?.marker.sessionId).toBe("s9");
+});
+
+test("a paused chat is told to check where it stopped", () => {
+  expect(pausedRunMessage({ status: "installed" }, "1.2.0")).toContain("updated to version 1.2.0");
+  expect(pausedRunMessage({ status: "rolled-back" }, "1.1.0")).toContain("rolled back");
+});
 
 test("consumeResume returns the marker and result once, then nothing", async () => {
   const dir = await tempDir();

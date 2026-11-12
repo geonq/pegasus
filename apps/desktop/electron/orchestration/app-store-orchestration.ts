@@ -1067,6 +1067,11 @@ const MAX_REPORT_COMMITS = 8;
 const reportedRuns = new Set<string>();
 const cancelledByParent = new Set<string>();
 
+/** A child stopped by the app itself (an update restart) is not finished; its parent hears nothing. */
+export function skipNextChildReport(childSessionId: string): void {
+  cancelledByParent.add(childSessionId);
+}
+
 /**
  * Tells the parent that a child finished, without the parent having to poll: its status, its last
  * reply, and per repository it changed files in, the commits since it started and what is still

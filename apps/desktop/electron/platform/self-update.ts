@@ -10,6 +10,8 @@ import path from "node:path";
  *   resume.json   agent tool -> new app: which chat to continue and why
  *   result.json   helper -> new app: "installed" or "rolled-back"
  *   healthy.json  new app -> helper: startup finished (the helper rolls back without it)
+ *   paused.json   old app -> new app: the other chats that were running when the update quit the app;
+ *                 they were stopped cleanly and the new app tells each one to continue
  */
 export interface ResumeMarker {
   readonly sessionId: string;
@@ -77,6 +79,56 @@ export function resumeMessage(
     );
   }
   return `Pegasus restarted on version ${version} after your update; continue.${note}`;
+}
+
+export interface PausedRun {
+  readonly workspaceId: string;
+  readonly sessionId: string;
+}
+
+const PAUSED_MAX_AGE_MS = 30 * 60_000;
+
+/** The chat that scheduled the update (still in resume.json at quit time); it gets its own follow-up. */
+export async function readResumeSessionId(dir: string): Promise<string | undefined> {
+  const sessionId = (await readJson(path.join(dir, "resume.json")))?.sessionId;
+  return typeof sessionId === "string" && sessionId ? sessionId : undefined;
+}
+
+/** Records the runs the old app paused for the update. */
+export async function writePausedRuns(dir: string, runs: readonly PausedRun[]): Promise<void> {
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, "paused.json"), JSON.stringify({ createdAt: Date.now(), runs }));
+}
+
+/** Reads and deletes the paused runs; a stale file (an update that never restarted) yields none. */
+export async function consumePausedRuns(dir: string): Promise<readonly PausedRun[]> {
+  const file = path.join(dir, "paused.json");
+  const record = await readJson(file);
+  await rm(file, { force: true });
+  const createdAt = record?.createdAt;
+  if (typeof createdAt !== "number" || Date.now() - createdAt > PAUSED_MAX_AGE_MS) return [];
+  const runs = Array.isArray(record?.runs) ? record.runs : [];
+  return runs.flatMap((run: unknown) =>
+    isRecord(run) &&
+    typeof run.workspaceId === "string" &&
+    typeof run.sessionId === "string" &&
+    run.workspaceId &&
+    run.sessionId
+      ? [{ workspaceId: run.workspaceId, sessionId: run.sessionId }]
+      : [],
+  );
+}
+
+/** The follow-up a chat that was paused for someone else's update receives. */
+export function pausedRunMessage(result: UpdateResult | undefined, version: string): string {
+  const what =
+    result?.status === "rolled-back"
+      ? `An update was tried and rolled back; Pegasus is back on version ${version}`
+      : `Pegasus was updated to version ${version}`;
+  return (
+    `${what}. Your run was paused cleanly for the restart, so the last step may not have finished. ` +
+    "Check where you stopped (files, commits, running commands) and continue the task."
+  );
 }
 
 /** Tells the helper that this start finished. */

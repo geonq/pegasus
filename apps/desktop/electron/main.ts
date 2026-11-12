@@ -93,7 +93,11 @@ import { openReleasesPage } from "./platform/update-checker";
 import { AppUpdater } from "./platform/update-installer";
 import {
   consumeResume,
+  consumePausedRuns,
+  pausedRunMessage,
+  readResumeSessionId,
   resumeMessage,
+  writePausedRuns,
   selfUpdateDir,
   watchQuitRequest,
   writeHealthy,
@@ -2105,11 +2109,38 @@ app
     // start is up, tell the helper and continue the chat that scheduled the update.
     if (!remoteDesktopClientMode && !appTestMode) {
       const updateDir = selfUpdateDir(configuredUserDataDir);
-      watchQuitRequest(updateDir, () => app.quit());
+      // Other chats still running would be cut off mid-step by the restart: stop them cleanly first and
+      // record them, so the new version tells each one to continue.
+      watchQuitRequest(updateDir, () => {
+        void (async () => {
+          const keep = await readResumeSessionId(updateDir);
+          const paused = await store.pauseRunsForUpdate(keep);
+          if (paused.length > 0) await writePausedRuns(updateDir, paused);
+          console.info(`[self-update] paused ${paused.length} running chat(s) for the restart`);
+        })()
+          .catch((error: unknown) => console.error("[self-update] pausing runs failed", error))
+          .finally(() => app.quit());
+      });
       void (async () => {
         const pending = await consumeResume(updateDir);
+        const paused = await consumePausedRuns(updateDir);
         await writeHealthy(updateDir, app.getVersion());
         traceStartup("healthy");
+        const known = new Set(
+          store
+            .snapshot()
+            .workspaces.flatMap((workspace) =>
+              workspace.sessions.map((session) => `${workspace.id}\u0000${session.id}`),
+            ),
+        );
+        for (const run of paused) {
+          if (!known.has(`${run.workspaceId}\u0000${run.sessionId}`)) continue;
+          await store
+            .deliverRemoteInstruction(run, pausedRunMessage(pending?.result, app.getVersion()))
+            .catch((error: unknown) =>
+              console.error("[self-update] resuming paused chat failed", run.sessionId, error),
+            );
+        }
         if (!pending) return;
         const thread = store
           .snapshot()

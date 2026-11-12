@@ -1356,6 +1356,29 @@ export class DesktopAppStore {
     return this.conversationOwner.cancelCurrentRun(sessionRef);
   }
 
+  /**
+   * Stops every running chat except `keep` (the one that scheduled the update), so the update restart
+   * interrupts nothing mid-write. Returns what was stopped; the restarted app tells each to continue.
+   * A stopped child does not report to its parent: it is paused, not finished.
+   */
+  async pauseRunsForUpdate(keep: string | undefined): Promise<readonly SessionRef[]> {
+    await this.initialize();
+    const running = this.readState().workspaces.flatMap((workspace) =>
+      workspace.sessions
+        .filter((session) => session.status === "running" && session.id !== keep)
+        .map((session) => ({ workspaceId: workspace.id, sessionId: session.id })),
+    );
+    for (const ref of running) orchestration.skipNextChildReport(ref.sessionId);
+    await Promise.all(
+      running.map((ref) =>
+        this.driver.cancelCurrentRun(ref).catch((error: unknown) => {
+          console.error("[self-update] pause failed", ref.sessionId, error);
+        }),
+      ),
+    );
+    return running;
+  }
+
   async getSessionTree(target: WorkspaceSessionTarget): Promise<SessionTreeSnapshot> {
     await this.initialize();
     const sessionRef = toSessionRef(target);
