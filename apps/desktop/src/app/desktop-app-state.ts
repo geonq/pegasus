@@ -479,6 +479,12 @@ export function useDesktopAppState(): DesktopAppSession {
       const replica = replicaRef.current;
       if (!active || !replica) return;
       if (replica.push(update) === "resync") {
+        // Goes to logs/events.ndjson as renderer.warn: a patch that did not fit is a sync bug.
+        const patch = "baseRevision" in update ? update : undefined;
+        console.warn(
+          `[state] patch did not fit (seq ${patch?.sequence ?? 0}, base ${patch?.baseRevision ?? "-"}, ` +
+            `held ${replica.state?.revision ?? "none"}); pulling a full state`,
+        );
         pullState(api);
       } else if (replica.state) {
         apply({ type: "state-pushed", state: replica.state });

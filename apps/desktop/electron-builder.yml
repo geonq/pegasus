@@ -350,6 +350,9 @@ win:
   extraResources:
     - from: ../../crates/target/release/pegasus-host.exe
       to: bin/pegasus-host.exe
+    # Event log reader (same package, built by the same cargo build): resources/bin/pegasus-events.exe
+    - from: ../../crates/target/release/pegasus-events.exe
+      to: bin/pegasus-events.exe
   executableName: Pegasus
   # Keep icon/version metadata editing; signing is optional without credentials.
   signAndEditExecutable: true

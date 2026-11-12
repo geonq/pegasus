@@ -147,6 +147,7 @@ import {
   type ConversationOwner,
 } from "../conversation/app-store-composer";
 import * as orchestration from "../orchestration/app-store-orchestration";
+import { SessionEventRecorder } from "../diagnostics/session-events";
 import {
   createOrchestrationOwner,
   type OrchestrationOwner,
@@ -869,7 +870,11 @@ export class DesktopAppStore {
     this.scheduleOrchestrationSupervision();
   }
 
+  /** Run, tool and error lines for logs/events.ndjson (electron/diagnostics). */
+  private readonly sessionEventRecorder = new SessionEventRecorder();
+
   async emitTestSessionEvent(event: SessionDriverEvent): Promise<void> {
+    this.sessionEventRecorder.record(event);
     await this.initialize();
     await this.handleSessionEvent(event);
   }
@@ -3313,6 +3318,7 @@ export class DesktopAppStore {
    * rather than leaving the tail rejected and freezing the queue for that session.
    */
   private enqueueSessionEvent(event: SessionDriverEvent, subscriptionKey: string): void {
+    this.sessionEventRecorder.record(event);
     const previous = this.sessionEventQueues.get(subscriptionKey) ?? Promise.resolve();
     const next = previous
       .then(() => this.handleSessionEvent(event, subscriptionKey))

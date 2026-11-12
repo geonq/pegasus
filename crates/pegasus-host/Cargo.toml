@@ -9,6 +9,11 @@ description = "Long-lived Pegasus backend host: owns sessions, terminals, git an
 name = "pegasus-host"
 path = "src/main.rs"
 
+# Reads and merges the app's and the host's event logs (logs/events.ndjson, logs/host-events.ndjson).
+[[bin]]
+name = "pegasus-events"
+path = "src/events_main.rs"
+
 [dependencies]
 brotli = "8"
 bytes = "1"

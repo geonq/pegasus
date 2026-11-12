@@ -14,6 +14,9 @@ import {
   type MessageBoxOptions,
 } from "electron";
 import { isValidHttpBaseUrl, startupTrace, startupTraceLines } from "@pi-gui/pi-sdk-driver";
+import { initEventLog, logEvent } from "./diagnostics/event-log";
+import { traceIpcHandlers } from "./diagnostics/ipc-trace";
+import { watchProcessEvents } from "./diagnostics/process-events";
 import {
   pairPhone,
   readPhoneAccess,
@@ -1366,6 +1369,16 @@ if (app.isPackaged) process.env.PEGASUS_APP_VERSION ??= app.getVersion();
 
 const configuredUserDataDir = process.env.PI_APP_USER_DATA_DIR?.trim() || app.getPath("userData");
 app.setPath("userData", configuredUserDataDir);
+// The event log (logs/events.ndjson) starts before any IPC handler or window exists.
+initEventLog(path.join(configuredUserDataDir, "logs"));
+traceIpcHandlers();
+watchProcessEvents();
+logEvent("app.start", {
+  version: app.getVersion(),
+  electron: process.versions.electron,
+  platform: process.platform,
+  packaged: app.isPackaged,
+});
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
@@ -2116,6 +2129,7 @@ app
           const keep = await readResumeSessionId(updateDir);
           const paused = await store.pauseRunsForUpdate(keep);
           if (paused.length > 0) await writePausedRuns(updateDir, paused);
+          logEvent("update.paused", { runs: paused.length });
           console.info(`[self-update] paused ${paused.length} running chat(s) for the restart`);
         })()
           .catch((error: unknown) => console.error("[self-update] pausing runs failed", error))
@@ -2126,6 +2140,11 @@ app
         const paused = await consumePausedRuns(updateDir);
         await writeHealthy(updateDir, app.getVersion());
         traceStartup("healthy");
+        logEvent("app.healthy", {
+          ms: Math.round(performance.now()),
+          resumed: paused.length || undefined,
+          update: pending?.result?.status,
+        });
         const known = new Set(
           store
             .snapshot()

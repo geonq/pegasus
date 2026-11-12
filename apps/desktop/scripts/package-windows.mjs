@@ -25,6 +25,8 @@ execFileSync("cargo", ["build", "--release", "-p", "pegasus-host"], {
 });
 const host = path.join(cratesDir, "target", "release", "pegasus-host.exe");
 if (!existsSync(host)) throw new Error(`cargo did not produce ${host}`);
+const eventsReader = path.join(cratesDir, "target", "release", "pegasus-events.exe");
+if (!existsSync(eventsReader)) throw new Error(`cargo did not produce ${eventsReader}`);
 const reported = execFileSync(host, ["--version"], { encoding: "utf8", windowsHide: true }).trim();
 if (reported !== `pegasus-host ${version}`) {
   throw new Error(`pegasus-host reports '${reported}', not ${version}`);

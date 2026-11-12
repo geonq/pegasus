@@ -84,6 +84,9 @@ struct Request {
 
 type Reply = Result<Vec<u8>, HostError>;
 
+/// A call at least this slow becomes a `host.call.slow` event (the UI waits on most calls).
+const SLOW_CALL_MS: u64 = 250;
+
 /// Params stay raw JSON until the method knows its type, so large payloads are parsed once.
 type Params = Option<Box<serde_json::value::RawValue>>;
 
@@ -163,6 +166,7 @@ impl Host {
             Ok(r) => r,
             Err(e) => return envelope(0, Err(HostError::new(ErrorCode::BadRequest, e.to_string()))),
         };
+        let started = Instant::now();
         let reply = if req.v != PROTOCOL {
             Err(HostError::new(ErrorCode::UnsupportedProtocol, format!("host speaks v{PROTOCOL}, client sent v{}", req.v)))
         } else if *self.exiting.borrow() {
@@ -170,8 +174,26 @@ impl Host {
         } else {
             self.call(&req.method, req.params, conn).await
         };
+        let ms = started.elapsed().as_millis() as u64;
         if let Err(e) = &reply {
-            crate::warn!("{} {} #{} -> {e}", conn.name(), req.method, req.id);
+            crate::log::text("WARN", &format!("{} {} #{} -> {e}", conn.name(), req.method, req.id));
+            crate::log::event(
+                "host.call.error",
+                Some("e"),
+                [
+                    ("m", req.method.as_str().into()),
+                    ("ms", ms.into()),
+                    ("code", serde_json::to_value(e.code).unwrap_or_default()),
+                    ("msg", e.message.as_str().into()),
+                    ("conn", conn.name().into()),
+                ],
+            );
+        } else if ms >= SLOW_CALL_MS {
+            crate::log::event(
+                "host.call.slow",
+                Some("w"),
+                [("m", req.method.as_str().into()), ("ms", ms.into()), ("bytes", reply.as_ref().map_or(0, |b| b.len()).into())],
+            );
         }
         envelope(req.id, reply)
     }
