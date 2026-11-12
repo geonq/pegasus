@@ -117,6 +117,7 @@
     "@smithy/types": "^4.14.1",
     "@smithy/util-buffer-from": "^2.2.0",
     "@smithy/util-utf8": "^2.3.0",
+    "@tanstack/react-virtual": "3.13.12",
     "@visx/curve": "4.0.0",
     "@visx/event": "4.0.0",
     "@visx/gradient": "4.0.0",

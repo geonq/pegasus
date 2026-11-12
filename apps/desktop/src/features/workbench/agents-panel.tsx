@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { DesktopAppState, SessionRecord } from "../../../contracts/desktop-state";
 import { StateOrb } from "../../app/activity-indicator";
 
@@ -164,6 +166,45 @@ function elapsed(since: string, now: number): string {
   return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
+function VirtualAgentList({
+  items,
+  renderItem,
+}: {
+  readonly items: readonly AgentCard[];
+  readonly renderItem: (item: AgentCard, style: CSSProperties) => ReactNode;
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 52,
+    overscan: 8,
+  });
+
+  return (
+    <div ref={parentRef} className="agents-panel__virtual-list">
+      <div className="agents-panel__list" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((item) => (
+          <div
+            key={items[item.index]!.key}
+            ref={virtualizer.measureElement}
+            data-index={item.index}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              transform: `translateY(${item.start}px)`,
+            }}
+          >
+            {renderItem(items[item.index]!, {})}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function AgentsPanel({
   snapshot,
   onSelect,
@@ -217,7 +258,7 @@ export function AgentsPanel({
     .sort((a, b) => b.items[0]!.newest - a.items[0]!.newest);
 
   const renderCard = (card: AgentCard, depth: number) => (
-    <li key={card.key}>
+    <div key={card.key}>
       <div
         className="agents-panel__card"
         style={{ marginLeft: depth * 16 }}
@@ -261,11 +302,11 @@ export function AgentsPanel({
         ) : null}
       </div>
       {depth < 4 && childrenOf(card.key).length ? (
-        <ul className="agents-panel__list">
+        <div className="agents-panel__list">
           {childrenOf(card.key).map((child) => renderCard(child, depth + 1))}
-        </ul>
+        </div>
       ) : null}
-    </li>
+    </div>
   );
 
   return (
@@ -300,9 +341,10 @@ export function AgentsPanel({
           {activeTrees.length ? (
             <section className="agents-panel__group" data-testid="agents-panel-active">
               <h3 className="agents-panel__heading">Active · {activeTrees.length}</h3>
-              <ul className="agents-panel__list">
-                {activeTrees.map(({ root }) => renderCard(root, 0))}
-              </ul>
+              <VirtualAgentList
+                items={activeTrees.map(({ root }) => root)}
+                renderItem={(root) => renderCard(root, 0)}
+              />
             </section>
           ) : null}
           {projects.map(({ project, items }) => {
@@ -316,9 +358,10 @@ export function AgentsPanel({
                 </h3>
                 <details className="agents-panel__done">
                   <summary>{items.length} done</summary>
-                  <ul className="agents-panel__list">
-                    {shown.map(({ root }) => renderCard(root, 0))}
-                  </ul>
+                  <VirtualAgentList
+                    items={shown.map(({ root }) => root)}
+                    renderItem={(root) => renderCard(root, 0)}
+                  />
                   {older > 0 && !showOlder.has(project) ? (
                     <button
                       type="button"
