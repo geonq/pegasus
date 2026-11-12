@@ -70,7 +70,7 @@
   box-shadow: var(--elevation-popover);
   z-index: 20;
   color: var(--text-strong);
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.45;
   cursor: default;
 }
@@ -102,7 +102,7 @@
 .context-meter__heading {
   margin: 0 0 2px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: var(--font-normal);
 }
 

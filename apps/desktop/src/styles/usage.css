@@ -104,7 +104,7 @@
   min-height: 30px;
   padding: 0 10px;
   border-radius: var(--radius-md);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 /* Block margins only: the inline auto margins centre notes in the column like everything else. */
@@ -151,7 +151,7 @@
 .usage-stat__label,
 .usage-card h3 {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: var(--font-medium);
 }
 
@@ -165,7 +165,7 @@
 }
 
 .usage-card > .usage-view__note {
-  line-height: 1.5;
+  line-height: var(--leading-normal);
 }
 
 .usage-card__empty {
@@ -270,7 +270,7 @@
   align-items: center;
   gap: 6px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: var(--font-medium);
 }
 
@@ -352,7 +352,7 @@
 
 .usage-limits__note {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: normal;
 }
 
@@ -464,14 +464,14 @@
 
 .usage-heatmap__value {
   color: var(--text-strong);
-  font-size: 15px;
+  font-size: var(--text-md);
   font-weight: var(--font-semibold);
   font-variant-numeric: tabular-nums;
 }
 
 .usage-heatmap__label {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .usage-heatmap__head {
@@ -517,7 +517,7 @@
   gap: 5px;
   margin-left: auto;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: var(--font-medium);
   text-transform: none;
   white-space: nowrap;
@@ -582,7 +582,7 @@
 .usage-signins__fix {
   justify-self: end;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
 

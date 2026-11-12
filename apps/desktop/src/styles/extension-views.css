@@ -15,7 +15,7 @@
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: var(--font-medium);
 }
 
@@ -28,15 +28,15 @@
   flex: none;
   padding: 16px;
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
   overflow-wrap: anywhere;
 }
 
 .extension-view-panel__status h3 {
   margin: 0 0 8px;
   color: var(--text-strong);
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 
 .extension-view-panel__body {
@@ -65,6 +65,6 @@
 .workbench__extension-heading {
   margin: 16px 0 4px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: var(--font-medium);
 }

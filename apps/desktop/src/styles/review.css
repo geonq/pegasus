@@ -114,7 +114,7 @@
   margin-bottom: 4px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
 
@@ -122,7 +122,7 @@
   display: inline-flex;
   gap: 5px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -144,8 +144,8 @@
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .review-panel__base-text {
@@ -208,7 +208,7 @@
   min-height: 36px;
   padding: 4px 8px 4px 12px;
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .review-panel__file-path {
@@ -254,7 +254,7 @@
   background: var(--surface-muted);
   color: var(--muted);
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .review-panel .diff-line--unmodified .diff-line__content {
@@ -269,8 +269,8 @@
   border-bottom: 1px solid var(--line);
   background: var(--surface-muted);
   color: var(--muted-strong);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
   overflow-wrap: anywhere;
 }
 
@@ -304,7 +304,7 @@
   margin: 0;
   padding: 8px 12px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
 
@@ -372,13 +372,13 @@
   outline: 0;
   background: transparent;
   color: var(--text-strong);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 .review-tree__counter {
   padding: 0 2px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -495,7 +495,7 @@
   flex-shrink: 0;
   width: 14px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   text-align: center;
 }
