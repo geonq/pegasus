@@ -85,6 +85,7 @@ import {
 } from "./thread-groups";
 import { AttentionToastHost, useAttentionToasts } from "./attention-toast";
 import { UndoToastHost } from "./undo-toast";
+import { VirtualSessionList } from "./virtual-session-list";
 import { useThreadShortcutHintsVisible } from "./thread-shortcut-hints";
 import { useSignIns } from "../usage/account-state";
 import { UpdateBanner } from "../updates/update-banner";
@@ -1093,10 +1094,13 @@ function WorkspaceFolderContent(
       ) : null}
       {history && onSelectSession && onArchiveSession && onSetSessionPinned ? (
         <>
-          <div className="session-list session-list--history">
-            {history.visible.map((thread) => (
+          <VirtualSessionList
+            className="session-list session-list--history"
+            items={history.visible}
+            itemKey={threadRowKey}
+            renderItem={(thread) => (
               <HistoryThreadRow
-                key={`${thread.workspaceId}:${thread.session.id}`}
+                key={threadRowKey(thread)}
                 thread={thread}
                 selectedWorkspace={selectedWorkspace}
                 selectedSession={selectedSession}
@@ -1105,8 +1109,8 @@ function WorkspaceFolderContent(
                 onSelectSession={onSelectSession}
                 onSetSessionPinned={onSetSessionPinned}
               />
-            ))}
-          </div>
+            )}
+          />
           {history.overflow && onToggleHistory ? (
             <HistoryToggle
               expanded={historyExpanded}
@@ -1185,10 +1189,13 @@ function AttentionSection({
         <div className="attention-group__head">{headContent}</div>
       )}
       {folded ? null : (
-        <div className="session-list session-list--history">
-          {threads.map((thread) => (
+        <VirtualSessionList
+          className="session-list session-list--history"
+          items={threads}
+          itemKey={threadRowKey}
+          renderItem={(thread) => (
             <HistoryThreadRow
-              key={`${thread.workspaceId}:${thread.session.id}`}
+              key={threadRowKey(thread)}
               showContext
               thread={thread}
               selectedWorkspace={selectedWorkspace}
@@ -1198,8 +1205,8 @@ function AttentionSection({
               onSelectSession={onSelectSession}
               onSetSessionPinned={onSetSessionPinned}
             />
-          ))}
-        </div>
+          )}
+        />
       )}
     </section>
   );
@@ -1237,10 +1244,13 @@ function RecencyThreadSectionView({
       data-recency-bucket={section.bucket}
     >
       <div className="recency-thread-group__head">{section.label}</div>
-      <div className="session-list session-list--history">
-        {history.visible.map((thread) => (
+      <VirtualSessionList
+        className="session-list session-list--history"
+        items={history.visible}
+        itemKey={threadRowKey}
+        renderItem={(thread) => (
           <HistoryThreadRow
-            key={`${thread.workspaceId}:${thread.session.id}`}
+            key={threadRowKey(thread)}
             showContext
             thread={thread}
             selectedWorkspace={selectedWorkspace}
@@ -1250,8 +1260,8 @@ function RecencyThreadSectionView({
             onSelectSession={onSelectSession}
             onSetSessionPinned={onSetSessionPinned}
           />
-        ))}
-      </div>
+        )}
+      />
       {history.overflow ? (
         <HistoryToggle
           expanded={historyExpanded}
@@ -1261,6 +1271,10 @@ function RecencyThreadSectionView({
       ) : null}
     </section>
   );
+}
+
+function threadRowKey(thread: ThreadListEntry): string {
+  return `${thread.workspaceId}:${thread.session.id}`;
 }
 
 function HistoryThreadRow({
