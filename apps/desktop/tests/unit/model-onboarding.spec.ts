@@ -69,13 +69,13 @@ test("unavailable default warnings use readable provider and model metadata", ()
     provider: undefined,
     modelId: undefined,
   });
-  expect(selected.notice?.description).toContain("Claude · WORK / Haiku 5.5 (saved)");
+  expect(selected.notice?.description).toContain("Claude · Work / Haiku 5.5 (saved)");
 
   const missing = deriveModelOnboardingState(unavailableDefaultRuntime(), {
     provider: undefined,
     modelId: undefined,
   });
-  expect(missing.notice?.description).toContain("Claude · WORK / Claude Haiku 5.5");
+  expect(missing.notice?.description).toContain("Claude · Work / Claude Haiku 5.5");
   expect(missing.notice?.description).not.toContain("claude-code-account-1:claude-haiku-5-5");
 });
 
