@@ -11,6 +11,7 @@ mod host;
 mod log;
 mod remote;
 mod review;
+mod runtime;
 mod terminals;
 
 use host::{event_frame, Conn, Host};
@@ -83,7 +84,12 @@ async fn main() {
         .unwrap_or_else(|e| fail(2, &format!("sessions root {}: {e}", a.sessions_root.display())));
     // Next to the session index cache: `<dir>/pegasus-usage-cache.json`.
     let usage_cache = a.cache.as_ref().map(|c| c.with_file_name("pegasus-usage-cache.json"));
-    let host = Host::new(sessions, pegasus_core::usage::UsageIndex::new(usage_cache), a.orphan_grace);
+    let host = Host::new(
+        sessions,
+        pegasus_core::usage::UsageIndex::new(usage_cache),
+        a.orphan_grace,
+        a.log_dir.as_deref(),
+    );
     info!("pegasus-host {} pid {} on {}", host::HOST_VERSION, std::process::id(), a.endpoint);
 
     let mut exiting = host.exiting.subscribe();

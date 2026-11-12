@@ -68,6 +68,8 @@ pub struct Host {
     pub events: broadcast::Sender<HostEvent>,
     /// `true` once a shutdown is accepted; main exits on it.
     pub exiting: watch::Sender<bool>,
+    /// The supervisor task owns the Node runtime worker and restarts it after a crash.
+    _runtime_worker: Option<tokio::task::JoinHandle<()>>,
 }
 
 #[derive(Deserialize)]
@@ -104,9 +106,12 @@ impl Host {
         sessions: Sessions,
         usage: pegasus_core::usage::UsageIndex,
         orphan_grace: std::time::Duration,
+        log_dir: Option<&std::path::Path>,
     ) -> Arc<Self> {
         let events = broadcast::channel(1024).0;
         let sessions_root = sessions.root().to_path_buf();
+        let (exiting, exit_rx) = watch::channel(false);
+        let runtime_worker = crate::runtime::RuntimeWorker::start(log_dir, exit_rx);
         Arc::new(Host {
             sessions: Arc::new(Mutex::new(sessions)),
             usage: Arc::new(usage),
@@ -119,7 +124,8 @@ impl Host {
             started_ms: now_ms(),
             last_change: Mutex::new(Instant::now()),
             events,
-            exiting: watch::channel(false).0,
+            exiting,
+            _runtime_worker: runtime_worker,
         })
     }
 

@@ -35,6 +35,7 @@ export default defineConfig(({ command }) => {
               projectRoot,
               "electron/usage/codex-limits-worker.ts",
             ),
+            "runtime-worker": path.resolve(projectRoot, "electron/runtime-worker.ts"),
           },
         },
       },
