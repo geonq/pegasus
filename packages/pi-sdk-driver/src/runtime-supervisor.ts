@@ -51,6 +51,7 @@ import {
 } from "./custom-provider-store.js";
 import { savePiGlobalSetting } from "./compat/pi-global-settings.js";
 import { savePiProjectSettings } from "./compat/pi-project-settings.js";
+import { startupTrace, startupTraceStage } from "./startup-trace.js";
 import {
   addMcpServer,
   listMcpServers,
@@ -99,23 +100,16 @@ type StoredCredentialType = Awaited<ReturnType<ModelRuntime["listCredentials"]>>
 type LoginAuthType = Parameters<ModelRuntime["login"]>[1];
 type LoginInteraction = Parameters<ModelRuntime["login"]>[2];
 
-function startStartupTrace(stage: string): number | undefined {
-  if (process.env.PI_APP_STARTUP_TRACE !== "1") return undefined;
-  console.info(`[startup] ${stage} started`);
+function startStartupTrace(stage: string): number {
+  startupTrace(`${stage} started`);
   return performance.now();
 }
 
-function traceStartupDuration(stage: string, startedAt: number | undefined): void {
-  if (startedAt !== undefined) {
-    console.info(`[startup] ${stage}: ${Math.round(performance.now() - startedAt)}ms`);
-  }
+function traceStartupDuration(stage: string, startedAt: number): void {
+  startupTrace(`${stage}: ${Math.round(performance.now() - startedAt)}ms`);
 }
 
-function traceStartupPromise<T>(stage: string, operation: () => Promise<T>): Promise<T> {
-  const startedAt = startStartupTrace(stage);
-  if (startedAt === undefined) return operation();
-  return operation().finally(() => traceStartupDuration(stage, startedAt));
-}
+const traceStartupPromise = startupTraceStage;
 
 interface RuntimeContext {
   readonly workspace: WorkspaceRef;

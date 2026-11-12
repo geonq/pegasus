@@ -9,6 +9,7 @@ export type {
   ExtensionUiWidgetState,
 } from "./extension-ui-state.js";
 export type { BuiltinExtension } from "./builtin-extensions.js";
+export { startupTrace, startupTraceLines, startupTraceStage } from "./startup-trace.js";
 export type { PiSdkDriverConfig } from "./pi-sdk-driver.js";
 export { createPiSdkDriver, PiSdkDriver } from "./pi-sdk-driver.js";
 export {

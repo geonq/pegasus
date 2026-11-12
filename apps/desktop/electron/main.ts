@@ -13,7 +13,7 @@ import {
   type MenuItemConstructorOptions,
   type MessageBoxOptions,
 } from "electron";
-import { isValidHttpBaseUrl } from "@pi-gui/pi-sdk-driver";
+import { isValidHttpBaseUrl, startupTrace, startupTraceLines } from "@pi-gui/pi-sdk-driver";
 import {
   pairPhone,
   readPhoneAccess,
@@ -30,7 +30,7 @@ import type {
   ExtensionContext,
   ExtensionToolContext,
 } from "@earendil-works/pi-coding-agent";
-import { lstat, mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
 import {
   startAutomationIngress,
   type AutomationRoute,
@@ -40,7 +40,10 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { augmentPosixPath } from "../scripts/augment-path.cjs";
 import { DesktopAppStore, resolveAgentDir } from "./application/app-store";
-import { handOffManagedWindowsLaunch } from "./platform/managed-windows-launch";
+import {
+  beginManagedWindowsLaunch,
+  finishManagedWindowsLaunch,
+} from "./platform/managed-windows-launch";
 import { handOffManagedMacLaunch } from "./platform/managed-macos-launch";
 import { WindowOwner } from "./windows/window-owner";
 import { PendingComposerDraftFlusher } from "./windows/pending-draft-flush";
@@ -191,17 +194,32 @@ if (process.platform === "win32" && !remoteDesktopDefaultsDisabled) {
 const remoteDesktopClientMode = process.env.PI_REMOTE_DESKTOP_CLIENT === "1";
 
 function traceStartup(stage: string): void {
-  if (process.env.PI_APP_STARTUP_TRACE === "1")
-    console.info(`[startup] ${stage}: ${Math.round(performance.now())}ms`);
+  startupTrace(stage);
 }
 function traceStartupDuration(stage: string, startedAt: number): void {
-  if (process.env.PI_APP_STARTUP_TRACE === "1")
-    console.info(`[startup] ${stage}: ${Math.round(performance.now() - startedAt)}ms`);
+  startupTrace(`${stage}: ${Math.round(performance.now() - startedAt)}ms`);
+}
+let startupLogRotated = false;
+/** Writes this boot's timeline to <userData>/logs/startup.log; the previous boot's stays as startup.prev.log. */
+async function writeStartupLog(userDataDir: string): Promise<void> {
+  const dir = path.join(userDataDir, "logs");
+  const file = path.join(dir, "startup.log");
+  await mkdir(dir, { recursive: true });
+  if (!startupLogRotated) {
+    startupLogRotated = true;
+    await rename(file, path.join(dir, "startup.prev.log")).catch(() => undefined);
+  }
+  const bootedAt = new Date(Date.now() - performance.now()).toISOString();
+  await writeFile(
+    file,
+    `boot ${bootedAt} version ${app.getVersion()}\n${startupTraceLines().join("\n")}\n`,
+  );
 }
 traceStartup("main imports loaded");
-handOffManagedWindowsLaunch();
+// The managed prepare step runs behind the startup window (see whenReady below).
+const managedWindowsLaunch = beginManagedWindowsLaunch();
 handOffManagedMacLaunch();
-traceStartup("managed profile ready");
+traceStartup("managed profile pinned");
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -1400,6 +1418,10 @@ app
       // The loaded shell can paint while async initialization prepares its runtime.
       traceStartup("startup shell loaded");
     }
+    if (managedWindowsLaunch) {
+      await finishManagedWindowsLaunch(managedWindowsLaunch);
+      traceStartup("managed profile prepared");
+    }
 
     // On macOS, packaged builds already render the dock icon from `icon.icns`
     // in the app bundle. In dev we override the generic Electron dock icon with
@@ -1530,6 +1552,7 @@ app
         notificationPermissionService?.trackWindow(window);
       },
     });
+    traceStartup("store constructed");
     watchRendererStalls(path.join(configuredUserDataDir, "logs"), windowOwner);
     traceStartup("store initialization started");
     if (!remoteDesktopClientMode) {
@@ -1639,6 +1662,7 @@ app
         }),
         { mode: 0o600 },
       );
+      traceStartup("automation ingress ready");
     }
     themeManager.setMode(
       remoteDesktopClientMode
@@ -2061,6 +2085,15 @@ app
       );
     }
 
+    traceStartup("startup steps finished; creating main window");
+    const saveStartupLog = (): void => {
+      writeStartupLog(configuredUserDataDir).catch((error: unknown) =>
+        console.error("[startup] could not write startup.log", error),
+      );
+    };
+    saveStartupLog();
+    // Runtimes keep loading after the window opens; record those stages too.
+    setTimeout(saveStartupLog, 120_000).unref();
     // A launch frame closed during startup means the app is already quitting.
     if (!launchWindow) {
       createAppWindow();
@@ -2076,6 +2109,7 @@ app
       void (async () => {
         const pending = await consumeResume(updateDir);
         await writeHealthy(updateDir, app.getVersion());
+        traceStartup("healthy");
         if (!pending) return;
         const thread = store
           .snapshot()

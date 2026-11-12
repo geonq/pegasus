@@ -15,6 +15,8 @@ import {
   PiSdkDriver,
   type PiSdkDriverConfig,
   SessionLeasedError,
+  startupTrace,
+  startupTraceStage,
 } from "@pi-gui/pi-sdk-driver";
 import type { SessionCatalogEntry } from "@pi-gui/catalogs";
 import type {
@@ -206,17 +208,10 @@ export interface DesktopAppStoreOptions {
 }
 
 function traceStartupDuration(stage: string, startedAt: number): void {
-  if (process.env.PI_APP_STARTUP_TRACE === "1") {
-    console.info(`[startup] ${stage}: ${Math.round(performance.now() - startedAt)}ms`);
-  }
+  startupTrace(`${stage}: ${Math.round(performance.now() - startedAt)}ms`);
 }
 
-function traceStartupPromise<T>(stage: string, operation: () => Promise<T>): Promise<T> {
-  if (process.env.PI_APP_STARTUP_TRACE !== "1") return operation();
-  const startedAt = performance.now();
-  console.info(`[startup] ${stage} started`);
-  return operation().finally(() => traceStartupDuration(stage, startedAt));
-}
+const traceStartupPromise = startupTraceStage;
 
 export class DesktopAppStore {
   /** ask_user questions waiting for the person; the generative UI extension asks through it. */
@@ -2805,9 +2800,11 @@ export class DesktopAppStore {
           runtime,
         );
       }
-      const liveGlobalModelSettings = await this.loadLiveGlobalModelSettings(
-        workspacesSnapshot.workspaces,
-        selectedWorkspaceId || workspacesSnapshot.workspaces[0]?.workspaceId,
+      const liveGlobalModelSettings = await traceStartupPromise("live global model settings", () =>
+        this.loadLiveGlobalModelSettings(
+          workspacesSnapshot.workspaces,
+          selectedWorkspaceId || workspacesSnapshot.workspaces[0]?.workspaceId,
+        ),
       );
       const globalModelSettings =
         this.state.modelSettingsScopeMode === "per-repo" &&
@@ -2923,11 +2920,13 @@ export class DesktopAppStore {
         ),
         revision: this.state.revision + 1,
       };
-      await this.orchestrationOwner.hydrateOrchestrationChildren();
+      // Subagent sessions of the selected chat load in the background: opening 17 of them held the
+      // first window back for 14 s. Their rows show from saved state until each one is ready.
       this.state = {
         ...this.state,
         orchestrationChildren: this.orchestrationOwner.projectOrchestrationChildren(),
       };
+      this.scheduleOrchestrationChildHydration();
       this.scheduleOrchestrationSupervision();
 
       if (options.markSelectedSessionViewed ?? true) {
@@ -2935,7 +2934,7 @@ export class DesktopAppStore {
       }
 
       if (options.persistState ?? true) {
-        await this.persistUiState();
+        await traceStartupPromise("persist ui state", () => this.persistUiState());
       }
       const snapshot = options.emitState === false ? structuredClone(this.state) : this.emit();
       if (
@@ -4691,6 +4690,37 @@ export class DesktopAppStore {
     this.schedulePersistUiState();
     this.emit();
     this.publishSelectedTranscriptFor(sessionRef);
+  }
+
+  private orchestrationHydration: Promise<void> | undefined;
+  private orchestrationHydrationAgain = false;
+
+  /** Loads the selected chat's subagent sessions off the refresh path, then republishes their rows. */
+  private scheduleOrchestrationChildHydration(): void {
+    if (this.orchestrationHydration) {
+      this.orchestrationHydrationAgain = true;
+      return;
+    }
+    this.orchestrationHydration = traceStartupPromise("hydrate orchestration children", () =>
+      this.orchestrationOwner.hydrateOrchestrationChildren(),
+    )
+      .then(() => {
+        this.state = {
+          ...this.state,
+          orchestrationChildren: this.orchestrationOwner.projectOrchestrationChildren(),
+        };
+        this.emit();
+      })
+      .catch((error: unknown) => {
+        console.error("[app-store] subagent session hydration failed", error);
+      })
+      .finally(() => {
+        this.orchestrationHydration = undefined;
+        if (this.orchestrationHydrationAgain) {
+          this.orchestrationHydrationAgain = false;
+          this.scheduleOrchestrationChildHydration();
+        }
+      });
   }
 
   private startSelectedSessionHydration(

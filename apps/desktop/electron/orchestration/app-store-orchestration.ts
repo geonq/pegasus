@@ -800,13 +800,18 @@ async function hydrateOrchestrationChildren(store: OrchestrationOwnerHost): Prom
 
 async function hydrateVisibleOrchestrationChildren(store: OrchestrationOwnerHost): Promise<void> {
   const state = store.orchestrationState();
+  // A complete or failed child's saved record is final: its status reads without a transcript, and a
+  // follow-up to it opens its session on the send path. Only children that can still change need a
+  // live session; opening finished ones cost ~0.5 s of main-thread time each.
   const visibleChildren = state.orchestrationChildren.filter(
     (child) =>
       child.parentWorkspaceId === state.selectedWorkspaceId &&
-      child.parentSessionId === state.selectedSessionId,
+      child.parentSessionId === state.selectedSessionId &&
+      child.status !== "complete" &&
+      child.status !== "failed",
   );
   const seen = new Set<string>();
-  const hydrationTasks: Promise<unknown>[] = [];
+  const pending: SessionRef[] = [];
   for (const child of visibleChildren) {
     if (!child.childSessionId) {
       continue;
@@ -817,14 +822,23 @@ async function hydrateVisibleOrchestrationChildren(store: OrchestrationOwnerHost
       continue;
     }
     seen.add(key);
-    hydrationTasks.push(
-      store.ensureSessionReady(childRef).catch((error) => {
-        store.setSessionError(childRef, errorMessage(error));
-      }),
-    );
+    pending.push(childRef);
   }
-  await Promise.all(hydrationTasks);
+  // Opening a session is main-thread work; a few at a time keeps the window responsive while
+  // a chat with many subagents loads them.
+  const worker = async () => {
+    for (let childRef = pending.shift(); childRef; childRef = pending.shift()) {
+      await store.ensureSessionReady(childRef).catch((error) => {
+        store.setSessionError(childRef!, errorMessage(error));
+      });
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(MAX_PARALLEL_CHILD_HYDRATION, pending.length) }, worker),
+  );
 }
+
+const MAX_PARALLEL_CHILD_HYDRATION = 2;
 
 function hasOrchestrationChildSession(
   children: readonly OrchestrationChildThread[],
