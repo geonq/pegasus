@@ -143,7 +143,9 @@
   color: var(--muted);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
-  margin-bottom: 8px;
+  line-height: var(--leading-tight);
+  margin: 0 0 var(--space-2);
+  text-transform: none;
 }
 
 .section__tools {
@@ -607,11 +609,11 @@
 }
 
 .session-row {
-  padding: 3px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
   min-height: 40px;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2px;
+  gap: var(--space-1);
   position: relative;
   overflow: visible;
 }
@@ -876,13 +878,18 @@
 
 .session-row__action-cluster {
   position: absolute;
-  right: 0;
+  right: var(--space-1);
   top: 50%;
   transform: translateY(-50%);
   z-index: 1;
   display: flex;
   align-items: center;
   gap: 2px;
+}
+
+.session-row__trailing {
+  min-width: 52px;
+  justify-content: flex-end;
 }
 
 .session-row:hover .session-row__trailing,

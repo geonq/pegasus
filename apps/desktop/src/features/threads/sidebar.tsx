@@ -529,7 +529,7 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
 
       <div className="sidebar__section">
         <div className="section__head">
-          <span>Chats & Folders</span>
+          <span>Chats and folders</span>
           <div className="section__tools">
             <ThreadGroupingControl
               grouping={threadGrouping}
