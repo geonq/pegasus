@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { HighlightedLine } from "./highlighted-line";
-import { MAX_HIGHLIGHTED_LINES } from "./syntax-highlight";
 
 export interface DiffLine {
   readonly type: "added" | "removed" | "context" | "header" | "unmodified";
@@ -22,7 +21,8 @@ export function InlineDiff({
   readonly unmodifiedGaps?: boolean;
 }) {
   const lines = useMemo(() => parseDiff(diff, unmodifiedGaps), [diff, unmodifiedGaps]);
-  const highlightActive = language !== undefined && lines.length <= MAX_HIGHLIGHTED_LINES;
+  const highlightActive = language !== undefined;
+  const source = useMemo(() => lines.map((line) => line.content), [lines]);
 
   if (lines.length === 0) {
     return null;
@@ -39,7 +39,7 @@ export function InlineDiff({
           )}
           <span className="diff-line__content">
             {highlightActive && line.type !== "header" && line.type !== "unmodified" ? (
-              <HighlightedLine content={line.content} language={language!} />
+              <HighlightedLine content={line.content} language={language!} source={source} lineIndex={index} />
             ) : (
               line.content
             )}

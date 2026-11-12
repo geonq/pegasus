@@ -8,7 +8,7 @@ import {
 } from "./workspace-file-line";
 import { MermaidDiagram } from "../generative-ui/diagram-view";
 import { HighlightedLine } from "../../ui/highlighted-line";
-import { fenceToLanguage, MAX_HIGHLIGHTED_LINES } from "../../ui/syntax-highlight";
+import { fenceToLanguage } from "../../ui/syntax-highlight";
 
 const REMARK_PLUGINS = [remarkGfm];
 
@@ -18,20 +18,18 @@ function markdownComponents(
   return {
     code: ({ className, children }) => {
       const code = String(children).replace(/\n$/, "");
-      // Fenced blocks in a known language are coloured line by line with the active theme's
-      // syntax colours. Lines are cached, so a reply that is still streaming only tokenises the
-      // lines it adds. Long blocks and unknown languages stay plain.
+      // Tokenise the complete fence so comments, strings and template constructs retain state across lines.
       const language = /(?:^|\s)language-([\w+#.-]+)/u.exec(className ?? "")?.[1];
       const grammar = language ? fenceToLanguage(language) : undefined;
       if (grammar) {
         const lines = code.split("\n");
-        if (lines.length <= MAX_HIGHLIGHTED_LINES) {
+        if (lines.length > 0) {
           return (
             <code className={className} data-highlighted="">
               {lines.map((line, index) => (
                 <Fragment key={index}>
                   {index > 0 ? "\n" : null}
-                  <HighlightedLine content={line} language={grammar} />
+                  <HighlightedLine content={line} language={grammar} source={lines} lineIndex={index} />
                 </Fragment>
               ))}
             </code>

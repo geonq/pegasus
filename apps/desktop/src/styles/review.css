@@ -245,7 +245,7 @@
 
 .review-panel .diff-line--added .diff-line__content,
 .review-panel .diff-line--removed .diff-line__content {
-  color: var(--ink);
+  color: inherit;
 }
 
 .review-panel .diff-line--unmodified {

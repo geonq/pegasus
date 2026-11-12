@@ -2,7 +2,6 @@ import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
 import { HighlightedLine } from "../../ui/highlighted-line";
 import { parseDiff } from "../../ui/diff-inline";
-import { MAX_HIGHLIGHTED_LINES } from "../../ui/syntax-highlight";
 import { buildComment, isCommentable, rowKey, type DiffComment } from "./diff-comments";
 
 interface Range {
@@ -30,7 +29,8 @@ export function AnnotatableDiff({
   readonly onRemove: (id: string) => void;
 }) {
   const lines = useMemo(() => parseDiff(diff, true), [diff]);
-  const highlight = language !== undefined && lines.length <= MAX_HIGHLIGHTED_LINES;
+  const highlight = language !== undefined;
+  const source = useMemo(() => lines.map((line) => line.content), [lines]);
   const commentable = useMemo(
     () => lines.flatMap((line, index) => (isCommentable(line) ? [index] : [])),
     [lines],
@@ -191,7 +191,7 @@ export function AnnotatableDiff({
               </span>
               <span className="diff-line__content">
                 {highlight && line.type !== "header" && line.type !== "unmodified" ? (
-                  <HighlightedLine content={line.content} language={language!} />
+                  <HighlightedLine content={line.content} language={language!} source={source} lineIndex={index} />
                 ) : (
                   line.content
                 )}

@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CloseIcon, CopyIcon, WorktreeIcon } from "../../ui/icons";
 import { HighlightedLine } from "../../ui/highlighted-line";
-import { MAX_HIGHLIGHTED_LINES, extensionToLanguage } from "../../ui/syntax-highlight";
+import { extensionToLanguage } from "../../ui/syntax-highlight";
 import {
   breadcrumbSegments,
   fileNameFromPath,
@@ -290,7 +290,7 @@ function SourceView({
 }) {
   const language = extensionToLanguage(path);
   const lines = content.split("\n");
-  const highlightActive = language !== undefined && lines.length <= MAX_HIGHLIGHTED_LINES;
+  const highlightActive = language !== undefined;
   const firstMarkedRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const line = firstMarkedRef.current;
@@ -315,7 +315,7 @@ function SourceView({
             key={lineNumber}
             ref={marked && lineNumber === lineMark?.start ? firstMarkedRef : undefined}
           >
-            {highlightActive ? <HighlightedLine content={line} language={language} /> : line || " "}
+            {highlightActive ? <HighlightedLine content={line} language={language} source={lines} lineIndex={index} /> : line || " "}
           </div>
         );
       })}
