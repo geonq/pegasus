@@ -9,7 +9,7 @@
 
 .timeline {
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
   min-width: 0;
   width: 100%;
   /* Constrained measure so prose lines stay readable instead of floating on a
@@ -160,7 +160,7 @@
   justify-content: flex-end;
   min-width: 0;
   max-width: 100%;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 /* In flow, so a revealed action never covers the row below it. The negative inset lines the
@@ -289,7 +289,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-1-5);
   color: var(--muted-soft);
   font-size: 13px;
   overflow-wrap: anywhere;
@@ -426,7 +426,8 @@
 .timeline-tool__header-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
+  min-height: 24px;
 }
 
 .timeline-tool__glyph {
@@ -451,6 +452,7 @@
 .timeline-tool__header {
   flex: 1;
   min-width: 0;
+  min-height: 24px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
