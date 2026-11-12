@@ -72,6 +72,12 @@ const lazyGrammars: Readonly<Record<string, () => Promise<unknown>>> = {
 // the first diff does not pay for it.
 let highlighter: HighlighterCore | null = null;
 const readyListeners = new Set<() => void>();
+/** 0 until the highlighter loads, then +1 per loaded grammar, so rows re-tokenize when theirs arrives. */
+let grammarVersion = 0;
+function notifyReady(): void {
+  grammarVersion += 1;
+  for (const listener of readyListeners) listener();
+}
 
 export const highlighterReady: Promise<void> = createHighlighterCore({
   themes: Object.values(syntaxThemes),
@@ -80,7 +86,7 @@ export const highlighterReady: Promise<void> = createHighlighterCore({
 }).then(
   (created) => {
     highlighter = created;
-    for (const listener of readyListeners) listener();
+    notifyReady();
     warmGrammars(created);
   },
   (error: unknown) => {
@@ -88,8 +94,11 @@ export const highlighterReady: Promise<void> = createHighlighterCore({
   },
 );
 
-/** Re-renders the caller once the highlighter has loaded. */
-export function useHighlighterReady(): boolean {
+/**
+ * Re-renders the caller once the highlighter has loaded and again after each lazy grammar loads.
+ * 0 means not loaded yet; use the value as a memo dependency.
+ */
+export function useHighlighterReady(): number {
   return useSyncExternalStore(
     (listener) => {
       readyListeners.add(listener);
@@ -97,7 +106,7 @@ export function useHighlighterReady(): boolean {
         readyListeners.delete(listener);
       };
     },
-    () => highlighter !== null,
+    () => grammarVersion,
   );
 }
 
@@ -106,8 +115,11 @@ function warmGrammars(created: HighlighterCore): void {
     typeof requestIdleCallback === "function"
       ? requestIdleCallback
       : (callback: () => void) => setTimeout(callback, 0);
+  // Only the bundled grammars: lazy ones (css, rust, ...) load on first use, and tokenizing one
+  // before it loads throws an uncaught ShikiError ("Language `css` not found").
+  const loaded = new Set(created.getLoadedLanguages());
   const pending = Object.values(EXTENSION_TO_LANGUAGE).filter(
-    (language, index, all) => all.indexOf(language) === index,
+    (language, index, all) => all.indexOf(language) === index && loaded.has(language),
   );
   const warmNext = (): void => {
     const language = pending.shift();
@@ -187,7 +199,7 @@ function ensureGrammar(language: string): void {
     return highlighter?.loadLanguage(grammar as never);
   }).then(() => {
     loadingGrammars.delete(language);
-    for (const listener of readyListeners) listener();
+    notifyReady();
   }, (error: unknown) => {
     loadingGrammars.delete(language);
     console.error(`[renderer] failed to load ${language} grammar`, error);
@@ -223,6 +235,9 @@ export function highlightLine(
 ): HighlightLine | null {
   if (!highlighter) return null;
   ensureGrammar(language);
+  // A lazy grammar (css, rust, ...) is still loading: plain text until it arrives. Tokenizing an
+  // unloaded language throws ShikiError and took the row down with it.
+  if (!highlighter.getLoadedLanguages().includes(language)) return null;
   const cacheKey = `${theme}\0${language}\0${line}`;
   const cached = lineCache.get(cacheKey);
   if (cached) return cached;
