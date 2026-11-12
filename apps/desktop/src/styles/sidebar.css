@@ -45,7 +45,7 @@
 .sidebar__top,
 .sidebar__section,
 .sidebar__footer {
-  padding: 12px;
+  padding: var(--space-3);
 }
 
 /* Window glass needs no page blur: a backdrop-filter above the bars also stops
@@ -61,20 +61,20 @@
 
 .sidebar__nav {
   display: grid;
-  gap: 2px;
-  margin-top: 8px;
+  gap: var(--space-0-5);
+  margin-top: var(--space-2);
 }
 
 .sidebar__nav-item {
   width: 100%;
   min-height: 30px;
-  padding: 6px 8px;
+  padding: var(--space-1-5) var(--space-2);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   color: var(--muted-strong);
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: var(--font-medium);
   border: 1px solid transparent;
 }
@@ -86,7 +86,7 @@
 
 .sidebar__nav-item:hover {
   background: var(--overlay-subtle);
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 
 .sidebar__new:hover:not(:disabled) {
@@ -97,24 +97,24 @@
 .sidebar__nav-item--active {
   background: var(--overlay-hover);
   border-color: transparent;
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 
 .sidebar__new {
   width: 100%;
   min-height: var(--sidebar-first-control-height);
-  padding: 7px 10px;
+  padding: var(--space-2) var(--space-2-5);
   border-radius: var(--radius-md);
   background: var(--surface);
   border: 1px solid var(--line);
-  color: var(--text-strong);
-  font-size: 13px;
+  color: var(--fg-strong);
+  font-size: var(--text-body);
   font-weight: var(--font-medium);
   white-space: nowrap;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .sidebar__new:disabled,
@@ -126,10 +126,10 @@
 .sidebar__section {
   overflow: auto;
   /* Keeps the scrollbar clear of the resize handle on the right edge. */
-  margin-right: 4px;
+  margin-right: var(--space-1);
   /* The scrollbar always keeps its lane, so opening a chat's subagents (which makes the list
      scroll) no longer narrows the list and rewraps the header. The lane replaces the old padding. */
-  padding-right: max(0px, 8px - var(--scrollbar-size));
+  padding-right: max(0px, var(--space-2) - var(--scrollbar-size));
   scrollbar-gutter: stable;
   /* Rows scrolled up under Settings fade out over the section's own top padding instead of being
      cut in half against it. Unscrolled, the first row starts below the fade and stays fully shown. */
@@ -140,7 +140,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
   line-height: var(--leading-tight);
@@ -151,7 +151,7 @@
 .section__tools {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .thread-grouping {
@@ -196,7 +196,7 @@
 /* Beats the later .workspace-menu__item (space-between), which pushed labels to the edge. */
 .workspace-menu__item.thread-grouping__option {
   justify-content: flex-start;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .thread-grouping__check {
@@ -209,13 +209,13 @@
 
 .thread-history-toggle {
   min-height: 28px;
-  padding: 4px 8px 4px 33px;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-8);
   width: 100%;
   display: flex;
   align-items: center;
   border-radius: var(--radius-md);
-  color: var(--muted-soft);
-  font-size: 13px;
+  color: var(--fg-soft);
+  font-size: var(--text-body);
   font-weight: var(--font-medium);
   text-align: left;
 }
@@ -258,23 +258,23 @@
 
 .workspace-list {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .workspace-group {
   display: grid;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .worktree-list {
   display: grid;
-  gap: 4px;
-  padding-left: 24px;
+  gap: var(--space-1);
+  padding-left: var(--space-6);
 }
 
 .worktree-group {
   display: grid;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .workspace-row,
@@ -284,15 +284,15 @@
   display: grid;
   align-items: center;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: var(--space-2-5);
   text-align: left;
-  color: var(--text-strong);
+  color: var(--fg-strong);
   border: 1px solid transparent;
 }
 
 .workspace-row {
   /* Same left edge as .session-row, so folder names, chat titles and their icons line up. */
-  padding: 2px 4px 1px 8px;
+  padding: var(--space-0-5) var(--space-1) 1px var(--space-2);
   border-radius: var(--radius-md);
   position: relative;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -316,7 +316,7 @@
 }
 
 .worktree-row {
-  padding: 2px 4px 1px;
+  padding: var(--space-0-5) var(--space-1) 1px;
   border-radius: var(--radius-md);
   position: relative;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -329,7 +329,7 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 0;
   min-width: 0;
-  padding-left: 24px;
+  padding-left: var(--space-6);
   text-align: left;
   color: inherit;
   position: relative;
@@ -338,7 +338,7 @@
 .worktree-row__select {
   width: 100%;
   display: grid;
-  gap: 2px;
+  gap: var(--space-0-5);
   min-width: 0;
   text-align: left;
   color: inherit;
@@ -347,13 +347,13 @@
 .workspace-row--active {
   background: transparent;
   border-color: transparent;
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 
 .worktree-row--active {
   background: transparent;
   border-color: transparent;
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 
 .workspace-row__icon {
@@ -406,15 +406,15 @@
 }
 
 .workspace-row__name {
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: var(--font-medium);
   color: var(--muted-strong);
 }
 
 .worktree-row__name {
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: var(--font-semibold);
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 
 .worktree-row__meta {
@@ -422,14 +422,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted-soft);
+  color: var(--fg-soft);
   font-size: var(--text-xs);
   font-weight: var(--font-medium);
 }
 
 .workspace-row__time,
 .session-row__time {
-  color: var(--muted-soft);
+  color: var(--fg-soft);
   font-size: var(--text-xs);
   font-weight: var(--font-medium);
 }
@@ -437,7 +437,7 @@
 .workspace-row__actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .workspace-row__menu-wrap {
@@ -450,7 +450,7 @@
 /* Size, centring and radius come from .icon-button. */
 .workspace-row__action-button,
 .workspace-row__menu-button {
-  color: var(--muted-soft);
+  color: var(--fg-soft);
   background: transparent;
 }
 
@@ -466,33 +466,33 @@
   right: 0;
   z-index: 10;
   min-width: 160px;
-  padding: 6px;
+  padding: var(--space-1-5);
   border-radius: var(--radius-2xl);
   border: 1px solid var(--line);
   background: var(--surface);
   box-shadow: var(--shadow-xl);
   display: grid;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .workspace-menu__item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 9px 11px;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-3);
   /* Concentric with the 14px menu and its 6px padding. */
   border-radius: var(--radius-md);
   text-align: left;
-  font-size: 13px;
+  font-size: var(--text-body);
   white-space: nowrap;
-  color: var(--text-strong);
+  color: var(--fg-strong);
   background: transparent;
 }
 
 .workspace-menu__shortcut {
   flex: none;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: var(--text-sm);
   letter-spacing: 0.5px;
 }
@@ -507,9 +507,9 @@
 
 .workspace-rename {
   display: grid;
-  gap: 8px;
-  margin: 4px 0 2px 22px;
-  padding: 10px 10px 11px;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 var(--space-0-5) var(--space-6);
+  padding: var(--space-2-5) var(--space-2-5) var(--space-3);
   border-radius: var(--radius-xl);
   border: 1px solid var(--line);
   background: var(--surface);
@@ -518,18 +518,18 @@
 .workspace-rename__input {
   width: 100%;
   min-height: 34px;
-  padding: 7px 10px;
+  padding: var(--space-2) var(--space-2-5);
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
   background: var(--surface);
-  color: var(--text-strong);
+  color: var(--fg-strong);
   font-size: var(--text-base);
   font-weight: var(--font-medium);
 }
 
 .workspace-rename__description {
   resize: none;
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: var(--font-normal);
   line-height: 1.4;
 }
@@ -543,12 +543,12 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .workspace-rename__button {
   min-height: 30px;
-  padding: 0 10px;
+  padding: 0 var(--space-2-5);
   border-radius: var(--radius-md);
   border: 1px solid var(--line);
   background: var(--surface-muted);
@@ -566,39 +566,39 @@
 .session-list {
   padding-left: 0;
   display: grid;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .pinned-thread-group {
   display: grid;
-  gap: 4px;
-  padding-bottom: 4px;
+  gap: var(--space-1);
+  padding-bottom: var(--space-1);
   border-bottom: 1px solid var(--line);
 }
 
 .recency-thread-group {
   display: grid;
-  gap: 2px;
-  padding-top: 8px;
+  gap: var(--space-0-5);
+  padding-top: var(--space-2);
 }
 
 .recency-thread-group__head {
   height: 24px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   display: flex;
   align-items: center;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
 }
 
 .pinned-thread-group__head {
   height: 24px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   display: flex;
   align-items: center;
-  gap: 7px;
-  color: var(--muted);
+  gap: var(--space-2);
+  color: var(--fg-muted);
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
 }
@@ -622,7 +622,7 @@
    parent's chat icon and joins across sibling rows. */
 .session-row--child {
   min-height: 32px;
-  margin-left: 16px;
+  margin-left: var(--space-4);
   width: calc(100% - 16px);
 }
 
@@ -730,14 +730,14 @@
   flex: none;
   min-width: 16px;
   height: 16px;
-  padding: 0 5px;
+  padding: 0 var(--space-1);
   display: inline-grid;
   place-items: center;
   align-self: center;
   border-radius: var(--radius-pill);
   background: var(--overlay-hover);
-  color: var(--muted-soft);
-  font-size: 10.5px;
+  color: var(--fg-soft);
+  font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   font-variant-numeric: tabular-nums;
 }
@@ -764,7 +764,7 @@
 .session-row--active {
   background: var(--surface);
   border-color: var(--line);
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 
 .session-row__select {
@@ -774,7 +774,7 @@
   align-items: center;
   grid-template-columns: minmax(0, 1fr);
   gap: 0;
-  padding-left: 24px;
+  padding-left: var(--space-6);
   text-align: left;
   color: inherit;
   position: relative;
@@ -847,21 +847,21 @@
   min-width: 0;
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .session-row__title {
-  font-size: 13px;
+  font-size: var(--text-body);
   line-height: 16px;
   font-weight: var(--font-normal);
-  color: var(--text-strong);
+  color: var(--fg-strong);
   min-width: 0;
 }
 
 .session-row__context {
   font-size: var(--text-xs);
   line-height: 14px;
-  color: var(--muted-soft);
+  color: var(--fg-soft);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -884,7 +884,7 @@
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .session-row__trailing {
@@ -899,7 +899,7 @@
 }
 
 .session-row__trailing:has(.session-row__workspace-icon) {
-  padding-left: 18px;
+  padding-left: var(--space-4);
 }
 
 .session-row__time {
@@ -933,7 +933,7 @@
   height: 14px;
   display: grid;
   place-items: center;
-  color: var(--muted-soft);
+  color: var(--fg-soft);
   transition: opacity var(--motion-base) var(--ease-out);
 }
 
@@ -1006,7 +1006,7 @@
 }
 
 .session-rename {
-  margin-left: 24px;
+  margin-left: var(--space-6);
 }
 
 .session-row:hover .session-row__time,
@@ -1031,7 +1031,7 @@
   visibility: visible;
   pointer-events: auto;
   transform: scale(1);
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 
 .session-row__shortcut {
@@ -1055,19 +1055,19 @@
 /* Same header line as Pinned and the recency groups: flush left, 24px tall. */
 .archived-thread-group {
   display: grid;
-  gap: 2px;
-  padding-top: 8px;
+  gap: var(--space-0-5);
+  padding-top: var(--space-2);
 }
 
 .archived-thread-group__toggle {
   height: 24px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-2);
   width: 100%;
   border-radius: var(--radius-md);
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   text-align: left;
@@ -1094,7 +1094,7 @@
 }
 
 .archived-thread-group__count {
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .session-list--archived {
@@ -1108,11 +1108,11 @@
 .sidebar__settings {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2-5);
   color: var(--muted-strong);
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: var(--font-medium);
-  padding: 8px;
+  padding: var(--space-2);
   border-radius: var(--radius-md);
 }
 
@@ -1180,30 +1180,30 @@
 /* Folder-mode project controls; labels remain readable at the 200px sidebar minimum. */
 .sidebar__section .section__head {
   flex-wrap: wrap;
-  row-gap: 8px;
+  row-gap: var(--space-2);
 }
 .sidebar__grouping {
   display: flex;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--space-0-5);
+  padding: var(--space-0-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
 }
 .sidebar__grouping button {
-  padding: 4px 7px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
 }
 .sidebar__grouping button[aria-pressed="true"] {
   background: var(--overlay-hover);
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 .sidebar__folder-actions {
   display: grid;
-  gap: 2px;
-  margin: 4px 0 12px;
+  gap: var(--space-0-5);
+  margin: var(--space-1) 0 var(--space-3);
 }
 .sidebar__folder-actions button:disabled {
   opacity: 0.45;
@@ -1212,8 +1212,8 @@
 /* Needs you / Working sections above the time buckets. */
 .attention-group {
   display: grid;
-  gap: 2px;
-  padding: 6px 0 4px;
+  gap: var(--space-0-5);
+  padding: var(--space-1-5) 0 var(--space-1);
   border-bottom: 1px solid var(--line);
   transition:
     opacity 160ms var(--ease-out),
@@ -1227,10 +1227,10 @@
 .attention-group__head {
   height: 24px;
   width: 100%;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-2);
   border-radius: var(--radius-md);
   color: var(--muted-strong);
   font-size: var(--text-xs);
@@ -1239,7 +1239,7 @@
 }
 
 .attention-group[data-attention="needs-you"] .attention-group__head {
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 
 .attention-group__head--button:hover {
@@ -1279,7 +1279,7 @@
 }
 
 .attention-group__count {
-  color: var(--muted);
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1294,14 +1294,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 6px 6px 6px 10px;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-1-5) var(--space-1-5) var(--space-2-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--sidebar);
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.22);
   font-size: var(--text-sm);
-  color: var(--text-strong);
+  color: var(--fg-strong);
   transition:
     opacity 180ms var(--ease-out),
     transform 180ms var(--ease-out);
@@ -1320,7 +1320,7 @@
 
 .undo-toast__action {
   flex: none;
-  padding: 3px 8px;
+  padding: 3px var(--space-2);
   border-radius: var(--radius-md);
   color: var(--accent);
   font-weight: var(--font-semibold);
@@ -1344,12 +1344,12 @@
   max-width: min(360px, calc(100vw - 24px));
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 6px 8px 12px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-1-5) var(--space-2) var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
   background: var(--surface-glass);
-  color: var(--text-strong);
+  color: var(--fg-strong);
   font-size: var(--text-sm);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
   transition:
@@ -1386,7 +1386,7 @@
 .attention-toast__action,
 .attention-toast__close {
   flex: none;
-  padding: 3px 8px;
+  padding: 3px var(--space-2);
   border-radius: var(--radius-md);
   color: var(--accent);
   font-weight: var(--font-semibold);

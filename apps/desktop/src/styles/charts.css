@@ -20,30 +20,30 @@
 
 /* Bklit's variables mapped onto the app theme; series lead with the owner's blue. */
 .usage-view {
-  --foreground: var(--text-strong);
-  --muted-foreground: var(--muted);
+  --foreground: var(--fg-strong);
+  --muted-foreground: var(--fg-muted);
   --chart-muted: var(--overlay-hover);
   --chart-1: #0253c4;
-  --chart-2: color-mix(in srgb, #0253c4 55%, var(--text-strong));
-  --chart-3: color-mix(in srgb, var(--text-strong) 70%, transparent);
-  --chart-4: color-mix(in srgb, var(--text-strong) 45%, transparent);
-  --chart-5: color-mix(in srgb, var(--text-strong) 25%, transparent);
+  --chart-2: color-mix(in srgb, #0253c4 55%, var(--fg-strong));
+  --chart-3: color-mix(in srgb, var(--fg-strong) 70%, transparent);
+  --chart-4: color-mix(in srgb, var(--fg-strong) 45%, transparent);
+  --chart-5: color-mix(in srgb, var(--fg-strong) 25%, transparent);
   --chart-line-primary: var(--accent);
-  --chart-line-secondary: var(--muted-soft);
+  --chart-line-secondary: var(--fg-soft);
   --chart-background: transparent;
   --chart-grid: var(--line);
-  --chart-label: var(--muted);
-  --chart-foreground: var(--text-strong);
-  --chart-foreground-muted: var(--muted);
+  --chart-label: var(--fg-muted);
+  --chart-foreground: var(--fg-strong);
+  --chart-foreground-muted: var(--fg-muted);
   --chart-crosshair: var(--line-strong);
   --chart-tooltip-background: var(--surface);
-  --chart-tooltip-foreground: var(--text-strong);
-  --chart-tooltip-muted: var(--muted);
+  --chart-tooltip-foreground: var(--fg-strong);
+  --chart-tooltip-muted: var(--fg-muted);
   --chart-indicator-color: var(--accent);
-  --chart-indicator-secondary-color: var(--muted-soft);
+  --chart-indicator-secondary-color: var(--fg-soft);
   --chart-marker-background: var(--surface);
   --chart-marker-border: var(--line-strong);
-  --chart-marker-foreground: var(--text-strong);
+  --chart-marker-foreground: var(--fg-strong);
   --chart-marker-badge-background: var(--accent);
   --chart-marker-badge-foreground: #fff;
   --chart-segment-background: var(--overlay-subtle);

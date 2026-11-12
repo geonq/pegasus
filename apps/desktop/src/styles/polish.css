@@ -20,11 +20,11 @@
 
 .sidebar__brand {
   height: 32px;
-  margin: 0 0 10px 4px;
+  margin: 0 0 var(--space-2-5) var(--space-1);
   display: flex;
   align-items: center;
-  gap: 7px;
-  color: var(--text-strong);
+  gap: var(--space-2);
+  color: var(--fg-strong);
   user-select: none;
 }
 
@@ -40,11 +40,11 @@
   height: 32px;
   display: block;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .sidebar__brand-name {
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: var(--font-bold);
   letter-spacing: -0.025em;
 }
@@ -65,9 +65,9 @@ button {
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   .enable-transparency {
     --surface: var(--main) !important;
-    --surface-muted: color-mix(in srgb, var(--main) 94%, var(--text-strong)) !important;
-    --line: color-mix(in srgb, var(--text-strong) 15%, var(--main)) !important;
-    --line-strong: color-mix(in srgb, var(--text-strong) 24%, var(--main)) !important;
+    --surface-muted: color-mix(in srgb, var(--main) 94%, var(--fg-strong)) !important;
+    --line: color-mix(in srgb, var(--fg-strong) 15%, var(--main)) !important;
+    --line-strong: color-mix(in srgb, var(--fg-strong) 24%, var(--main)) !important;
     --liquid-fill: var(--main) !important;
   }
 
@@ -108,43 +108,43 @@ button {
 .running-activity {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
   flex: 0 0 auto;
-  color: var(--muted-soft);
+  color: var(--fg-soft);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
 }
 
 .running-activity__beam {
   display: inline-flex;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .running-activity__badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
   min-height: 28px;
-  padding: 3px 9px 3px 5px;
+  padding: 3px var(--space-2) 3px var(--space-1);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
   white-space: nowrap;
 }
 
 .running-activity__toggle {
-  padding: 3px 5px;
+  padding: 3px var(--space-1);
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: transparent;
-  color: var(--muted);
+  color: var(--fg-muted);
   font: inherit;
   font-size: var(--text-xs);
   cursor: pointer;
 }
 
 .running-activity__toggle:hover {
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 
 /* Customizable select (Chromium base-select): the closed control and its list
@@ -158,16 +158,16 @@ select,
 select {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   border: 1px solid var(--line);
   background: var(--surface);
-  color: var(--text-strong);
+  color: var(--fg-strong);
   cursor: pointer;
 }
 
 select:hover:not(:disabled) {
   border-color: var(--border-heavy);
-  background: color-mix(in srgb, var(--surface) 92%, var(--text-strong));
+  background: color-mix(in srgb, var(--surface) 92%, var(--fg-strong));
 }
 
 /* A chevron like the rest of the app, not the UA triangle. */
@@ -178,7 +178,7 @@ select::picker-icon {
   background: currentColor;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E")
     center / contain no-repeat;
-  color: var(--muted-soft);
+  color: var(--fg-soft);
   transition: rotate var(--motion-base) var(--ease-out);
 }
 
@@ -191,21 +191,21 @@ select:open::picker-icon {
   position-try-fallbacks: flip-block;
   position-try-order: normal;
   min-width: anchor-size(width);
-  margin-block: 6px;
-  padding: 4px;
+  margin-block: var(--space-1-5);
+  padding: var(--space-1);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-xl);
   background: var(--surface);
-  color: var(--text-strong);
+  color: var(--fg-strong);
   box-shadow: var(--elevation-menu);
   backdrop-filter: var(--glass-blur) var(--glass-saturation);
 }
 
 option {
   min-height: 30px;
-  padding: 6px 10px;
+  padding: var(--space-1-5) var(--space-2-5);
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: var(--font-normal);
   color: var(--muted-strong);
 }
@@ -214,22 +214,22 @@ option:hover,
 option:focus-visible {
   outline: none;
   background: var(--overlay-hover);
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 
 option:checked {
-  color: var(--text-strong);
+  color: var(--fg-strong);
   font-weight: var(--font-medium);
 }
 
 option::checkmark {
   order: 1;
   margin-left: auto;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 option:disabled {
-  color: var(--muted-soft);
+  color: var(--fg-soft);
 }
 
 /* Settings selects draw their own chevron. */
@@ -327,7 +327,7 @@ option:disabled {
 .chat-header__status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
 }
 .timeline-activity--working {
   min-width: 136px;
@@ -350,22 +350,22 @@ option:disabled {
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .new-thread__open-folder {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
   min-height: 34px;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   white-space: nowrap;
   color: var(--muted-strong);
   border-radius: var(--radius-pill);
 }
 .new-thread__open-folder:hover {
   background: var(--overlay-hover);
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 .new-thread__open-folder svg {
   width: 15px;
@@ -374,7 +374,7 @@ option:disabled {
 .settings-view--customize .view-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: var(--space-4);
   align-items: start;
 }
 .settings-view--customize .view-header > :first-child {
@@ -384,13 +384,13 @@ option:disabled {
   flex: 0 1 auto;
   flex-wrap: wrap;
   max-width: 100%;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .settings-view--customize .view-header__actions .button {
   flex: none;
   white-space: nowrap;
   min-height: 30px;
-  padding: 0 10px;
+  padding: 0 var(--space-2-5);
 }
 .settings-view--customize .view-header__actions select {
   min-width: 140px;

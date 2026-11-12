@@ -21,10 +21,10 @@
   place-items: center;
   min-width: 22px;
   height: 22px;
-  padding: 0 6px;
+  padding: 0 var(--space-1-5);
   transform: translate(-3px, -100%);
   border: 2px solid var(--surface);
-  border-radius: 11px 11px 11px 3px;
+  border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xl) 3px;
   background: var(--accent);
   box-shadow: var(--shadow-sm);
   color: #fff;
@@ -52,15 +52,15 @@
 .annotation-add__button {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2-5);
   height: 32px;
-  padding: 0 6px 0 12px;
+  padding: 0 var(--space-1-5) 0 var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: var(--elevation-popover);
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: var(--font-medium);
   cursor: pointer;
 }
@@ -76,7 +76,7 @@
 
 .annotation-add__keys kbd {
   min-width: 20px;
-  padding: 2px 5px;
+  padding: var(--space-0-5) var(--space-1);
   border-radius: var(--radius-xs);
   background: var(--surface-muted);
   color: var(--muted-strong);
@@ -90,10 +90,10 @@
 .annotation-editor {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   width: min(380px, calc(100vw - 32px));
   height: 44px;
-  padding: 0 6px 0 16px;
+  padding: 0 var(--space-1-5) 0 var(--space-4);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: var(--surface);
@@ -118,7 +118,7 @@
 }
 
 .annotation-editor__input::placeholder {
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .annotation-editor__remove,
@@ -131,7 +131,7 @@
   border: none;
   border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--muted);
+  color: var(--fg-muted);
   cursor: pointer;
 }
 
@@ -152,20 +152,20 @@
 .annotation-chip {
   position: relative;
   display: inline-flex;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-2-5);
 }
 
 .annotation-chip__button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
   height: 30px;
-  padding: 0 12px 0 10px;
+  padding: 0 var(--space-3) 0 var(--space-2-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface-muted);
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--text-body);
   cursor: default;
 }
 
@@ -183,18 +183,18 @@
   bottom: 100%;
   left: 0;
   z-index: 30;
-  padding-bottom: 6px;
+  padding-bottom: var(--space-1-5);
   visibility: hidden;
   transition: visibility 0s linear 0.2s;
 }
 
 .annotation-chip__list {
   display: grid;
-  gap: 2px;
+  gap: var(--space-0-5);
   width: min(420px, calc(100vw - 48px));
   max-height: 320px;
   overflow-y: auto;
-  padding: 6px;
+  padding: var(--space-1-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -210,8 +210,8 @@
 .annotation-chip__item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 8px 6px 8px 8px;
+  gap: var(--space-2-5);
+  padding: var(--space-2) var(--space-1-5) var(--space-2) var(--space-2);
   border-radius: var(--radius-md);
 }
 
@@ -226,7 +226,7 @@
   width: 18px;
   height: 18px;
   margin-top: 1px;
-  border-radius: 9px 9px 9px 3px;
+  border-radius: var(--radius-md) var(--radius-md) var(--radius-md) 3px;
   background: var(--accent);
   color: #fff;
   font-size: 10px;
@@ -236,14 +236,14 @@
 .annotation-chip__body {
   display: grid;
   flex: 1;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
 .annotation-chip__quote {
   display: -webkit-box;
   overflow: hidden;
-  padding-left: 8px;
+  padding-left: var(--space-2);
   border-left: 2px solid var(--line);
   color: var(--muted-strong);
   font-size: var(--text-sm);
@@ -254,7 +254,7 @@
 
 .annotation-chip__note {
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--text-body);
   line-height: var(--leading-snug);
   overflow-wrap: anywhere;
 }
@@ -263,18 +263,18 @@
 
 .sent-annotations {
   display: grid;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: var(--space-2-5);
+  margin-bottom: var(--space-2-5);
 }
 
 .sent-annotation {
   display: grid;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .sent-annotation__quote {
   min-width: 0;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border-left: 2px solid var(--accent-tint-border);
   border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
   background: var(--overlay-subtle);

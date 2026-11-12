@@ -55,6 +55,7 @@
   /* ---- Type scale (compact, px-based like Codex) ------------------------- */
   --text-xs: 11px;
   --text-sm: 12px;
+  --text-body: 13px;
   --text-base: 14px;
   --text-md: 15px;
   --text-lg: 16px;
@@ -73,6 +74,14 @@
   --tracking-tight: -0.03em;
   --tracking-normal: 0;
   --tracking-wide: 0.08em;
+
+  /* ---- Text levels (T3 foreground / muted-foreground ladder, Orca text-*) --
+     strong = titles and active labels, normal = body, muted = secondary,
+     soft = hints and disabled. Aliases of the theme inks so every theme flips. */
+  --fg-strong: var(--text-strong);
+  --fg: var(--text);
+  --fg-muted: var(--muted);
+  --fg-soft: var(--muted-soft);
 
   /* ---- Motion ------------------------------------------------------------ */
   --motion-fast: 0.12s;

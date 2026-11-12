@@ -12,8 +12,8 @@
     "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
   --border: var(--line);
-  --ink: var(--text);
-  --ink-strong: var(--text-strong);
+  --ink: var(--fg);
+  --ink-strong: var(--fg-strong);
 
   /* Glass Primitives */
   --glass-blur: blur(12px);
@@ -42,7 +42,7 @@ body,
 
 body {
   font-family: var(--font-ui);
-  color: var(--text-strong);
+  color: var(--fg-strong);
   font-size: var(--text-base);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -76,13 +76,13 @@ button {
 
 .loading-card__eyebrow,
 .session-header__eyebrow {
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
 }
 
 .loading-card__eyebrow {
-  margin-bottom: 10px;
+  margin-bottom: var(--space-2-5);
 }
 
 .loading-card h1,
@@ -120,20 +120,20 @@ button {
 .empty-panel p,
 .message p {
   margin: 0;
-  color: var(--muted);
+  color: var(--fg-muted);
   line-height: var(--leading-normal);
   font-size: var(--text-md);
 }
 
 .loading-card p {
-  margin-top: 12px;
+  margin-top: var(--space-3);
 }
 
 .loading-card__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-top: 18px;
+  margin-top: var(--space-4);
 }
 
 .empty-state {
@@ -145,7 +145,7 @@ button {
 
 .empty-state h2 {
   margin: 0 0 var(--space-2);
-  font-size: 17px;
+  font-size: var(--text-lg);
   letter-spacing: var(--tracking-tight);
 }
 
@@ -155,11 +155,11 @@ button {
   justify-content: center;
   gap: var(--space-2);
   min-height: 30px;
-  padding: 0 9px;
+  padding: 0 var(--space-2);
   border-radius: var(--radius-md);
   background: var(--surface);
   border: 1px solid transparent;
-  color: var(--text-strong);
+  color: var(--fg-strong);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
   line-height: 16px;
@@ -173,7 +173,7 @@ button {
 .button--primary {
   background: var(--surface-overlay);
   border-color: var(--line);
-  color: var(--text-strong);
+  color: var(--fg-strong);
 }
 
 .button--ghost {

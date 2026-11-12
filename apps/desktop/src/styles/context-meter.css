@@ -62,14 +62,14 @@
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
   width: 300px;
-  padding: 12px 14px;
+  padding: var(--space-3) var(--space-4);
   background: var(--surface);
   border-radius: var(--radius-2xl);
   box-shadow: var(--elevation-popover);
   z-index: 20;
-  color: var(--text-strong);
+  color: var(--fg-strong);
   font-size: var(--text-sm);
   line-height: 1.45;
   cursor: default;
@@ -86,7 +86,7 @@
 }
 
 .context-meter__section {
-  padding: 8px 0;
+  padding: var(--space-2) 0;
   border-top: 1px solid var(--border-light);
 }
 
@@ -100,33 +100,33 @@
 }
 
 .context-meter__heading {
-  margin: 0 0 2px;
-  color: var(--muted);
+  margin: 0 0 var(--space-0-5);
+  color: var(--fg-muted);
   font-size: var(--text-sm);
   font-weight: var(--font-normal);
 }
 
 .context-meter__headline {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: var(--font-medium);
   font-variant-numeric: tabular-nums;
 }
 
 .context-meter__note {
   margin: 0;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .context-meter__row {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   color: var(--muted-strong);
 }
 
 .context-meter__value {
-  color: var(--text-strong);
+  color: var(--fg-strong);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }

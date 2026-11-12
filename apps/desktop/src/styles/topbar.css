@@ -7,11 +7,11 @@
   -webkit-app-region: drag;
   height: 48px;
   min-width: 0;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   border-bottom: 1px solid var(--line);
   background: var(--main);
 }
@@ -26,13 +26,13 @@
 .topbar__title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .topbar__workspace,
 .topbar__session {
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: var(--font-medium);
   letter-spacing: -0.01em;
 }
@@ -40,28 +40,28 @@
 .topbar__workspace {
   flex: 0 1 auto;
   max-width: 120px;
-  color: var(--muted);
+  color: var(--fg-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .topbar__session {
-  color: var(--text-strong);
+  color: var(--fg-strong);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .topbar__separator {
-  color: var(--muted-soft);
+  color: var(--fg-soft);
 }
 
 .topbar__actions,
 .empty-panel__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .topbar__actions {
@@ -83,7 +83,7 @@
   width: 32px;
   height: 32px;
   border-radius: var(--radius-md);
-  color: var(--muted-soft);
+  color: var(--fg-soft);
 }
 
 .shortcut-tooltip {
@@ -94,9 +94,9 @@
   z-index: 60;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: max-content;
-  padding: 6px 9px;
+  padding: var(--space-1-5) var(--space-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -113,7 +113,7 @@
 
 .shortcut-tooltip kbd {
   min-width: 28px;
-  padding: 1px 5px 2px;
+  padding: 1px var(--space-1) var(--space-0-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface-muted);
@@ -165,7 +165,7 @@
   width: var(--titlebar-toggle-size);
   height: var(--titlebar-toggle-size);
   border-radius: var(--radius-lg);
-  color: var(--muted-soft);
+  color: var(--fg-soft);
   background: var(--surface-overlay-muted);
 }
 
@@ -203,10 +203,10 @@
 .topbar__setup {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-width: 0;
   font-size: var(--text-sm);
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .topbar__setup--failed {

@@ -5,7 +5,7 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 72px 24px 24px;
+  padding: 72px var(--space-6) var(--space-6);
   pointer-events: none;
 }
 
@@ -14,7 +14,7 @@
   flex-direction: column;
   width: min(520px, 100%);
   max-height: min(480px, calc(100vh - 96px));
-  padding: 6px;
+  padding: var(--space-1-5);
   border: 1px solid var(--line);
   border-radius: var(--radius-2xl);
   background: var(--surface);
@@ -23,8 +23,8 @@
 }
 
 .thread-switcher__title {
-  padding: 6px 10px 8px;
-  color: var(--muted);
+  padding: var(--space-1-5) var(--space-2-5) var(--space-2);
+  color: var(--fg-muted);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
 }
@@ -32,7 +32,7 @@
 .thread-switcher__list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
   margin: 0;
   padding: 0;
   overflow-y: auto;
@@ -42,11 +42,11 @@
 .thread-switcher__item {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  padding: 8px 10px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2-5);
   border-radius: var(--radius-lg);
-  color: var(--text-strong);
-  font-size: 13px;
+  color: var(--fg-strong);
+  font-size: var(--text-body);
   cursor: default;
 }
 
@@ -66,7 +66,7 @@
   flex: none;
   max-width: 40%;
   overflow: hidden;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-size: var(--text-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
