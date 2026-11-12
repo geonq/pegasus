@@ -10,22 +10,27 @@ import type {
 import { desktopIpc } from "../../contracts/ipc";
 import { SerializedActionQueue } from "./action-queue";
 import { transcriptChange } from "../remote/remote-state-delta";
+import { diffDesktopState, type DesktopStatePatch } from "../../contracts/state-patch";
 
 // A window shows a child thread by its title, status and the threads it links; its goal, transcript
 // and evidence stay in main (orchestration reads them there). Sending them made every state publish
 // carry ~0.5 MB for 25 finished subagents, about 14 times a second while a reply streamed.
 const stateMetrics = new Map<number, { count: number; startedAt: number }>();
-function recordStatePush(webContentsId: number, state: DesktopAppState): void {
+function recordStatePush(
+  webContentsId: number,
+  payload: DesktopAppState | DesktopStatePatch,
+  kind: "full" | "patch",
+): void {
   if (process.env.PI_STATE_METRICS !== "1") return;
   const started = performance.now();
-  const bytes = Buffer.byteLength(JSON.stringify(state), "utf8");
+  const bytes = Buffer.byteLength(JSON.stringify(payload), "utf8");
   const elapsed = performance.now() - started;
   const now = Date.now();
   const metric = stateMetrics.get(webContentsId) ?? { count: 0, startedAt: now };
   metric.count += 1;
   if (now - metric.startedAt >= 1_000) {
     console.info(
-      `[state-metrics] window=${webContentsId} bytes=${bytes} stringifyMs=${elapsed.toFixed(3)} pushesPerSec=${((metric.count * 1000) / (now - metric.startedAt)).toFixed(2)}`,
+      `[state-metrics] window=${webContentsId} kind=${kind} bytes=${bytes} stringifyMs=${elapsed.toFixed(3)} pushesPerSec=${((metric.count * 1000) / (now - metric.startedAt)).toFixed(2)}`,
     );
     stateMetrics.set(webContentsId, { count: 0, startedAt: now });
   } else {
@@ -116,6 +121,9 @@ function canPublishToWindow(window: BrowserWindow): boolean {
 export class WindowOwner {
   private readonly lastPublishedTranscript = new Map<number, SelectedTranscriptRecord | null>();
   private readonly transcriptSequences = new Map<number, number>();
+  /** The last state each window was sent or pulled; the next publish sends only what differs from it. */
+  private readonly sentStates = new Map<number, DesktopAppState>();
+  private readonly patchSequences = new Map<number, number>();
   private readonly windows = new Set<BrowserWindow>();
   private readonly passiveRemoteViews = new Set<BrowserWindow>();
   /** webContents ids of passive remote views whose state publishing is paused. */
@@ -182,6 +190,8 @@ export class WindowOwner {
     this.windowIds.delete(window);
     this.views.delete(webContentsId);
     this.lastPublishedTranscript.delete(webContentsId);
+    this.sentStates.delete(webContentsId);
+    this.patchSequences.delete(webContentsId);
 
     if (this.activeWindow === window) {
       this.activeWindow =
@@ -393,8 +403,7 @@ export class WindowOwner {
       return state;
     }
     const projected = this.projectAndRemember(window.webContents.id, state);
-    recordStatePush(window.webContents.id, projected);
-    window.webContents.send(desktopIpc.stateChanged, projected);
+    this.sendState(window, projected);
     this.publishTranscriptSoon(window);
     return projected;
   }
@@ -456,8 +465,42 @@ export class WindowOwner {
         : (this.views.get(webContentsId) ?? viewFromState(state));
     const projected = this.projectState(webContentsId, state, view);
     this.views.set(webContentsId, viewFromState(projected));
-    recordStatePush(window.webContents.id, projected);
-    window.webContents.send(desktopIpc.stateChanged, projected);
+    this.sendState(window, projected);
+  }
+
+  /**
+   * Sends only what changed since this window last had a state: a patch on top of the state it
+   * holds. A window with no state yet, or after a crash or pull, gets the full state first.
+   */
+  private sendState(window: BrowserWindow, projected: DesktopAppState): void {
+    const webContentsId = window.webContents.id;
+    const previous = this.sentStates.get(webContentsId);
+    if (!previous) {
+      this.sentStates.set(webContentsId, projected);
+      this.patchSequences.set(webContentsId, 0);
+      recordStatePush(webContentsId, projected, "full");
+      window.webContents.send(desktopIpc.stateChanged, projected);
+      return;
+    }
+    if (previous === projected) return;
+    const sequence = (this.patchSequences.get(webContentsId) ?? 0) + 1;
+    // A change that is only a new revision sends nothing and leaves the baseline alone, so the
+    // next patch is still based on the revision the window actually holds.
+    const patch = diffDesktopState(previous, projected, sequence);
+    if (!patch) return;
+    this.sentStates.set(webContentsId, projected);
+    this.patchSequences.set(webContentsId, sequence);
+    recordStatePush(webContentsId, patch, "patch");
+    window.webContents.send(desktopIpc.stateChanged, patch);
+  }
+
+  /** The full state for a window that asked for it (first load, or after it saw a patch that did not fit). */
+  async fullStateForWindow(window: BrowserWindow): Promise<DesktopAppState> {
+    const state = await this.stateForWindow(window);
+    const webContentsId = window.webContents.id;
+    this.sentStates.set(webContentsId, state);
+    this.patchSequences.set(webContentsId, 0);
+    return state;
   }
 
   private async publishTranscript(window: BrowserWindow): Promise<void> {
@@ -614,6 +657,8 @@ export class WindowOwner {
     const webContentsId = window.webContents.id;
     this.lastPublishedTranscript.delete(webContentsId);
     this.transcriptSequences.delete(webContentsId);
+    this.sentStates.delete(webContentsId);
+    this.patchSequences.delete(webContentsId);
     this.stopPublishingState.get(webContentsId)?.();
     this.stopPublishingTranscript.get(webContentsId)?.();
     this.stopPublishingState.set(

@@ -1,4 +1,5 @@
 import type { PhoneAccessState, PhonePairing } from "./phone-access";
+import type { DesktopStateUpdate } from "./state-patch";
 import type {
   ExtensionViewOpenFile,
   DesktopExtensionViewInfo,
@@ -417,7 +418,7 @@ export function getSidePanelToggleShortcutLabel(platform: NodeJS.Platform): stri
   return platform === "darwin" ? "⌘⌥B" : "Ctrl+Alt+B";
 }
 
-export type PiDesktopStateListener = (state: DesktopAppState) => void;
+export type PiDesktopStateListener = (update: DesktopStateUpdate) => void;
 export type PiDesktopTranscriptDeltaListener = (delta: SessionTranscriptDelta) => void;
 export type PiDesktopSelectedTranscriptListener = (
   payload: SelectedTranscriptRecord | null,

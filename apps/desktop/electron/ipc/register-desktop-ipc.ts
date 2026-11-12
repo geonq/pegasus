@@ -333,8 +333,8 @@ export function registerDesktopIpc({
     windows.windowForSender(event.sender);
     capabilities.relaunchApplication();
   });
-  ipcMain.handle(desktopIpc.stateRequest, async (event) =>
-    forWindow(await owners.state.getStateForView(windows.viewForSender(event.sender))),
+  ipcMain.handle(desktopIpc.stateRequest, (event) =>
+    windows.fullStateForWindow(windows.windowForSender(event.sender)),
   );
   ipcMain.handle(desktopIpc.selectedTranscriptRequest, (event) =>
     owners.state.getSelectedTranscriptForView(windows.viewForSender(event.sender)),

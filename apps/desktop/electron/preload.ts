@@ -1,4 +1,5 @@
 import type { PhoneAccessState, PhonePairing } from "../contracts/phone-access";
+import type { DesktopStateUpdate } from "../contracts/state-patch";
 import type {
   ExtensionViewOpenFile,
   DesktopExtensionViewInfo,
@@ -217,9 +218,9 @@ const localPiDesktopApi = {
     ipcRenderer.invoke(desktopIpc.runGitAction, input) as Promise<GitActionResult>,
   sendReviewComments: (input: SendReviewCommentsInput) =>
     ipcRenderer.invoke(desktopIpc.sendReviewComments, input) as Promise<SendReviewCommentsResult>,
-  onStateChanged: (listener: (state: DesktopAppState) => void) => {
-    const handle = (_event: Electron.IpcRendererEvent, state: DesktopAppState) => {
-      listener(state);
+  onStateChanged: (listener: (update: DesktopStateUpdate) => void) => {
+    const handle = (_event: Electron.IpcRendererEvent, update: DesktopStateUpdate) => {
+      listener(update);
     };
     ipcRenderer.on(desktopIpc.stateChanged, handle);
     return () => {

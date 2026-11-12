@@ -1,5 +1,6 @@
 import type { RemoteBrokerRendererBridge, RemoteBrokerRequest } from "./remote-desktop-protocol";
 import type { PiDesktopApi } from "../../contracts/ipc";
+import { DesktopStateReplica } from "../../contracts/state-replica";
 import type { WorkspaceFolderDevice } from "../../contracts/workspace-folders";
 
 declare global {
@@ -17,7 +18,23 @@ if (!api || !bridge) {
   throw new Error("The remote broker preload is unavailable.");
 }
 
-api.onStateChanged((state) => bridge.publish({ type: "stateChanged", state }));
+// Remote devices get whole states; this page rebuilds them from the patches main sends it.
+const stateReplica = new DesktopStateReplica();
+const publishReplicaState = () => {
+  if (stateReplica.state) bridge.publish({ type: "stateChanged", state: stateReplica.state });
+};
+const pullFullState = () =>
+  void api
+    .getState()
+    .then((state) => {
+      if (stateReplica.pulled(state) === "resync") pullFullState();
+      else publishReplicaState();
+    })
+    .catch((error: unknown) => console.error("[remote-broker] state pull failed", error));
+api.onStateChanged((update) => {
+  if (stateReplica.push(update) === "resync") pullFullState();
+  else publishReplicaState();
+});
 api.onSelectedTranscriptChanged((transcript) =>
   bridge.publish({ type: "selectedTranscriptChanged", transcript }),
 );

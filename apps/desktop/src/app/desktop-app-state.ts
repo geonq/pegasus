@@ -13,6 +13,7 @@ import type {
   SessionTranscriptDelta,
 } from "../../contracts/desktop-state";
 import type { PiDesktopApi } from "../../contracts/ipc";
+import { DesktopStateReplica } from "../../contracts/state-replica";
 
 export type HydrationOperation = "state" | "selected-transcript";
 
@@ -408,6 +409,10 @@ function createInitialHydrationModel(): DesktopHydrationModel {
 export function useDesktopAppState(): DesktopAppSession {
   const [model, setModel] = useState<DesktopHydrationModel>(createInitialHydrationModel);
   const modelRef = useRef(model);
+  // Main pushes one full state and then patches; the replica rebuilds the state and says when a
+  // patch did not fit and the full state has to be pulled again.
+  const replicaRef = useRef<DesktopStateReplica | null>(null);
+  replicaRef.current ??= new DesktopStateReplica();
 
   const apply = useCallback((event: DesktopHydrationEvent) => {
     const next = reduceDesktopHydration(modelRef.current, event);
@@ -421,7 +426,10 @@ export function useDesktopAppState(): DesktopAppSession {
       apply({ type: "state-pull-started", attemptId });
       void api.getState().then(
         (state) => {
-          apply({ type: "state-pull-succeeded", attemptId, state });
+          const replica = replicaRef.current;
+          const again = replica?.pulled(state) === "resync";
+          apply({ type: "state-pull-succeeded", attemptId, state: replica?.state ?? state });
+          if (again) pullState(api);
         },
         (error: unknown) => {
           console.error(
@@ -467,9 +475,13 @@ export function useDesktopAppState(): DesktopAppSession {
 
     apply({ type: "bridge-present" });
 
-    const unsubscribeState = api.onStateChanged((state) => {
-      if (active) {
-        apply({ type: "state-pushed", state });
+    const unsubscribeState = api.onStateChanged((update) => {
+      const replica = replicaRef.current;
+      if (!active || !replica) return;
+      if (replica.push(update) === "resync") {
+        pullState(api);
+      } else if (replica.state) {
+        apply({ type: "state-pushed", state: replica.state });
       }
     });
     // Deltas patch the last full record main sent; a full record restarts the sequence at 0.
@@ -508,6 +520,7 @@ export function useDesktopAppState(): DesktopAppSession {
     if (next === from) {
       return;
     }
+    if (next) replicaRef.current?.adopt(next);
     const reduced = reduceDesktopHydration(modelRef.current, {
       type: "state-patched",
       snapshot: next,
