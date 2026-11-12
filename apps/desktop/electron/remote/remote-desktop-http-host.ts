@@ -146,10 +146,39 @@ export async function startRemoteDesktopHttpHost(
   const host = await sharedHost(true);
   if (!host) throw new Error("The Pegasus host is not running, so the remote desktop API is off.");
 
+  // A device's events are produced only while it listens. Its event stream opens with a getState
+  // request, which starts the relay; the host answers a publish nobody received with
+  // delivered: false, which stops it. Unrelayed, a broker page stops receiving app state, so an
+  // absent device costs nothing per state change. (An older host answers {}: the relay stays on.)
+  const relays = new Map<string, () => void>();
+  const stopRelay = (clientId: string) => {
+    relays.get(clientId)?.();
+    relays.delete(clientId);
+  };
+  const startRelay = (clientId: string, broker: RemoteDesktopBroker) => {
+    if (relays.has(clientId)) return;
+    relays.set(
+      clientId,
+      broker.subscribe((event: RemoteDesktopEvent) => {
+        host
+          .call("remote.publish", { clientId, event })
+          .then((result) => {
+            if ((result as { delivered?: unknown } | undefined)?.delivered === false) {
+              stopRelay(clientId);
+            }
+          })
+          .catch((error: unknown) => {
+            console.warn(`[remote] event for ${clientId} was not delivered:`, error);
+          });
+      }),
+    );
+  };
+
   const answer = async (client: HostClient, event: HostEvent): Promise<void> => {
     if (event.event !== "remoteInvoke") return;
     const { requestId, clientId, method, args } = event.data;
     const broker = clients.get(clientId);
+    if (broker) startRelay(clientId, broker);
     try {
       if (!broker || !isRemoteDesktopMethod(method) || !Array.isArray(args)) {
         await client.call("remote.reply", {
@@ -178,13 +207,9 @@ export async function startRemoteDesktopHttpHost(
       console.warn("[remote] device request failed:", error);
     });
   });
-  const unsubscribe = [...clients].map(([clientId, broker]) =>
-    broker.subscribe((event: RemoteDesktopEvent) => {
-      host.call("remote.publish", { clientId, event }).catch((error: unknown) => {
-        console.warn(`[remote] event for ${clientId} was not delivered:`, error);
-      });
-    }),
-  );
+  const stopRelays = () => {
+    for (const clientId of [...relays.keys()]) stopRelay(clientId);
+  };
   const tailscale = config.phoneAccess ? tailscaleAddress() : null;
   if (config.phoneAccess && !tailscale) {
     console.warn(
@@ -203,7 +228,7 @@ export async function startRemoteDesktopHttpHost(
     });
   } catch (error) {
     offInvoke();
-    for (const stop of unsubscribe) stop();
+    stopRelays();
     throw error;
   }
 
@@ -213,7 +238,7 @@ export async function startRemoteDesktopHttpHost(
     close: () => {
       closePromise ??= (async () => {
         offInvoke();
-        for (const stop of unsubscribe) stop();
+        stopRelays();
         await host.call("remote.stop", {}).catch(() => undefined);
       })();
       return closePromise;

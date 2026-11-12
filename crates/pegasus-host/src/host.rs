@@ -304,8 +304,8 @@ impl Host {
                 if !self.remote.is_provider(conn.id) {
                     return Err(HostError::new(ErrorCode::BadParams, "only the serving connection publishes"));
                 }
-                self.remote.publish(&p.client_id, &p.event);
-                to_body(&Empty {})
+                let delivered = self.remote.publish(&p.client_id, &p.event);
+                to_body(&pegasus_core::protocol::RemotePublishResult { delivered })
             }
             "remote.stop" => {
                 let _: Empty = parse(params)?;

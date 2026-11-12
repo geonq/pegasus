@@ -311,6 +311,14 @@ pub struct RemotePublishParams {
     pub event: Box<serde_json::value::RawValue>,
 }
 
+/// Whether a published event reached an open event stream. False means the device is not
+/// listening, so the app can stop producing its events until the device's next request.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RemotePublishResult {
+    pub delivered: bool,
+}
+
 /// Host -> client pushes.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(tag = "event", content = "data", rename_all = "camelCase")]
@@ -370,7 +378,7 @@ methods! {
     "review.treeChanges" => crate::review_types::TreeChangesParams => crate::review_types::TreeChanges,
     "remote.serve" => RemoteServeParams => Empty,
     "remote.reply" => RemoteReplyParams => Empty,
-    "remote.publish" => RemotePublishParams => Empty,
+    "remote.publish" => RemotePublishParams => RemotePublishResult,
     "remote.stop" => Empty => Empty,
     "usage.scan" => Empty => crate::usage::UsageScan,
 }
@@ -409,6 +417,7 @@ pub fn ts_bindings() -> String {
         RemoteError::decl(&cfg),
         RemoteReplyParams::decl(&cfg),
         RemotePublishParams::decl(&cfg),
+        RemotePublishResult::decl(&cfg),
         HostEvent::decl(&cfg),
     ];
     use crate::review_types as rv;

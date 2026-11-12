@@ -1,13 +1,5 @@
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  statSync,
-} from "node:fs";
+import { existsSync, statSync } from "node:fs";
+import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { HostClient, hostEndpoint, type AttachOptions } from "./index.js";
@@ -65,60 +57,81 @@ function devBinaries(): string[] {
   return found;
 }
 
-function resolveBinary(agentDir: string): string | undefined {
+/** Where to start the host, and whether a host already running is out of date. */
+interface HostBinary {
+  readonly path: string;
+  readonly stale: boolean;
+}
+
+async function resolveBinary(agentDir: string): Promise<HostBinary | undefined> {
   const override = process.env.PEGASUS_HOST_PATH;
-  if (override && existsSync(override)) return override;
+  if (override && existsSync(override)) return { path: override, stale: false };
   // Packaged app: electron-builder extraResources puts it next to app.asar.
   const resources = resourcesPath();
   const bundled = resources === undefined ? undefined : join(resources, "bin", binaryName());
   if (bundled && existsSync(bundled)) return runnableCopy(bundled, agentDir);
   // Dev: the most recently built of release/debug, so a stale release build never shadows new code.
-  return devBinaries()
+  const dev = devBinaries()
     .filter((p) => existsSync(p))
     .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
+  return dev ? { path: dev, stale: false } : undefined;
 }
 
 /**
  * The host outlives the app, and Windows cannot replace a running .exe, so a packaged app runs the
  * host from a per-version copy in the profile; the installer is then always free to replace the
- * bundled binary. Older copies are removed when no host runs from them (a locked file stays).
+ * bundled binary. A stamp of the bundled binary's size and mtime says whether the copy is current:
+ * comparing the two binaries byte for byte on every start blocked the main thread for up to 10 s.
+ * When the bundled binary changed but the copy cannot be replaced, a host from the previous install
+ * still runs from it: that host is reported stale so attach replaces it.
  */
-function runnableCopy(bundled: string, agentDir: string): string {
+export async function runnableCopy(bundled: string, agentDir: string): Promise<HostBinary> {
   const version = process.env.PEGASUS_APP_VERSION;
-  if (!version || !/^[\w.+-]+$/.test(version)) return bundled;
+  if (!version || !/^[\w.+-]+$/.test(version)) return { path: bundled, stale: false };
   const root = join(agentDir, "host-bin");
   const target = join(root, version, binaryName());
+  const stampFile = `${target}.source`;
   try {
-    // Same size is not same binary (a rebuild with another version string keeps the size).
-    if (
-      !existsSync(target) ||
-      statSync(target).size !== statSync(bundled).size ||
-      !readFileSync(target).equals(readFileSync(bundled))
-    ) {
-      mkdirSync(dirname(target), { recursive: true });
+    const source = await stat(bundled);
+    const stamp = `${source.size}:${Math.round(source.mtimeMs)}`;
+    const [staged, current] = await Promise.all([
+      stat(target).catch(() => undefined),
+      readFile(stampFile, "utf8").catch(() => undefined),
+    ]);
+    if (!staged || staged.size !== source.size || current !== stamp) {
+      await mkdir(dirname(target), { recursive: true });
       const partial = `${target}.partial`;
-      copyFileSync(bundled, partial);
-      renameSync(partial, target);
-    }
-    for (const entry of readdirSync(root)) {
-      if (entry === version) continue;
+      await copyFile(bundled, partial);
       try {
-        rmSync(join(root, entry), { recursive: true, force: true });
+        await rename(partial, target);
       } catch {
-        // Still running from that copy; the next start cleans it up.
+        await rm(partial, { force: true });
+        // Locked: the previous install's host runs from it. Run the new binary directly this once.
+        return { path: bundled, stale: staged !== undefined };
       }
+      await writeFile(stampFile, stamp);
     }
-    return target;
+    await removeOtherCopies(root, version);
+    return { path: target, stale: false };
   } catch (error) {
     console.warn(
       "[pegasus-host] could not stage a runnable copy; running the bundled binary:",
       error,
     );
-    return bundled;
+    return { path: bundled, stale: false };
   }
 }
 
-function attachOptions(binary: string, agentDir: string): AttachOptions {
+async function removeOtherCopies(root: string, version: string): Promise<void> {
+  for (const entry of await readdir(root)) {
+    if (entry === version) continue;
+    await rm(join(root, entry), { recursive: true, force: true }).catch(() => {
+      // Still running from that copy; the next start cleans it up.
+    });
+  }
+}
+
+function attachOptions(binary: HostBinary, agentDir: string): AttachOptions {
   const endpoint = hostEndpoint(agentDir);
   const appVersion = process.env.PEGASUS_APP_VERSION;
   const args = [
@@ -135,11 +148,12 @@ function attachOptions(binary: string, agentDir: string): AttachOptions {
   if (idle) args.push("--idle-exit-secs", idle);
   return {
     endpoint,
-    launch: { binary, args },
+    launch: { binary: binary.path, args },
     client: "pegasus",
     // Without an app version (dev, tests) any host version is accepted.
     appVersion: appVersion ?? "dev",
     replaceMismatched: appVersion !== undefined,
+    replaceRunning: binary.stale,
   };
 }
 
@@ -161,16 +175,18 @@ export async function sharedHost(retryNow = false): Promise<HostClient | undefin
   if (client && client.agentDir !== agentDir) closeSharedHost();
   if (attaching) return attaching;
   if (!retryNow && Date.now() - lastFailureAt < RETRY_COOLDOWN_MS) return undefined;
-  const binary = resolveBinary(agentDir);
-  if (!binary) {
-    if (!loggedMissing) {
-      loggedMissing = true;
-      console.warn("[pegasus-host] binary not found; build crates/pegasus-host");
-    }
-    return undefined;
-  }
-  attaching = HostClient.attach(attachOptions(binary, agentDir))
-    .then((host) => {
+  // Resolving stages the binary (async file work); it sits inside `attaching` so concurrent callers
+  // share one staging and one attach.
+  attaching = resolveBinary(agentDir)
+    .then(async (binary) => {
+      if (!binary) {
+        if (!loggedMissing) {
+          loggedMissing = true;
+          console.warn("[pegasus-host] binary not found; build crates/pegasus-host");
+        }
+        return undefined;
+      }
+      const host = await HostClient.attach(attachOptions(binary, agentDir));
       client = { agentDir, host };
       for (const listener of eventListeners) host.onEvent(listener);
       return host;

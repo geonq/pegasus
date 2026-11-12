@@ -35,6 +35,8 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const RENDERER_READY_TIMEOUT_MS = 15_000;
 /** Reviews this device opened; older ones fall out so the set stays small. */
 const MAX_KNOWN_REVIEWS = 256;
+/** How long a broker page keeps receiving state after its device's last request. */
+const BROKER_IDLE_PAUSE_MS = 30_000;
 
 export interface RemoteDesktopBrokerOptions {
   /** Stable identifier from the authenticated device configuration; never a credential. */
@@ -58,6 +60,7 @@ export interface RemoteDesktopBrokerOptions {
     | "isPassiveRemoteSender"
     | "runStateResultAction"
     | "stateForWindow"
+    | "setPassiveViewPublishing"
   >;
   /** Uses the host's background-instruction path for an existing thread. */
   readonly sendText: (input: {
@@ -207,6 +210,8 @@ export class RemoteDesktopBroker {
       for (const rootId of macRootIds) broker.folderRootIds.mac.add(rootId);
       await broker.window.loadURL(options.pageUrl);
       await broker.waitUntilReady();
+      // Ready with the current state; stop feeding it until a device connects.
+      broker.keepPublishing();
       return broker;
     } catch (error) {
       broker.dispose(true);
@@ -217,10 +222,33 @@ export class RemoteDesktopBroker {
   subscribe(listener: RemoteDesktopEventListener): () => void {
     if (this.disposed) throw new Error("Remote broker is closed.");
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    this.keepPublishing();
+    return () => {
+      this.listeners.delete(listener);
+      this.keepPublishing();
+    };
+  }
+
+  private idleTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * The broker page gets app state only while its device is around: while a subscriber listens, and
+   * for a short while after the last request. With no device connected, state changes cost nothing here.
+   */
+  private keepPublishing(): void {
+    if (this.disposed || this.window.isDestroyed()) return;
+    this.options.windows.setPassiveViewPublishing(this.window, true);
+    clearTimeout(this.idleTimer);
+    if (this.listeners.size > 0) return;
+    this.idleTimer = setTimeout(() => {
+      if (this.disposed || this.window.isDestroyed() || this.listeners.size > 0) return;
+      this.options.windows.setPassiveViewPublishing(this.window, false);
+    }, BROKER_IDLE_PAUSE_MS);
+    this.idleTimer.unref?.();
   }
 
   async invoke(method: unknown, args: unknown): Promise<unknown> {
+    this.keepPublishing();
     const invocation = validateRemoteDesktopInvocation(
       method,
       args,
@@ -482,6 +510,8 @@ export class RemoteDesktopBroker {
   }
 
   private publishEvent(allowed: RemoteDesktopEvent): void {
+    // The size check serializes the whole event; with no subscriber there is nobody to send it to.
+    if (this.listeners.size === 0) return;
     try {
       assertRemoteJsonSize(allowed, MAX_BRIDGE_BYTES, "Remote broker event");
     } catch {
@@ -507,6 +537,7 @@ export class RemoteDesktopBroker {
   private dispose(destroyWindow: boolean): void {
     if (this.disposed) return;
     this.disposed = true;
+    clearTimeout(this.idleTimer);
     ipcMain.removeListener(remoteBrokerIpc.response, this.handleResponse);
     ipcMain.removeListener(remoteBrokerIpc.event, this.handleEvent);
     ipcMain.removeListener(remoteBrokerIpc.ready, this.handleReady);

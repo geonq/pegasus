@@ -304,16 +304,21 @@ impl Remote {
 
     // ---------- events ----------
 
-    pub fn publish(&self, client_id: &str, event: &serde_json::value::RawValue) {
-        let recipients: Vec<Arc<SseStream>> =
-            lock(&self.streams).iter().filter(|s| s.client_id == client_id).cloned().collect();
+    /// Queues the event on the client's open streams; false when it has none (nobody listens).
+    pub fn publish(&self, client_id: &str, event: &serde_json::value::RawValue) -> bool {
+        let recipients: Vec<Arc<SseStream>> = lock(&self.streams)
+            .iter()
+            .filter(|s| s.client_id == client_id && !lock(&s.state).closed)
+            .cloned()
+            .collect();
         if recipients.is_empty() {
-            return;
+            return false;
         }
         match frame_of(event) {
             Some(f) => recipients.iter().for_each(|s| enqueue(s, f.clone())),
             None => recipients.iter().for_each(|s| s.abort()),
         }
+        true
     }
 
     // ---------- http ----------

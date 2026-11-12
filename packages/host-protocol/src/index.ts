@@ -81,6 +81,11 @@ export interface AttachOptions {
   readonly appVersion: string;
   /** Replace a host built for another app version (default true). Dev builds pass false. */
   readonly replaceMismatched?: boolean;
+  /**
+   * The running host is known to be out of date although its version matches: an install of the
+   * same version shipped another host binary. Replaced like a version mismatch (only when idle).
+   */
+  readonly replaceRunning?: boolean;
   readonly connectTimeoutMs?: number;
   readonly callTimeoutMs?: number;
   readonly log?: (message: string) => void;
@@ -125,7 +130,7 @@ export class HostClient {
       appVersion: options.appVersion,
     });
     if (
-      hello.hostVersion !== options.appVersion &&
+      (hello.hostVersion !== options.appVersion || options.replaceRunning === true) &&
       options.launch &&
       options.replaceMismatched !== false
     ) {

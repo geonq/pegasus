@@ -97,6 +97,8 @@ export class WindowOwner {
   private readonly lastPublishedTranscript = new Map<number, SelectedTranscriptRecord | null>();
   private readonly windows = new Set<BrowserWindow>();
   private readonly passiveRemoteViews = new Set<BrowserWindow>();
+  /** webContents ids of passive remote views whose state publishing is paused. */
+  private readonly pausedPassiveViews = new Set<number>();
   private readonly windowIds = new WeakMap<BrowserWindow, number>();
   private readonly views = new Map<number, WindowViewState>();
   private readonly stopPublishingState = new Map<number, () => void>();
@@ -155,6 +157,7 @@ export class WindowOwner {
     this.stopTrackingActivation.delete(webContentsId);
     this.windows.delete(window);
     this.passiveRemoteViews.delete(window);
+    this.pausedPassiveViews.delete(webContentsId);
     this.windowIds.delete(window);
     this.views.delete(webContentsId);
     this.lastPublishedTranscript.delete(webContentsId);
@@ -569,43 +572,65 @@ export class WindowOwner {
     }
   }
 
+  private startPublishingTo(window: BrowserWindow): void {
+    const webContentsId = window.webContents.id;
+    this.lastPublishedTranscript.delete(webContentsId);
+    this.stopPublishingState.get(webContentsId)?.();
+    this.stopPublishingTranscript.get(webContentsId)?.();
+    this.stopPublishingState.set(
+      webContentsId,
+      this.stateOwner.subscribe((state) => {
+        this.publishState(window, state);
+        this.publishTranscriptSoon(window);
+      }),
+    );
+    this.stopPublishingTranscript.set(
+      webContentsId,
+      this.stateOwner.subscribeToSelectedTranscript(() => this.publishTranscriptSoon(window)),
+    );
+  }
+
+  private stopPublishingTo(webContentsId: number): void {
+    this.stopPublishingState.get(webContentsId)?.();
+    this.stopPublishingState.delete(webContentsId);
+    this.stopPublishingTranscript.get(webContentsId)?.();
+    this.stopPublishingTranscript.delete(webContentsId);
+  }
+
+  /**
+   * A passive remote view (a hidden broker page) needs state only while a remote device listens.
+   * Each published state is serialized once per window, so idle broker pages tripled the work of
+   * every state change. Resuming publishes the current state and transcript right away.
+   */
+  setPassiveViewPublishing(window: BrowserWindow, publishing: boolean): void {
+    if (!this.passiveRemoteViews.has(window) || !canPublishToWindow(window)) return;
+    const webContentsId = window.webContents.id;
+    if (!publishing) {
+      this.pausedPassiveViews.add(webContentsId);
+      this.stopPublishingTo(webContentsId);
+      return;
+    }
+    if (!this.pausedPassiveViews.delete(webContentsId)) return;
+    this.startPublishingTo(window);
+    this.publishState(window);
+    this.publishTranscriptSoon(window);
+  }
+
   private attachStatePublisher(window: BrowserWindow): void {
     const webContentsId = window.webContents.id;
-    const startPublishing = () => {
-      this.lastPublishedTranscript.delete(webContentsId);
-      this.stopPublishingState.get(webContentsId)?.();
-      this.stopPublishingTranscript.get(webContentsId)?.();
-      this.stopPublishingState.set(
-        webContentsId,
-        this.stateOwner.subscribe((state) => {
-          this.publishState(window, state);
-          this.publishTranscriptSoon(window);
-        }),
-      );
-      this.stopPublishingTranscript.set(
-        webContentsId,
-        this.stateOwner.subscribeToSelectedTranscript(() => this.publishTranscriptSoon(window)),
-      );
-    };
-    const stopPublishing = () => {
-      this.stopPublishingState.get(webContentsId)?.();
-      this.stopPublishingState.delete(webContentsId);
-      this.stopPublishingTranscript.get(webContentsId)?.();
-      this.stopPublishingTranscript.delete(webContentsId);
-    };
-
-    startPublishing();
+    this.startPublishingTo(window);
     let recovering = false;
     window.webContents.on("render-process-gone", () => {
       recovering = true;
-      stopPublishing();
+      this.stopPublishingTo(webContentsId);
     });
     window.webContents.on("did-finish-load", () => {
       if (!recovering) {
         return;
       }
       recovering = false;
-      startPublishing();
+      if (this.pausedPassiveViews.has(webContentsId)) return;
+      this.startPublishingTo(window);
       this.publishState(window);
       this.publishTranscriptSoon(window);
     });

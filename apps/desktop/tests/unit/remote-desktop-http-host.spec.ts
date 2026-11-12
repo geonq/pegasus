@@ -277,6 +277,53 @@ test("the client hears each time its event stream reconnects to a restarted host
   }
 });
 
+test("events are produced only while a device listens: a closed stream stops the relay, a new one restarts it", async () => {
+  const port = await freeLoopbackPort();
+  const token = randomBytes(32).toString("base64url");
+  const fake = createTestBroker(makeState(1));
+  const host = await startRemoteDesktopHttpHost({
+    port,
+    allowedOrigins: ["file://"],
+    clients: [{ id: "mac-client", token, workspaceIds: ["workspace"] }],
+    brokers: new Map([["mac-client", fake.broker]]),
+  });
+  const connect = () => {
+    const client = new RemoteDesktopHttpClient({
+      version: 1,
+      baseUrl: host.origin,
+      origin: "file://",
+      token,
+    });
+    const events: RemoteDesktopEvent[] = [];
+    client.subscribe((event) => events.push(event));
+    client.startEvents();
+    return { client, events };
+  };
+  try {
+    // Nothing listens yet, so the broker is not even subscribed.
+    expect(fake.unsubscribeCount).toBe(0);
+    const first = connect();
+    await waitUntil(() => first.events.some((event) => event.type === "stateChanged"), 5_000);
+    fake.emit({ type: "stateChanged", state: makeState(2) } as never);
+    await waitUntil(() => first.events.map(eventLabel).includes("state:2"), 5_000);
+
+    first.client.close();
+    // The next event finds no open stream; the host says so and the relay stops.
+    await waitUntil(() => {
+      fake.emit({ type: "stateChanged", state: makeState(3) } as never);
+      return fake.unsubscribeCount === 1;
+    }, 5_000);
+
+    const second = connect();
+    await waitUntil(() => second.events.some((event) => event.type === "stateChanged"), 5_000);
+    fake.emit({ type: "stateChanged", state: makeState(4) } as never);
+    await waitUntil(() => second.events.map(eventLabel).includes("state:4"), 5_000);
+    second.client.close();
+  } finally {
+    await host.close();
+  }
+});
+
 test("disconnecting an SSE client frees its per-client stream slot", async () => {
   const port = await freeLoopbackPort();
   const token = randomBytes(32).toString("base64url");

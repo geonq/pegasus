@@ -131,6 +131,8 @@ export type RemotePublishParams = { clientId: string,
  */
 event: unknown, };
 
+export type RemotePublishResult = { delivered: boolean, };
+
 export type HostEvent = { "event": "shuttingDown", "data": { reason: string, } } | { "event": "terminalData", "data": { id: string, data: string, } } | { "event": "terminalExit", "data": { id: string, exitCode: number | null, signal: string | null, } } | { "event": "remoteInvoke", "data": { requestId: number, clientId: string, method: string, args: unknown[], } };
 
 export type CoverageState = "complete" | "partial";
@@ -249,7 +251,7 @@ export interface HostMethods {
   "review.treeChanges": { params: TreeChangesParams; result: TreeChanges };
   "remote.serve": { params: RemoteServeParams; result: Empty };
   "remote.reply": { params: RemoteReplyParams; result: Empty };
-  "remote.publish": { params: RemotePublishParams; result: Empty };
+  "remote.publish": { params: RemotePublishParams; result: RemotePublishResult };
   "remote.stop": { params: Empty; result: Empty };
   "usage.scan": { params: Empty; result: UsageScan };
 }

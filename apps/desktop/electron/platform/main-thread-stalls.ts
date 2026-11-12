@@ -8,8 +8,11 @@ import { desktopIpc } from "../../contracts/ipc";
 const TICK_MS = 100;
 const REPORT_MS = 250;
 const MAX_LINES = 5000;
-const SAMPLE_US = 10_000;
-const PROFILE_WINDOW_MS = 60_000;
+// Each profiler stop serializes its whole window on this thread. 60 s at 10 ms made the watchdog
+// itself block the UI for up to 2.4 s (511 such stalls in three days); 20 s at 20 ms is about a
+// sixth of the data per stop and still gives a reportable (>= 250 ms) stall a dozen samples.
+const SAMPLE_US = 20_000;
+const PROFILE_WINDOW_MS = 20_000;
 
 interface ProfileNode {
   readonly id: number;
