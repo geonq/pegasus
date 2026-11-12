@@ -969,6 +969,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  min-width: 0;
 }
 
 .composer__hint {
@@ -1076,6 +1077,7 @@
 
 .composer__config {
   display: flex;
+  flex: 1 1 0;
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
@@ -1128,8 +1130,8 @@
   border: 1px solid var(--line);
   background: var(--surface-muted);
   color: var(--muted-strong);
-  font-size: var(--text-body);
-  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
 }
 
 .queued-composer-messages__editing button,

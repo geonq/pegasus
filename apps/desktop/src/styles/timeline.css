@@ -358,6 +358,28 @@
 
 .timeline-activity--error {
   color: var(--error-ink);
+  align-items: baseline;
+  column-gap: var(--space-2);
+}
+
+/* The summary and its Details disclosure share one baseline; the raw text opens below both. */
+.timeline-activity--error .error-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-2);
+}
+
+.timeline-activity--error .error-text__details {
+  display: contents;
+}
+
+.timeline-activity--error .error-text__details > summary {
+  line-height: inherit;
+}
+
+.timeline-activity--error .error-text__details code {
+  flex-basis: 100%;
 }
 
 .timeline-activity--summary {
@@ -675,8 +697,8 @@
 .timeline-turn-marker {
   display: flex;
   align-items: center;
-  gap: var(--space-2-5);
-  padding: var(--space-0-5) 0;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
 }
 
 .timeline-turn-marker::before,
@@ -691,8 +713,8 @@
   flex-shrink: 0;
   color: var(--fg-soft);
   font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  letter-spacing: 0.01em;
+  font-weight: var(--font-normal);
+  line-height: var(--leading-snug);
 }
 
 /* ---- Loading skeleton --------------------------------------------------- */
