@@ -9,7 +9,7 @@ import type {
 } from "../../contracts/desktop-state";
 import { desktopIpc } from "../../contracts/ipc";
 import { SerializedActionQueue } from "./action-queue";
-import { transcriptDelta } from "../remote/remote-state-delta";
+import { transcriptChange } from "../remote/remote-state-delta";
 
 // A window shows a child thread by its title, status and the threads it links; its goal, transcript
 // and evidence stay in main (orchestration reads them there). Sending them made every state publish
@@ -497,14 +497,22 @@ export class WindowOwner {
       return;
     }
     this.lastPublishedTranscript.set(webContentsId, payload);
+    // A streamed token changes one row: send that row, not the whole transcript. Anything a delta
+    // cannot carry (another session, schema info, a reordered row) goes out as the full record.
     const sequence = (this.transcriptSequences.get(webContentsId) ?? 0) + 1;
-    this.transcriptSequences.set(webContentsId, sequence);
-    const delta = transcriptDelta(previous ?? null, payload, sequence);
-    if (delta && previous && payload) {
-      window.webContents.send(desktopIpc.sessionTranscriptDelta, delta);
-    } else {
+    const change =
+      previous && payload && previous.schemaInfo === payload.schemaInfo
+        ? transcriptChange(previous, payload, sequence)
+        : "full";
+    if (change === "none") return;
+    if (change === "full") {
+      // A full record restarts the window's delta sequence.
+      this.transcriptSequences.set(webContentsId, 0);
       window.webContents.send(desktopIpc.selectedTranscriptChanged, payload);
+      return;
     }
+    this.transcriptSequences.set(webContentsId, sequence);
+    window.webContents.send(desktopIpc.sessionTranscriptDelta, change);
   }
 
   private publishTranscriptSoon(window: BrowserWindow): void {

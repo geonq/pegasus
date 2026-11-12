@@ -178,13 +178,15 @@ function applyTranscriptDelta(
   current: SelectedTranscriptRecord | null,
   delta: SessionTranscriptDelta,
 ): SelectedTranscriptRecord | null {
+  // A delta patches the record this window already has; without one it cannot stand alone.
   if (
     delta.version !== 1 ||
-    (current &&
-      (current.workspaceId !== delta.workspaceId || current.sessionId !== delta.sessionId))
+    !current ||
+    current.workspaceId !== delta.workspaceId ||
+    current.sessionId !== delta.sessionId
   )
     return null;
-  const transcript = [...(current?.transcript ?? [])];
+  const transcript = [...current.transcript];
   for (const patch of delta.patches) {
     if (patch.type === "append") transcript.push(patch.item);
     else if (patch.type === "remove") {
@@ -196,7 +198,10 @@ function applyTranscriptDelta(
       else transcript.push(patch.item);
     }
   }
-  return { workspaceId: delta.workspaceId, sessionId: delta.sessionId, transcript };
+  // Appends on top of a record that already had the row (after a pull) must not duplicate it.
+  if (new Set(transcript.map((item) => item.id)).size !== transcript.length) return null;
+  // Keep every other field of the record (schema info and the like); only rows change.
+  return { ...current, transcript };
 }
 
 function withLiveSnapshot(
@@ -467,11 +472,21 @@ export function useDesktopAppState(): DesktopAppSession {
         apply({ type: "state-pushed", state });
       }
     });
+    // Deltas patch the last full record main sent; a full record restarts the sequence at 0.
+    // A missed delta (or one that does not fit) pulls the whole transcript instead of guessing.
+    let transcriptSequence = 0;
     const unsubscribeDelta = api.onSessionTranscriptDelta((delta) => {
-      if (active) apply({ type: "transcript-delta-pushed", delta });
+      if (!active) return;
+      const fits =
+        delta.sequence === transcriptSequence + 1 &&
+        applyTranscriptDelta(modelRef.current.transcriptRecord, delta) !== null;
+      transcriptSequence = delta.sequence;
+      if (fits) apply({ type: "transcript-delta-pushed", delta });
+      else pullTranscript(api);
     });
     const unsubscribeTranscript = api.onSelectedTranscriptChanged((record) => {
       if (active) {
+        transcriptSequence = 0;
         apply({ type: "transcript-pushed", record });
       }
     });

@@ -27,7 +27,7 @@ import type { WindowOwner } from "../windows/window-owner";
 import { answerActiveRuns, type ActiveRun } from "../usage/active-runs";
 import { createRemoteWorkspaceFolders } from "./remote-workspace-folders";
 import { RemoteWorkspaceStateProjector } from "./remote-workspace-state-projector";
-import { transcriptDelta } from "./remote-state-delta";
+import { transcriptChange } from "./remote-state-delta";
 import type { SelectedTranscriptRecord } from "../../contracts/desktop-state";
 
 const MAX_PENDING_REQUESTS = 32;
@@ -511,19 +511,22 @@ export class RemoteDesktopBroker {
           : null,
     };
     const nextTranscript = allowed.transcript;
-    const delta = transcriptDelta(
+    const change = transcriptChange(
       this.previousTranscript,
       nextTranscript,
-      ++this.transcriptSequence,
+      this.transcriptSequence + 1,
     );
     this.previousTranscript = nextTranscript;
-    // A null record is the explicit resync/selection boundary. Otherwise only the changed
-    // session rows cross the remote transport; clients request getSelectedTranscript on a gap.
-    if (delta) {
-      this.publishEvent({ type: "sessionTranscriptDelta", delta });
-    } else if (!nextTranscript || !allowed.transcript) {
+    // Only the changed rows cross the remote transport. Another session, no record, or an order a
+    // delta cannot rebuild goes out whole, and clients restart their sequence from it.
+    if (change === "none") return;
+    if (change === "full") {
+      this.transcriptSequence = 0;
       this.publishEvent(allowed);
+      return;
     }
+    this.transcriptSequence = change.sequence;
+    this.publishEvent({ type: "sessionTranscriptDelta", delta: change });
   }
 
   private publishEvent(allowed: RemoteDesktopEvent): void {
