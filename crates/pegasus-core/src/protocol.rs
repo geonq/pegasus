@@ -319,6 +319,19 @@ pub struct RemotePublishResult {
     pub delivered: bool,
 }
 
+/// Versioned per-session transcript publication. The renderer and remote clients can request a
+/// fresh selected transcript when the sequence is not contiguous.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SessionTranscriptDelta {
+    pub version: u32,
+    pub sequence: u64,
+    pub workspace_id: String,
+    pub session_id: String,
+    #[ts(type = "unknown[]")]
+    pub patches: Vec<serde_json::Value>,
+}
+
 /// Host -> client pushes.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(tag = "event", content = "data", rename_all = "camelCase")]
@@ -418,6 +431,7 @@ pub fn ts_bindings() -> String {
         RemoteReplyParams::decl(&cfg),
         RemotePublishParams::decl(&cfg),
         RemotePublishResult::decl(&cfg),
+        SessionTranscriptDelta::decl(&cfg),
         HostEvent::decl(&cfg),
     ];
     use crate::review_types as rv;

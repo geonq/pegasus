@@ -91,8 +91,46 @@ export interface SelectedTranscript {
   readonly transcript: readonly TranscriptItem[];
 }
 
+export const REMOTE_STATE_DELTA_VERSION = 1 as const;
+export type TranscriptPatch =
+  | { readonly type: "append"; readonly item: TranscriptItem }
+  | { readonly type: "update"; readonly id: string; readonly item: TranscriptItem }
+  | { readonly type: "remove"; readonly id: string };
+export interface SessionTranscriptDelta {
+  readonly version: typeof REMOTE_STATE_DELTA_VERSION;
+  readonly sequence: number;
+  readonly workspaceId: string;
+  readonly sessionId: string;
+  readonly patches: readonly TranscriptPatch[];
+}
+export function applyTranscriptDelta(
+  current: SelectedTranscript | null,
+  delta: SessionTranscriptDelta,
+): SelectedTranscript | null {
+  if (delta.version !== REMOTE_STATE_DELTA_VERSION) return null;
+  if (
+    current &&
+    (current.workspaceId !== delta.workspaceId || current.sessionId !== delta.sessionId)
+  )
+    return null;
+  const transcript = [...(current?.transcript ?? [])];
+  for (const patch of delta.patches) {
+    if (patch.type === "append") transcript.push(patch.item);
+    else if (patch.type === "remove") {
+      const index = transcript.findIndex((item) => item.id === patch.id);
+      if (index >= 0) transcript.splice(index, 1);
+    } else {
+      const index = transcript.findIndex((item) => item.id === patch.id);
+      if (index >= 0) transcript[index] = patch.item;
+      else transcript.push(patch.item);
+    }
+  }
+  return { workspaceId: delta.workspaceId, sessionId: delta.sessionId, transcript };
+}
+
 export type RemoteEvent =
   | { readonly type: "stateChanged"; readonly state: DesktopAppState }
+  | { readonly type: "sessionTranscriptDelta"; readonly delta: SessionTranscriptDelta }
   | { readonly type: "selectedTranscriptChanged"; readonly transcript: SelectedTranscript | null }
   | { readonly type: "terminalData" | "terminalExit" | "terminalError"; readonly event: unknown };
 

@@ -11,7 +11,12 @@ import {
 import { Linking, Platform, Settings } from "react-native";
 import { PegasusClient, PegasusError, type StreamStatus } from "../api/client";
 import { parsePairingLink } from "../api/pairing";
-import type { DesktopAppState, Pairing, SelectedTranscript } from "../api/types";
+import {
+  applyTranscriptDelta,
+  type DesktopAppState,
+  type Pairing,
+  type SelectedTranscript,
+} from "../api/types";
 import { forgetPairing, loadPairing, savePairing } from "../storage/pairing-store";
 
 export interface ChatTarget {
@@ -50,6 +55,7 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
   const [state, setState] = useState<DesktopAppState | null>(null);
   const [transcript, setTranscript] = useState<SelectedTranscript | null>(null);
   const clientRef = useRef<PegasusClient | null>(null);
+  const transcriptSequenceRef = useRef(0);
 
   useEffect(() => {
     loadPairing()
@@ -107,7 +113,19 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
           current && current.revision > event.state.revision ? current : event.state,
         );
       } else if (event.type === "selectedTranscriptChanged") {
+        transcriptSequenceRef.current = 0;
         setTranscript(event.transcript);
+      } else if (event.type === "sessionTranscriptDelta") {
+        const delta = event.delta;
+        if (delta.sequence !== transcriptSequenceRef.current + 1) {
+          void client
+            .invoke("getSelectedTranscript")
+            .then((value) => setTranscript(value as SelectedTranscript | null));
+          transcriptSequenceRef.current = delta.sequence;
+          return;
+        }
+        transcriptSequenceRef.current = delta.sequence;
+        setTranscript((current) => applyTranscriptDelta(current, delta));
       }
     }, setStatus);
     return () => {

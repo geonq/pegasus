@@ -1,4 +1,5 @@
 import type { DesktopAppState, SelectedTranscriptRecord } from "../../contracts/desktop-state";
+import type { SessionTranscriptDelta } from "./remote-state-delta";
 import type { TerminalDataEvent, TerminalErrorEvent, TerminalExitEvent } from "../../contracts/ipc";
 
 /** Methods with safe, view-scoped public IPC handlers. Provider-secret methods stay excluded. */
@@ -63,6 +64,7 @@ export type RemoteDesktopPiMethod = (typeof REMOTE_DESKTOP_PI_METHODS)[number];
 
 export const REMOTE_DESKTOP_EVENTS = [
   "stateChanged",
+  "sessionTranscriptDelta",
   "selectedTranscriptChanged",
   "terminalData",
   "terminalExit",
@@ -72,6 +74,7 @@ export type RemoteDesktopEventName = (typeof REMOTE_DESKTOP_EVENTS)[number];
 
 export type RemoteDesktopEvent =
   | { readonly type: "stateChanged"; readonly state: DesktopAppState }
+  | { readonly type: "sessionTranscriptDelta"; readonly delta: SessionTranscriptDelta }
   | {
       readonly type: "selectedTranscriptChanged";
       readonly transcript: SelectedTranscriptRecord | null;
@@ -143,6 +146,18 @@ export function isRemoteDesktopEvent(value: unknown): value is RemoteDesktopEven
       typeof value.state.revision === "number" &&
       Number.isSafeInteger(value.state.revision) &&
       value.state.revision >= 0
+    );
+  }
+  if (value.type === "sessionTranscriptDelta") {
+    const delta = value.delta;
+    return (
+      isRecord(delta) &&
+      delta.version === 1 &&
+      typeof delta.sequence === "number" &&
+      Number.isSafeInteger(delta.sequence) &&
+      typeof delta.workspaceId === "string" &&
+      typeof delta.sessionId === "string" &&
+      Array.isArray(delta.patches)
     );
   }
   if (value.type === "selectedTranscriptChanged") {

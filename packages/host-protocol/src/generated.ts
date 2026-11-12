@@ -133,6 +133,8 @@ event: unknown, };
 
 export type RemotePublishResult = { delivered: boolean, };
 
+export type SessionTranscriptDelta = { version: number, sequence: number, workspaceId: string, sessionId: string, patches: unknown[], };
+
 export type HostEvent = { "event": "shuttingDown", "data": { reason: string, } } | { "event": "terminalData", "data": { id: string, data: string, } } | { "event": "terminalExit", "data": { id: string, exitCode: number | null, signal: string | null, } } | { "event": "remoteInvoke", "data": { requestId: number, clientId: string, method: string, args: unknown[], } };
 
 export type CoverageState = "complete" | "partial";

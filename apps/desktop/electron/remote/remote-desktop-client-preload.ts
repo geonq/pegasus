@@ -1,3 +1,4 @@
+import { applyTranscriptDelta } from "./remote-state-delta";
 import type { PiDesktopApi } from "../../contracts/ipc";
 import {
   acceptComposerAttachments,
@@ -183,6 +184,8 @@ export function createRemoteDesktopClientApi(
     sessionId: state.selectedSessionId,
   });
   let lastState: DesktopAppState | null = null;
+  let lastTranscript: SelectedTranscriptRecord | null = null;
+  let transcriptSequence = 0;
   let localPreferences: RemoteDesktopClientPreferences | undefined;
   const preferencesReady = getLocalPreferences().then((preferences) => {
     localPreferences = preferences;
@@ -253,7 +256,18 @@ export function createRemoteDesktopClientApi(
       if (property === "onSelectedTranscriptChanged") {
         return (listener: (record: SelectedTranscriptRecord | null) => void) =>
           subscribeRemote((event) => {
-            if (event.type === "selectedTranscriptChanged") listener(event.transcript);
+            if (event.type === "selectedTranscriptChanged") {
+              lastTranscript = event.transcript;
+              transcriptSequence = 0;
+              listener(event.transcript);
+            } else if (event.type === "sessionTranscriptDelta") {
+              if (event.delta.sequence !== transcriptSequence + 1) return;
+              const next = applyTranscriptDelta(lastTranscript, event.delta);
+              if (!next) return;
+              lastTranscript = next;
+              transcriptSequence = event.delta.sequence;
+              listener(next);
+            }
           });
       }
       if (PASS_THROUGH_METHODS.has(property)) {

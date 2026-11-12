@@ -27,6 +27,8 @@ import type { WindowOwner } from "../windows/window-owner";
 import { answerActiveRuns, type ActiveRun } from "../usage/active-runs";
 import { createRemoteWorkspaceFolders } from "./remote-workspace-folders";
 import { RemoteWorkspaceStateProjector } from "./remote-workspace-state-projector";
+import { transcriptDelta } from "./remote-state-delta";
+import type { SelectedTranscriptRecord } from "../../contracts/desktop-state";
 
 const MAX_PENDING_REQUESTS = 32;
 const MAX_BRIDGE_BYTES = 24 * 1024 * 1024;
@@ -102,6 +104,8 @@ export class RemoteDesktopBroker {
   private readonly pending = new Map<string, PendingRequest>();
   private readonly listeners = new Set<RemoteDesktopEventListener>();
   private readonly reviewIds = new Set<string>();
+  private previousTranscript: SelectedTranscriptRecord | null = null;
+  private transcriptSequence = 0;
   private readonly readyPromise: Promise<void>;
   private resolveReady!: () => void;
   private disposed = false;
@@ -506,7 +510,20 @@ export class RemoteDesktopBroker {
           ? event.transcript
           : null,
     };
-    this.publishEvent(allowed);
+    const nextTranscript = allowed.transcript;
+    const delta = transcriptDelta(
+      this.previousTranscript,
+      nextTranscript,
+      ++this.transcriptSequence,
+    );
+    this.previousTranscript = nextTranscript;
+    // A null record is the explicit resync/selection boundary. Otherwise only the changed
+    // session rows cross the remote transport; clients request getSelectedTranscript on a gap.
+    if (delta) {
+      this.publishEvent({ type: "sessionTranscriptDelta", delta });
+    } else if (!nextTranscript || !allowed.transcript) {
+      this.publishEvent(allowed);
+    }
   }
 
   private publishEvent(allowed: RemoteDesktopEvent): void {
