@@ -53,6 +53,7 @@ import type {
   SendChildThreadFollowUpInput,
   SetChildSupervisionLoopInput,
   SelectedTranscriptRecord,
+  SessionTranscriptDelta,
   StartThreadInput,
   ThemePresetId,
   ThreadGrouping,
@@ -134,6 +135,7 @@ export const desktopIpc = {
   saveTaskWorkbenchTemplate: "pi-gui:save-task-workbench-template",
   selectedTranscriptRequest: "pi-gui:selected-transcript-request",
   selectedTranscriptChanged: "pi-gui:selected-transcript-changed",
+  sessionTranscriptDelta: "pi-gui:session-transcript-delta",
   appCommand: "pi-gui:app-command",
   workspacePicked: "pi-gui:workspace-picked",
   clipboardImagePasted: "pi-gui:clipboard-image-pasted",
@@ -416,6 +418,7 @@ export function getSidePanelToggleShortcutLabel(platform: NodeJS.Platform): stri
 }
 
 export type PiDesktopStateListener = (state: DesktopAppState) => void;
+export type PiDesktopTranscriptDeltaListener = (delta: SessionTranscriptDelta) => void;
 export type PiDesktopSelectedTranscriptListener = (
   payload: SelectedTranscriptRecord | null,
 ) => void;
@@ -749,6 +752,7 @@ export interface PiDesktopApi {
   onStateChanged(listener: PiDesktopStateListener): () => void;
   getSelectedTranscript(): Promise<SelectedTranscriptRecord | null>;
   onSelectedTranscriptChanged(listener: PiDesktopSelectedTranscriptListener): () => void;
+  onSessionTranscriptDelta(listener: PiDesktopTranscriptDeltaListener): () => void;
   onCommand(listener: (command: PiDesktopCommand) => void): () => void;
   onWorkspacePicked(listener: (workspaceId: string) => void): () => void;
   onClipboardImagePasted(listener: (result: ClipboardImageRead) => void): () => void;

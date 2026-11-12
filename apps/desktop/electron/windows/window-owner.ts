@@ -9,10 +9,30 @@ import type {
 } from "../../contracts/desktop-state";
 import { desktopIpc } from "../../contracts/ipc";
 import { SerializedActionQueue } from "./action-queue";
+import { transcriptDelta } from "../remote/remote-state-delta";
 
 // A window shows a child thread by its title, status and the threads it links; its goal, transcript
 // and evidence stay in main (orchestration reads them there). Sending them made every state publish
 // carry ~0.5 MB for 25 finished subagents, about 14 times a second while a reply streamed.
+const stateMetrics = new Map<number, { count: number; startedAt: number }>();
+function recordStatePush(webContentsId: number, state: DesktopAppState): void {
+  if (process.env.PI_STATE_METRICS !== "1") return;
+  const started = performance.now();
+  const bytes = Buffer.byteLength(JSON.stringify(state), "utf8");
+  const elapsed = performance.now() - started;
+  const now = Date.now();
+  const metric = stateMetrics.get(webContentsId) ?? { count: 0, startedAt: now };
+  metric.count += 1;
+  if (now - metric.startedAt >= 1_000) {
+    console.info(
+      `[state-metrics] window=${webContentsId} bytes=${bytes} stringifyMs=${elapsed.toFixed(3)} pushesPerSec=${((metric.count * 1000) / (now - metric.startedAt)).toFixed(2)}`,
+    );
+    stateMetrics.set(webContentsId, { count: 0, startedAt: now });
+  } else {
+    stateMetrics.set(webContentsId, metric);
+  }
+}
+
 const windowChildren = new WeakMap<
   readonly OrchestrationChildThread[],
   readonly OrchestrationChildThread[]
@@ -95,6 +115,7 @@ function canPublishToWindow(window: BrowserWindow): boolean {
 
 export class WindowOwner {
   private readonly lastPublishedTranscript = new Map<number, SelectedTranscriptRecord | null>();
+  private readonly transcriptSequences = new Map<number, number>();
   private readonly windows = new Set<BrowserWindow>();
   private readonly passiveRemoteViews = new Set<BrowserWindow>();
   /** webContents ids of passive remote views whose state publishing is paused. */
@@ -372,6 +393,7 @@ export class WindowOwner {
       return state;
     }
     const projected = this.projectAndRemember(window.webContents.id, state);
+    recordStatePush(window.webContents.id, projected);
     window.webContents.send(desktopIpc.stateChanged, projected);
     this.publishTranscriptSoon(window);
     return projected;
@@ -434,6 +456,7 @@ export class WindowOwner {
         : (this.views.get(webContentsId) ?? viewFromState(state));
     const projected = this.projectState(webContentsId, state, view);
     this.views.set(webContentsId, viewFromState(projected));
+    recordStatePush(window.webContents.id, projected);
     window.webContents.send(desktopIpc.stateChanged, projected);
   }
 
@@ -474,7 +497,14 @@ export class WindowOwner {
       return;
     }
     this.lastPublishedTranscript.set(webContentsId, payload);
-    window.webContents.send(desktopIpc.selectedTranscriptChanged, payload);
+    const sequence = (this.transcriptSequences.get(webContentsId) ?? 0) + 1;
+    this.transcriptSequences.set(webContentsId, sequence);
+    const delta = transcriptDelta(previous ?? null, payload, sequence);
+    if (delta && previous && payload) {
+      window.webContents.send(desktopIpc.sessionTranscriptDelta, delta);
+    } else {
+      window.webContents.send(desktopIpc.selectedTranscriptChanged, payload);
+    }
   }
 
   private publishTranscriptSoon(window: BrowserWindow): void {
@@ -575,6 +605,7 @@ export class WindowOwner {
   private startPublishingTo(window: BrowserWindow): void {
     const webContentsId = window.webContents.id;
     this.lastPublishedTranscript.delete(webContentsId);
+    this.transcriptSequences.delete(webContentsId);
     this.stopPublishingState.get(webContentsId)?.();
     this.stopPublishingTranscript.get(webContentsId)?.();
     this.stopPublishingState.set(

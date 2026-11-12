@@ -10,6 +10,7 @@ import type {
   AppView,
   DesktopAppState,
   SelectedTranscriptRecord,
+  SessionTranscriptDelta,
 } from "../../contracts/desktop-state";
 import type { PiDesktopApi } from "../../contracts/ipc";
 
@@ -83,7 +84,8 @@ export type DesktopHydrationEvent =
       readonly record: SelectedTranscriptRecord | null;
     }
   | { readonly type: "transcript-pull-failed"; readonly attemptId: number }
-  | { readonly type: "transcript-pushed"; readonly record: SelectedTranscriptRecord | null };
+  | { readonly type: "transcript-pushed"; readonly record: SelectedTranscriptRecord | null }
+  | { readonly type: "transcript-delta-pushed"; readonly delta: SessionTranscriptDelta };
 
 export interface DesktopAppSession {
   readonly view: DesktopAppView;
@@ -170,6 +172,31 @@ function transcriptMatchesSnapshot(
     record.workspaceId === snapshot.selectedWorkspaceId &&
     record.sessionId === snapshot.selectedSessionId,
   );
+}
+
+function applyTranscriptDelta(
+  current: SelectedTranscriptRecord | null,
+  delta: SessionTranscriptDelta,
+): SelectedTranscriptRecord | null {
+  if (
+    delta.version !== 1 ||
+    (current &&
+      (current.workspaceId !== delta.workspaceId || current.sessionId !== delta.sessionId))
+  )
+    return null;
+  const transcript = [...(current?.transcript ?? [])];
+  for (const patch of delta.patches) {
+    if (patch.type === "append") transcript.push(patch.item);
+    else if (patch.type === "remove") {
+      const index = transcript.findIndex((item) => item.id === patch.id);
+      if (index >= 0) transcript.splice(index, 1);
+    } else {
+      const index = transcript.findIndex((item) => item.id === patch.id);
+      if (index >= 0) transcript[index] = patch.item;
+      else transcript.push(patch.item);
+    }
+  }
+  return { workspaceId: delta.workspaceId, sessionId: delta.sessionId, transcript };
 }
 
 function withLiveSnapshot(
@@ -296,6 +323,17 @@ export function reduceDesktopHydration(
         transcriptSettled: true,
         transcriptRecord: event.record,
       };
+    case "transcript-delta-pushed": {
+      const record = applyTranscriptDelta(current.transcriptRecord, event.delta);
+      return record
+        ? {
+            ...current,
+            receivedPushedTranscript: true,
+            transcriptSettled: true,
+            transcriptRecord: record,
+          }
+        : current;
+    }
   }
 }
 
@@ -429,6 +467,9 @@ export function useDesktopAppState(): DesktopAppSession {
         apply({ type: "state-pushed", state });
       }
     });
+    const unsubscribeDelta = api.onSessionTranscriptDelta((delta) => {
+      if (active) apply({ type: "transcript-delta-pushed", delta });
+    });
     const unsubscribeTranscript = api.onSelectedTranscriptChanged((record) => {
       if (active) {
         apply({ type: "transcript-pushed", record });
@@ -442,6 +483,7 @@ export function useDesktopAppState(): DesktopAppSession {
       active = false;
       unsubscribeState();
       unsubscribeTranscript();
+      unsubscribeDelta();
     };
   }, [apply, pullState, pullTranscript]);
 

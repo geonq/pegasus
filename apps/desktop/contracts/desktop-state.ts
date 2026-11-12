@@ -219,6 +219,19 @@ export interface SetChildSupervisionLoopInput {
   readonly gate: Extract<OrchestrationSupervisionGate, "continue" | "stop">;
 }
 
+export type SessionTranscriptPatch =
+  | { readonly type: "append"; readonly item: TranscriptMessage }
+  | { readonly type: "update"; readonly id: string; readonly item: TranscriptMessage }
+  | { readonly type: "remove"; readonly id: string };
+
+export interface SessionTranscriptDelta {
+  readonly version: 1;
+  readonly sequence: number;
+  readonly workspaceId: string;
+  readonly sessionId: string;
+  readonly patches: readonly SessionTranscriptPatch[];
+}
+
 export interface SelectedTranscriptRecord {
   readonly workspaceId: string;
   readonly sessionId: string;

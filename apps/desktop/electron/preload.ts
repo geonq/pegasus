@@ -97,6 +97,7 @@ import type {
   SendChildThreadFollowUpInput,
   SetChildSupervisionLoopInput,
   SelectedTranscriptRecord,
+  SessionTranscriptDelta,
   StartThreadInput,
   ThemePresetId,
   ThreadGrouping,
@@ -229,6 +230,12 @@ const localPiDesktopApi = {
     ipcRenderer.invoke(
       desktopIpc.selectedTranscriptRequest,
     ) as Promise<SelectedTranscriptRecord | null>,
+  onSessionTranscriptDelta: (listener: (delta: SessionTranscriptDelta) => void) => {
+    const handle = (_event: Electron.IpcRendererEvent, delta: SessionTranscriptDelta) =>
+      listener(delta);
+    ipcRenderer.on(desktopIpc.sessionTranscriptDelta, handle);
+    return () => ipcRenderer.removeListener(desktopIpc.sessionTranscriptDelta, handle);
+  },
   onSelectedTranscriptChanged: (listener: (payload: SelectedTranscriptRecord | null) => void) => {
     const handle = (
       _event: Electron.IpcRendererEvent,
