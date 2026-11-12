@@ -4,6 +4,7 @@ import {
   use,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -11,6 +12,7 @@ import {
   type Ref,
 } from "react";
 import { createPortal } from "react-dom";
+import { countRender } from "../../lib/render-count";
 import {
   DndContext,
   DragOverlay,
@@ -203,11 +205,10 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
   const [workingFolded, setWorkingFolded] = useState(false);
   const [snoozedFolded, setSnoozedFolded] = useState(true);
   const [foldedChatParents, setChatParentFolded, chatFoldMotion] = useFoldedChatParents();
-  const chatFold: ChatFold = {
-    folded: foldedChatParents,
-    motion: chatFoldMotion,
-    setFolded: setChatParentFolded,
-  };
+  const chatFold = useMemo<ChatFold>(
+    () => ({ folded: foldedChatParents, motion: chatFoldMotion, setFolded: setChatParentFolded }),
+    [foldedChatParents, chatFoldMotion, setChatParentFolded],
+  );
   const threadSidebarModel = foldThreadSidebarModel(unfoldedSidebarModel, foldedChatParents);
   useAttentionToasts({
     needsYou: threadSidebarModel.needsYouThreads,
@@ -1608,7 +1609,44 @@ interface ThreadSessionRowProps {
   readonly ref?: Ref<HTMLDivElement>;
 }
 
-function ThreadSessionRow({
+/**
+ * A row renders again only when what it shows changes. Entries are rebuilt with every sidebar
+ * model, so they are compared by content: a patch keeps untouched sessions as the same object,
+ * which makes the session check one pointer comparison. Callbacks are not compared; they only
+ * close over the thread, which is compared, and over stable handlers.
+ */
+function areThreadSessionRowPropsEqual(
+  prev: ThreadSessionRowProps,
+  next: ThreadSessionRowProps,
+): boolean {
+  const a = prev.thread;
+  const b = next.thread;
+  return (
+    prev.active === next.active &&
+    prev.archived === next.archived &&
+    prev.showContext === next.showContext &&
+    prev.overlay === next.overlay &&
+    prev.dragging === next.dragging &&
+    prev.style === next.style &&
+    prev.threadMenu === next.threadMenu &&
+    prev.dragAttributes === next.dragAttributes &&
+    prev.dragListeners === next.dragListeners &&
+    prev.ref === next.ref &&
+    a.session === b.session &&
+    a.workspaceId === b.workspaceId &&
+    a.folderId === b.folderId &&
+    a.contextLabel === b.contextLabel &&
+    a.depth === b.depth &&
+    a.parentKey === b.parentKey &&
+    a.childCount === b.childCount &&
+    a.environment.kind === b.environment.kind &&
+    a.environment.label === b.environment.label &&
+    a.environment.branchName === b.environment.branchName &&
+    a.environment.detached === b.environment.detached
+  );
+}
+
+const ThreadSessionRow = memo(function ThreadSessionRow({
   active,
   archived = false,
   showContext = false,
@@ -1624,6 +1662,7 @@ function ThreadSessionRow({
   onTogglePinned,
   ref,
 }: ThreadSessionRowProps) {
+  countRender(`thread-row:${thread.session.id}`);
   const indicatorVariant = sessionIndicatorVariant(thread);
   const pinned = Boolean(thread.session.pinnedAt);
   const actionContext = showContext ? ` in ${thread.contextLabel}` : "";
@@ -1844,4 +1883,4 @@ function ThreadSessionRow({
       ) : null}
     </>
   );
-}
+}, areThreadSessionRowPropsEqual);

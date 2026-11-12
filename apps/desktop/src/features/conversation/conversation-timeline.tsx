@@ -1,3 +1,4 @@
+import { countRender } from "../../lib/render-count";
 import {
   memo,
   useCallback,
@@ -316,6 +317,7 @@ function MeasuredTimelineItemBase({
   annotationMarkers,
   onOpenAnnotation,
 }: MeasuredTimelineItemProps) {
+  countRender(`timeline-row:${item.id}`);
   const rowRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {

@@ -2,6 +2,7 @@ import type { DesktopAppState } from "./desktop-state";
 import {
   applyDesktopStatePatch,
   isDesktopStatePatch,
+  shareIdentity,
   type DesktopStatePatch,
   type DesktopStateUpdate,
 } from "./state-patch";
@@ -48,11 +49,13 @@ export class DesktopStateReplica {
 
   /** A full state returned by an action: kept if newer, never moves the stream position. */
   adopt(full: DesktopAppState): void {
-    if (!this.state || full.revision >= this.state.revision) this.state = full;
+    if (!this.state || full.revision >= this.state.revision) {
+      this.state = shareIdentity(this.state, full);
+    }
   }
 
   private takeFull(full: DesktopAppState): void {
-    this.state = full;
+    this.state = shareIdentity(this.state, full);
     this.streamRevision = full.revision;
     this.resyncing = false;
   }

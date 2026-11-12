@@ -219,3 +219,17 @@ test("a full state restarts the stream", () => {
   expect(replica.push(patch)).toBe("applied");
   expect(replica.state).toEqual(s6);
 });
+
+test("a full state keeps the identity of every session and workspace that did not change", () => {
+  const s1 = base();
+  // A deep copy with one session changed: what a pull or an action reply looks like after IPC.
+  const copy = JSON.parse(JSON.stringify(withSession(s1, "a", "a1", { preview: "x" }))) as DesktopAppState;
+  const replica = new DesktopStateReplica();
+  replica.push(s1);
+  replica.pulled(copy);
+  expect(replica.state).toEqual(copy);
+  expect(replica.state!.workspaces[1]).toBe(s1.workspaces[1]);
+  expect(replica.state!.workspaces[0]!.sessions[1]).toBe(s1.workspaces[0]!.sessions[1]);
+  expect(replica.state!.workspaces[0]!.sessions[0]).not.toBe(s1.workspaces[0]!.sessions[0]);
+});
+

@@ -229,3 +229,39 @@ export type DesktopStateUpdate = DesktopAppState | DesktopStatePatch;
 export function isDesktopStatePatch(update: DesktopStateUpdate): update is DesktopStatePatch {
   return "baseRevision" in update && "sequence" in update;
 }
+
+/**
+ * `next` with every workspace, session and top-level value that equals the one in `previous`
+ * replaced by the old object. A full state (first load, resync, an action reply) would otherwise
+ * hand every row a new object and re-render the whole sidebar.
+ */
+export function shareIdentity(previous: DesktopAppState | null, next: DesktopAppState): DesktopAppState {
+  if (!previous || previous === next) return next;
+  const before = previous as unknown as Json;
+  const result: Record<string, unknown> = { ...(next as unknown as Json) };
+  for (const key of Object.keys(result)) {
+    if (key !== "workspaces" && valueEqual(before[key], result[key])) result[key] = before[key];
+  }
+  const oldWorkspaces = new Map(previous.workspaces.map((workspace) => [workspace.id, workspace]));
+  const workspaces = next.workspaces.map((workspace) => {
+    const old = oldWorkspaces.get(workspace.id);
+    if (!old) return workspace;
+    const oldSessions = new Map(old.sessions.map((session) => [session.id, session]));
+    const sessions = workspace.sessions.map((session) => {
+      const prior = oldSessions.get(session.id);
+      return prior && valueEqual(prior, session) ? prior : session;
+    });
+    const sameSessions =
+      sessions.length === old.sessions.length &&
+      sessions.every((session, index) => session === old.sessions[index]);
+    const merged = { ...workspace, sessions: sameSessions ? old.sessions : sessions };
+    return valueEqual(withoutSessions(old), withoutSessions(workspace)) && sameSessions
+      ? old
+      : merged;
+  });
+  const sameList =
+    workspaces.length === previous.workspaces.length &&
+    workspaces.every((workspace, index) => workspace === previous.workspaces[index]);
+  result.workspaces = sameList ? previous.workspaces : workspaces;
+  return result as unknown as DesktopAppState;
+}
