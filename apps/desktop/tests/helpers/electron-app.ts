@@ -139,6 +139,9 @@ function electronCliArgs(entry?: string): string[] {
   const args = entry ? [entry] : [];
   if (process.platform === "win32")
     args.push("--disable-frame-rate-limit", "--disable-backgrounding-occluded-windows");
+  // Chromium's renderer sandbox cannot start under a restricted-token Windows sandbox
+  // (every loadURL fails with ERR_FAILED); PI_APP_TEST_NO_SANDBOX=1 opts out there.
+  if (process.platform === "win32" && process.env.PI_APP_TEST_NO_SANDBOX === "1") args.push("--no-sandbox");
   if (process.platform === "linux") {
     // A never-shown X11 window draws ~1.5 frames/s, which starves rAF-driven layout
     // and native wheel scrolling in background test mode.
@@ -422,6 +425,15 @@ async function focusElectronAppProcess(electronApp: ElectronApplication): Promis
   }
 }
 
+const OWNER_PROFILE_ENV_VARS = [
+  "PI_REMOTE_DESKTOP_HOST_CONFIG",
+  "PI_REMOTE_DESKTOP_CLIENT_CONFIG",
+  "PI_APP_AUTOMATION_DESCRIPTOR",
+  "PI_APP_AUTOMATION_MANIFEST",
+  "PI_GUI_INTEGRATED_LAUNCH",
+  "PI_APP_GENERATE_THREAD_TITLES",
+];
+
 function buildDesktopLaunchEnv(
   userDataDir: string,
   agentDir: string,
@@ -433,6 +445,8 @@ function buildDesktopLaunchEnv(
   for (const key of Object.keys(baseEnv)) {
     if (isProviderAuthEnvVar(key)) delete baseEnv[key];
   }
+  // A test profile must never read the owner's live Pegasus profile or ingress files.
+  for (const key of OWNER_PROFILE_ENV_VARS) delete baseEnv[key];
   const env = {
     ...baseEnv,
     PI_REMOTE_DESKTOP_CLIENT: "0",
