@@ -25,12 +25,10 @@
   grid-template-columns: minmax(0, 1fr) min(var(--workbench-width, 440px), 65%);
 }
 
-.main--with-side-panel > .topbar {
-  grid-column: 1;
-}
-
-.main--with-side-panel > .composer,
-.main--with-side-panel > .scheduled-task-chip {
+/* Everything but the panel is pinned to the chat column. While the panel is dragged it floats
+   (position: absolute, out of the grid); an auto-placed chat canvas would then flow into the free
+   right-hand cell and the transcript would jump right under the panel. */
+.main--with-side-panel > :not(.side-panel) {
   grid-column: 1;
 }
 
