@@ -41,12 +41,15 @@ interface MainCounters {
   readonly cloneCount: number;
   readonly cloneMs: number;
   readonly sendMs: number;
+  readonly bytes: Record<string, number>;
+  readonly rssMb: number;
 }
 
 async function patchMain(harness: DesktopHarness): Promise<void> {
   await harness.electronApp.evaluate(({ BrowserWindow }) => {
     const g = globalThis as unknown as Record<string, unknown>;
     g.__perfSends = {} as Record<string, number>;
+    g.__perfBytes = {} as Record<string, number>;
     if (!g.__perfClonePatched) {
       g.__perfClonePatched = true;
       g.__perfCloneCount = 0;
@@ -75,6 +78,8 @@ async function patchMain(harness: DesktopHarness): Promise<void> {
         const sends = (globalThis as unknown as { __perfSends: Record<string, number> })
           .__perfSends;
         sends[channel] = (sends[channel] ?? 0) + 1;
+        const bytes = (globalThis as unknown as { __perfBytes: Record<string, number> }).__perfBytes;
+        bytes[channel] = (bytes[channel] ?? 0) + Buffer.byteLength(JSON.stringify(args), "utf8");
         const started = performance.now();
         const result = original(channel, ...args);
         (globalThis as unknown as { __perfSendMs: number }).__perfSendMs +=
@@ -89,6 +94,7 @@ async function startMainSample(harness: DesktopHarness): Promise<void> {
   await harness.electronApp.evaluate(() => {
     const g = globalThis as unknown as Record<string, unknown>;
     g.__perfSends = {};
+    g.__perfBytes = {};
     g.__perfCloneCount = 0;
     g.__perfCloneMs = 0;
     g.__perfSendMs = 0;
@@ -106,6 +112,7 @@ async function stopMainSample(harness: DesktopHarness): Promise<MainCounters> {
       __perfCloneCount: number;
       __perfCloneMs: number;
       __perfSendMs: number;
+      __perfBytes: Record<string, number>;
     };
     const delta = process.cpuUsage(g.__perfCpu);
     return {
@@ -116,6 +123,8 @@ async function stopMainSample(harness: DesktopHarness): Promise<MainCounters> {
       cloneCount: g.__perfCloneCount ?? 0,
       cloneMs: g.__perfCloneMs ?? 0,
       sendMs: g.__perfSendMs ?? 0,
+      bytes: { ...g.__perfBytes },
+      rssMb: Math.round(process.memoryUsage().rss / 1048576),
     };
   });
 }
@@ -194,6 +203,7 @@ async function emitNoWait(harness: DesktopHarness, event: SessionDriverEvent): P
 async function measure(label: string, seeded: number): Promise<void> {
   const userDataDir = await makeUserDataDir();
   const workspacePath = await makeWorkspace(`perf-${label}`);
+  const launchStartedAt = Date.now();
   const harness = await launchDesktop(userDataDir, {
     initialWorkspaces: [workspacePath],
     testMode: "background",
@@ -202,6 +212,7 @@ async function measure(label: string, seeded: number): Promise<void> {
   try {
     const window = await harness.firstWindow();
     await waitForWorkspaceByPath(window, workspacePath);
+    const launchToWindowMs = Date.now() - launchStartedAt;
     await createSessionViaIpc(window, workspacePath, `perf-${label}`);
     await selectSession(window, `perf-${label}`);
 
@@ -376,6 +387,9 @@ async function measure(label: string, seeded: number): Promise<void> {
           mainCpuMsPerDelta: Number((main.cpuUserMs / DELTA_COUNT).toFixed(2)),
           mainCpuUserMs: Number(main.cpuUserMs.toFixed(0)),
           mainSends: main.sends,
+          mainSendBytes: main.bytes,
+          mainRssMb: main.rssMb,
+          launchToWindowMs,
           mainStructuredClones: main.cloneCount,
           mainStructuredClonePerDelta: Number((main.cloneCount / DELTA_COUNT).toFixed(1)),
           mainStructuredCloneMs: Number(main.cloneMs.toFixed(0)),
