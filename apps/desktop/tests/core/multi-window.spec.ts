@@ -191,15 +191,22 @@ async function selectSessionViaIpcAndCaptureStateEvents(
       throw new Error("piApp IPC bridge is unavailable");
     }
     const stateEvents: string[] = [];
-    const unsubscribe = app.onStateChanged((nextState) => {
-      const workspace = nextState.workspaces.find(
-        (entry) => entry.id === nextState.selectedWorkspaceId,
-      );
-      const session = workspace?.sessions.find((entry) => entry.id === nextState.selectedSessionId);
-      stateEvents.push(session?.title ?? "");
+    const state = await app.getState();
+    const titles = new Map(
+      state.workspaces.flatMap((workspace) =>
+        workspace.sessions.map((session) => [session.id, session.title] as const),
+      ),
+    );
+    // Updates are full states or patches (contracts/state-patch.ts); a patch carries the new
+    // selection in `set` only when it changed.
+    const unsubscribe = app.onStateChanged((update) => {
+      const changed =
+        "baseRevision" in update
+          ? (update.set as { selectedSessionId?: string }).selectedSessionId
+          : update.selectedSessionId;
+      if (changed !== undefined) stateEvents.push(titles.get(changed) ?? "");
     });
     try {
-      const state = await app.getState();
       for (const workspace of state.workspaces) {
         const session = workspace.sessions.find((entry) => entry.title === targetTitle);
         if (!session) {

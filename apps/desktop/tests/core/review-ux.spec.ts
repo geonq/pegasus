@@ -72,7 +72,7 @@ async function launchSeeded(threadTitle: string): Promise<{
   return { harness, window, userDataDir, workspacePath };
 }
 
-test("syntax-highlights known languages and leaves unknown extensions plain", async () => {
+test("syntax-highlights known languages, markdown included", async () => {
   test.setTimeout(45_000);
   const { harness, window } = await launchSeeded("Review UX highlight");
   try {
@@ -107,8 +107,8 @@ test("syntax-highlights known languages and leaves unknown extensions plain", as
     const mdDiff = diffPanel
       .getByRole("region", { name: "Diff", exact: true })
       .locator(".diff-inline");
-    await expect(mdDiff).not.toHaveAttribute("data-language", /.*/);
-    await expect(mdDiff.locator('span[style*="color"]')).toHaveCount(0);
+    // Markdown is a highlighted language since 63a5ace (headings and emphasis in review diffs).
+    await expect(mdDiff).toHaveAttribute("data-language", "markdown");
   } finally {
     await harness.close();
   }

@@ -103,7 +103,8 @@
 .sidebar__new {
   width: 100%;
   min-height: var(--sidebar-first-control-height);
-  padding: var(--space-2) var(--space-2-5);
+  /* 7 px plus the 1 px border keeps it at the control height, level with Back to app. */
+  padding: calc(var(--space-2) - 1px) var(--space-2-5);
   border-radius: var(--radius-md);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -613,7 +614,8 @@
   border-radius: var(--radius-md);
   min-height: 40px;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-1);
+  /* A 2 px seam between the title and the trailing actions: wider leaves a dead click strip. */
+  gap: var(--space-0-5);
   position: relative;
   overflow: visible;
 }
@@ -878,7 +880,8 @@
 
 .session-row__action-cluster {
   position: absolute;
-  right: var(--space-1);
+  /* Flush right: any inset pushes the hover actions over the title's edge. */
+  right: 0;
   top: 50%;
   transform: translateY(-50%);
   z-index: 1;
