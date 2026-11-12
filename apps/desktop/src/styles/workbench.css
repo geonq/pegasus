@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  height: 48px;
+  height: 40px;
   flex: none;
   padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--line);
@@ -53,7 +53,7 @@
   flex: 1 1 auto;
   overflow-x: auto;
   scrollbar-width: none;
-  gap: var(--space-0-5);
+  gap: var(--space-1);
   min-width: 0;
   mask-image: linear-gradient(
     to right,
@@ -85,13 +85,13 @@
   align-items: center;
   gap: var(--space-1-5);
   min-width: 0;
-  height: 34px;
+  height: 32px;
   flex: 1 1 auto;
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
   font-size: var(--text-sm);
-  font-weight: var(--font-medium);
+  font-weight: var(--font-normal);
   text-align: left;
 }
 
@@ -117,6 +117,7 @@
 
 .workbench__tab--active {
   color: var(--fg-strong);
+  font-weight: var(--font-medium);
 }
 
 .workbench__tab:hover {

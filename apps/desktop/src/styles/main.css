@@ -3686,7 +3686,6 @@ mark.thread-find-active {
   margin: 0 0 var(--space-1-5);
   color: var(--fg-soft);
   font-size: var(--text-xs);
-  letter-spacing: 0.04em;
 }
 .subscription-accounts__title {
   margin: 0;
