@@ -19,6 +19,7 @@ import { type McpSettingsActions, SettingsMcpSection } from "./settings-mcp-sect
 import { SettingsModelsSection } from "./settings-models-section";
 import { SettingsNotificationsSection } from "./settings-notifications-section";
 import { SettingsPhoneSection } from "./settings-phone-section";
+import { providersPlaceholderVisible } from "./providers-load-state";
 import { SettingsProvidersSection } from "./settings-providers-section";
 import { type SettingsSection, settingsSectionDefinition } from "./settings-sections";
 import { SettingsShortcutsSection } from "./settings-shortcuts-section";
@@ -168,7 +169,7 @@ export function SettingsView({
 
           {section === "phone" ? <SettingsPhoneSection /> : null}
 
-          {section === "providers" && runtimeLoadStatus && runtimeLoadStatus !== "ready" ? (
+          {section === "providers" && providersPlaceholderVisible(runtimeLoadStatus, Boolean(runtime)) ? (
             <div
               className="settings-group resource-empty"
               role={runtimeLoadStatus === "error" ? "alert" : "status"}
@@ -200,6 +201,12 @@ export function SettingsView({
               ) : null}
             </div>
           ) : section === "providers" ? (
+            <>
+            {runtimeLoadStatus === "loading" ? (
+              <div className="resource-empty__body" role="status" data-testid="providers-refreshing">
+                Refreshing provider status…
+              </div>
+            ) : null}
             <SettingsProvidersSection
               runtime={runtime}
               onLoginProvider={onLoginProvider}
@@ -209,6 +216,7 @@ export function SettingsView({
               onSaveCustomProvider={onSaveCustomProvider}
               onDeleteCustomProvider={onDeleteCustomProvider}
             />
+            </>
           ) : null}
 
           {section === "models" ? (
