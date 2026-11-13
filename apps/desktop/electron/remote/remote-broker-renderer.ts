@@ -1,6 +1,7 @@
 import type { RemoteBrokerRendererBridge, RemoteBrokerRequest } from "./remote-desktop-protocol";
 import type { PiDesktopApi } from "../../contracts/ipc";
 import { DesktopStateReplica } from "../../contracts/state-replica";
+import { forwardRemoteTranscript } from "./remote-transcript-forwarder";
 import type { WorkspaceFolderDevice } from "../../contracts/workspace-folders";
 
 declare global {
@@ -35,7 +36,7 @@ api.onStateChanged((update) => {
   if (stateReplica.push(update) === "resync") pullFullState();
   else publishReplicaState();
 });
-api.onSelectedTranscriptChanged((transcript) =>
+forwardRemoteTranscript(api, (transcript) =>
   bridge.publish({ type: "selectedTranscriptChanged", transcript }),
 );
 // The shell writes many tiny chunks; one frame per chunk would overrun the event stream's queue
