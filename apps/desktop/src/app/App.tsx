@@ -26,6 +26,7 @@ import { useDesktopCommands } from "./use-desktop-commands";
 
 import { RunningLabel } from "../features/conversation/hooks/use-running-label";
 import { countRender } from "../lib/render-count";
+import { useTypeToFocusComposer } from "../features/conversation/hooks/use-type-to-focus-composer";
 
 import { useTimelineViewport } from "../features/conversation/hooks/use-timeline-viewport";
 
@@ -1168,6 +1169,13 @@ export default function App() {
       : undefined;
 
   const selectedRootWorkspaceId = selectedWorkspace?.rootWorkspaceId ?? selectedWorkspace?.id;
+
+  // Whichever composer is on screen (a chat's, or the new-chat one) takes stray typing and pastes.
+  useTypeToFocusComposer(() =>
+    document.querySelector<HTMLTextAreaElement>(
+      "[data-testid='composer'], [data-testid='new-thread-composer']",
+    ),
+  );
 
   const commands = useDesktopCommands({
     api,
