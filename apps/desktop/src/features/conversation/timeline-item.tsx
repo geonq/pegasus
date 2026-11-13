@@ -46,6 +46,7 @@ import {
 } from "../../ui/icons";
 import { extensionToLanguage } from "../../ui/syntax-highlight";
 import { CopyButton } from "../../ui/copy-button";
+import { UserMessageFold } from "./user-message-fold";
 
 export function TimelineItem({
   item,
@@ -326,7 +327,11 @@ function TimelineMessage({
               </div>
             ) : null}
             {annotated ? <SentAnnotations annotations={annotated.annotations} /> : null}
-            {annotated && !body.trim() ? null : <MessageMarkdown annotationRoot text={body} />}
+            {annotated && !body.trim() ? null : (
+              <UserMessageFold messageId={item.id}>
+                <MessageMarkdown annotationRoot text={body} />
+              </UserMessageFold>
+            )}
           </div>
         </div>
         {markers}

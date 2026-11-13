@@ -123,7 +123,7 @@ export const ConversationTimeline = memo(function ConversationTimeline({
   return (
     <ExtensionToolLabelsContext.Provider value={extensionToolLabels}>
       <div className="timeline-surface" ref={surfaceRef}>
-        <div className="timeline-column">
+        <div className="timeline-column" data-searching={threadSearch.isOpen ? "" : undefined}>
           {threadSearch.isOpen ? (
             <ThreadSearchBar
               query={threadSearch.query}

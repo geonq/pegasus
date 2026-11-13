@@ -239,6 +239,36 @@
   background: var(--surface-muted);
 }
 
+/* A long prompt is cut to 11rem and fades out at the bottom until the reader opens it. */
+.user-message-fold[data-folded] {
+  max-height: 11rem;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 1.75rem), transparent);
+}
+
+/* Find in thread must reach text under a fold, so folds open while it is up. */
+.timeline-column[data-searching] .user-message-fold[data-folded] {
+  max-height: none;
+  mask-image: none;
+}
+
+.user-message-fold__toggle {
+  display: block;
+  margin: var(--space-1-5) 0 0 auto;
+  padding: 0 var(--space-1-5);
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted-strong);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.user-message-fold__toggle:hover {
+  color: var(--ink);
+}
+
 .timeline-item__attachments {
   display: flex;
   flex-wrap: wrap;
