@@ -37,7 +37,11 @@ test("captures README screenshots from a clean profile", async () => {
   try {
     const window = await harness.firstWindow();
     for (const path of folders) await waitForWorkspaceByPath(window, path);
-    await window.evaluate(() => globalThis.window.piApp?.setEnableTransparency(false));
+    await window.evaluate(() => globalThis.window.piApp?.setEnableTransparency(true));
+    await expect
+      .poll(() => window.evaluate(() => document.documentElement.classList.contains("enable-transparency")))
+      .toBe(true);
+    await paintDesktopBehindGlass(window);
     await resize(harness, 1650, 960);
 
     for (const chat of CHATS) {
@@ -79,6 +83,30 @@ test("captures README screenshots from a clean profile", async () => {
     await harness.close();
   }
 });
+
+// A page screenshot cannot see the OS acrylic, so the desktop behind the window is painted in the
+// page instead: a few soft colour fields, blurred and darkened the way Windows acrylic shows them.
+async function paintDesktopBehindGlass(window: Page): Promise<void> {
+  await window.addStyleTag({
+    content: `
+      html { background: #202124; }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: -15%;
+        z-index: -1;
+        pointer-events: none;
+        background:
+          radial-gradient(38% 42% at 78% 22%, rgb(56 104 214 / 0.85), transparent 70%),
+          radial-gradient(30% 36% at 62% 78%, rgb(40 150 190 / 0.6), transparent 70%),
+          radial-gradient(34% 40% at 14% 70%, rgb(120 80 200 / 0.45), transparent 70%),
+          radial-gradient(26% 30% at 36% 18%, rgb(210 120 70 / 0.35), transparent 70%),
+          #2a2b2e;
+        filter: blur(48px) saturate(120%);
+      }
+    `,
+  });
+}
 
 async function resize(harness: DesktopHarness, width: number, height: number): Promise<void> {
   await harness.electronApp.evaluate(
