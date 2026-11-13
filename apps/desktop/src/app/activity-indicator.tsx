@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MODE_FRAMES, paintFrame, resolvePreset, type OrbState } from "thinking-orbs/engine";
 import { AnimatePresence, motion } from "motion/react";
 import type { AgentActivityState } from "../../contracts/agent-activity";
@@ -7,7 +7,7 @@ import { useActiveTheme } from "../ui/active-theme";
 import { subscribeMotion } from "../ui/motion-clock";
 
 interface ActivityIndicatorProps {
-  readonly label: string;
+  readonly label: ReactNode;
   readonly state?: AgentActivityState;
 }
 

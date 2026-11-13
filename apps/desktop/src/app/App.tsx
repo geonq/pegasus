@@ -24,7 +24,8 @@ import { canTogglePrimarySidebar } from "./app-shell-utils";
 
 import { useDesktopCommands } from "./use-desktop-commands";
 
-import { useRunningLabel } from "../features/conversation/hooks/use-running-label";
+import { RunningLabel } from "../features/conversation/hooks/use-running-label";
+import { countRender } from "../lib/render-count";
 
 import { useTimelineViewport } from "../features/conversation/hooks/use-timeline-viewport";
 
@@ -204,6 +205,7 @@ import { useSessionComposer } from "../features/conversation/hooks/use-session-c
 import { useTranscriptAnnotations } from "../features/conversation/annotations/use-transcript-annotations";
 
 export default function App() {
+  countRender("app");
   const desktop = useDesktopAppState();
 
   const workbenchWidth = useWorkbenchWidth();
@@ -367,9 +369,6 @@ export default function App() {
 
   const editingQueuedMessageId = snapshot?.editingQueuedMessageId;
 
-  const runningLabel = useRunningLabel(
-    selectedSession?.status === "running" ? selectedSession.runningSince : undefined,
-  );
 
   const selectedSessionKey =
     selectedWorkspace && selectedSession ? `${selectedWorkspace.id}:${selectedSession.id}` : "";
@@ -1591,7 +1590,7 @@ export default function App() {
             <>
               {selectedSession.status === "running" ? (
                 <ActivityIndicator
-                  label={runningLabel}
+                  label={<RunningLabel startedAt={selectedSession.runningSince} />}
                   state={activityForTranscript(activeTranscript)}
                 />
               ) : (

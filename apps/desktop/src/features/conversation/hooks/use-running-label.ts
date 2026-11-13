@@ -1,38 +1,21 @@
-import { useEffect, useState } from "react";
+import { createElement, useCallback } from "react";
+import { formatElapsed, tickTextContent } from "../../../ui/tick-text";
 
-export function useRunningLabel(startedAt: string | undefined) {
-  const [label, setLabel] = useState(() => formatRunningLabel(startedAt));
-
-  useEffect(() => {
-    setLabel(formatRunningLabel(startedAt));
-    if (!startedAt) {
-      return undefined;
-    }
-
-    const interval = window.setInterval(() => {
-      setLabel(formatRunningLabel(startedAt));
-    }, 1000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [startedAt]);
-
-  return label;
+/**
+ * "Working for 12s" that counts up in place. The text is written into the node on a shared
+ * second tick, so the header (and the app around it) does not re-render once a second.
+ */
+export function RunningLabel({ startedAt }: { readonly startedAt: string | undefined }) {
+  const ref = useCallback(
+    (node: HTMLElement | null) =>
+      tickTextContent((now) => formatRunningLabel(startedAt, now), Boolean(startedAt))(node),
+    [startedAt],
+  );
+  return createElement("span", { ref, "data-testid": "running-label" });
 }
 
-function formatRunningLabel(startedAt: string | undefined): string {
-  if (!startedAt) {
-    return "Working…";
-  }
-
-  const diffMs = Math.max(0, Date.now() - Date.parse(startedAt));
-  const seconds = Math.max(1, Math.floor(diffMs / 1000));
-  if (seconds < 60) {
-    return `Working for ${seconds}s`;
-  }
-
-  const minutes = Math.floor(seconds / 60);
-  const remaining = seconds % 60;
-  return remaining === 0 ? `Working for ${minutes}m` : `Working for ${minutes}m ${remaining}s`;
+export function formatRunningLabel(startedAt: string | undefined, nowMs: number): string {
+  const startMs = startedAt ? Date.parse(startedAt) : NaN;
+  if (!Number.isFinite(startMs)) return "Working…";
+  return `Working for ${formatElapsed(startMs, nowMs)}`;
 }
