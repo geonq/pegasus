@@ -18,7 +18,7 @@ export function WorkbenchResizeHandle({
       edge="left"
       bounds={workbenchBounds}
       onResize={onResize}
-      cssVar="--workbench-live-width"
+      cssVar="--workbench-width"
     />
   );
 }
