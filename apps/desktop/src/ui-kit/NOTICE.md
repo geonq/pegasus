@@ -19,10 +19,10 @@ dependency on `@ui-sdk/*` and nothing is fetched at build or run time.
 
 ## What was removed
 
-- The agent and WebMCP layer: `page/agent` (`createAgent`, `agentTools`,
-  `registerTools`, `document.modelContext`), `page/observe`, `page/history`,
-  `react/src/agent.ts`, `observe.ts`, `history.ts`, the `data-agent-*` marks
-  and their development warning (`checkMarks`).
+- The agent and WebMCP layer: `page/agent` (the agent bridge, its tool list
+  and its registration with the browser's model context API), `page/observe`,
+  `page/history`, `react/src/agent.ts`, `observe.ts`, `history.ts`, and the
+  agent mark attributes with their development warning (`checkMarks`).
 - The agent hooks inside the kernel, deleted rather than stubbed: the
   `agent: { … }` keys in every `definePrimitive` call (tabs, listbox, switch,
   field, field-set, menubar, dialog, combobox, menu, radio, select), the
