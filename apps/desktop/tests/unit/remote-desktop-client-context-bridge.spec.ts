@@ -1,4 +1,5 @@
 import { build } from "esbuild";
+import type { PiDesktopApi } from "../../contracts/ipc";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import { _electron as electron } from "playwright";
@@ -61,6 +62,30 @@ test("remote client API crosses a sandboxed Electron contextBridge", async ({}, 
       themeMode: "light",
       composerDraft: "",
     });
+    // Paint every host increment through the sandboxed remote API, without navigation or reload.
+    await page.evaluate(() => {
+      const remote = window as unknown as {
+        piApp: PiDesktopApi;
+        startTranscriptStream: () => void;
+      };
+      const output = document.createElement("output");
+      document.body.append(output);
+      let updates = 0;
+      remote.piApp.onSessionTranscriptDelta((delta) => {
+        const patch = delta.patches[0];
+        if (patch && patch.type !== "remove" && patch.item.kind === "activity") {
+          output.textContent = patch.item.label;
+          output.dataset.updates = String(++updates);
+        }
+      });
+      const start = document.createElement("button");
+      start.textContent = "Start stream";
+      start.onclick = () => remote.startTranscriptStream();
+      document.body.append(start);
+    });
+    await page.getByRole("button", { name: "Start stream" }).click();
+    await expect(page.locator("output")).toHaveText("Streaming.....");
+    await expect(page.locator("output")).toHaveAttribute("data-updates", "5");
   } finally {
     await electronApp.close();
   }
