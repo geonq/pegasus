@@ -191,6 +191,15 @@
   margin: 0 0 var(--space-1) 0;
 }
 
+/* The send time: plain muted text in the hover actions, never a control. */
+.timeline-item__time {
+  padding: 0 var(--space-1);
+  color: var(--fg-soft);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .timeline-item__action[data-copied] {
   color: var(--success);
 }

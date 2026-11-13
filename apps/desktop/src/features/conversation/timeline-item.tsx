@@ -48,6 +48,7 @@ import {
 import { extensionToLanguage } from "../../ui/syntax-highlight";
 import { CopyButton } from "../../ui/copy-button";
 import { UserMessageFold } from "./user-message-fold";
+import { MessageTime } from "./message-time";
 
 export function TimelineItem({
   item,
@@ -287,6 +288,7 @@ function TimelineMessage({
         {/* Beside the bubble, not under it, so a user row keeps its height. */}
         {body.trim() ? (
           <div className="timeline-item__actions timeline-item__actions--user">
+            <MessageTime createdAt={item.createdAt} />
             <CopyButton
               className="timeline-item__action"
               label="Copy message"
@@ -387,6 +389,7 @@ function TimelineMessage({
             <ForkIcon />
             <span className="timeline-item__action-label">Fork</span>
           </button>
+          <MessageTime createdAt={item.createdAt} />
         </div>
       ) : null}
       {markers}

@@ -43,7 +43,17 @@ test("forks a thread from an assistant response into a new sidebar session", asy
     const secondAnswer = transcript.locator(".timeline-item--assistant", {
       hasText: "Second fork answer",
     });
+    // The send time is part of the hover actions: hidden at rest, a plain time on hover.
+    const thirdAnswer = transcript.locator(".timeline-item--assistant", {
+      hasText: "Third fork answer",
+    });
+    await window.mouse.move(0, 0);
+    await expect(thirdAnswer.locator(".timeline-item__actions")).toHaveCSS("opacity", "0");
     await secondAnswer.hover();
+    const time = secondAnswer.getByTestId("message-time");
+    await expect(time).toHaveText(/\d{1,2}[:.]\d{2}/);
+    await expect(time).toHaveAttribute("datetime", /^\d{4}-\d{2}-\d{2}T/);
+    await expect(secondAnswer.locator(".timeline-item__actions")).toHaveCSS("opacity", "1");
 
     // Copy sits beside Fork and copies the reply's markdown; a user prompt has its own copy.
     await stubClipboard(window);
