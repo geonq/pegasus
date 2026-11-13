@@ -1326,19 +1326,20 @@
   max-width: 100%;
   padding: var(--space-2-5) var(--space-3);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--status-neutral);
   border-radius: var(--radius-lg);
   background: var(--surface-muted);
   font-size: var(--text-body);
   line-height: var(--leading-normal);
 }
 
-.child-report--finished {
-  border-left-color: var(--status-success);
-}
-
-.child-report--failed {
-  border-left-color: var(--status-error);
+/* Same liquid glass as the composer and the other cards; state shows in the dot and the label only. */
+.enable-transparency .child-report {
+  border-color: var(--liquid-rim);
+  background: var(--liquid-fill);
+  box-shadow:
+    inset 0 1px 0 var(--liquid-highlight),
+    inset 0 -1px 0 var(--liquid-shade);
+  backdrop-filter: blur(24px) saturate(180%);
 }
 
 .child-report__header {
