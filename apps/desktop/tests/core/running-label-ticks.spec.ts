@@ -53,6 +53,17 @@ test("the running label ticks without re-rendering the app", async () => {
       },
     };
     await emitTestSessionEvent(harness, event);
+    await emitTestSessionEvent(harness, {
+      type: "toolStarted",
+      sessionRef,
+      timestamp: new Date().toISOString(),
+      runId,
+      toolName: "bash",
+      callId: "call-tick",
+      input: { command: "sleep 30" },
+    });
+    const toolElapsed = window.getByTestId("tool-elapsed");
+    await expect(toolElapsed).toHaveText(/^ · \d+s$/);
 
     const label = window.getByTestId("running-label");
     await expect(label).toHaveText(/^Working for \d+s$/);
@@ -61,8 +72,10 @@ test("the running label ticks without re-rendering the app", async () => {
       (globalThis as { __piRenderCounts?: Record<string, number> }).__piRenderCounts = {};
     });
     const before = await label.textContent();
+    const toolBefore = await toolElapsed.textContent();
     await window.waitForTimeout(3_500);
     const after = await label.textContent();
+    const toolAfter = await toolElapsed.textContent();
     const counts = await window.evaluate(
       () => (globalThis as { __piRenderCounts?: Record<string, number> }).__piRenderCounts ?? {},
     );
@@ -71,6 +84,12 @@ test("the running label ticks without re-rendering the app", async () => {
     // The label moved on by about three seconds...
     const seconds = (text: string | null) => Number(/(\d+)s$/.exec(text ?? "")?.[1] ?? NaN);
     expect(seconds(after) - seconds(before)).toBeGreaterThanOrEqual(3);
+    expect(seconds(toolAfter) - seconds(toolBefore)).toBeGreaterThanOrEqual(3);
+    // The running tool row counted up without a single timeline row render.
+    const rowRenders = Object.entries(counts)
+      .filter(([key]) => key.startsWith("timeline-row:"))
+      .reduce((sum, [, value]) => sum + value, 0);
+    expect(rowRenders).toBe(0);
     // ...while App rendered at most once in that window.
     expect(counts.app ?? 0).toBeLessThanOrEqual(1);
 

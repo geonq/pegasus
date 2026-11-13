@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { formatElapsed, tickTextContent } from "../../ui/tick-text";
 import { StateOrb } from "../../app/activity-indicator";
 import { activityForTool } from "../../../contracts/agent-activity";
 import type {
@@ -522,6 +523,7 @@ function TimelineToolCallItem({
             {item.status === "success"
               ? humanToolName(item.toolName)
               : `${humanToolName(item.toolName)} · ${statusLabel(item.status)}`}
+            {item.status === "running" ? <ToolElapsed startedAt={item.createdAt} /> : null}
           </span>
         </button>
         {filePath && onViewFileInDiff ? (
@@ -604,6 +606,22 @@ function TimelineToolCallItem({
       ) : null}
     </article>
   );
+}
+
+/**
+ * How long a running tool has run, counting up once a second. The text is written into the node
+ * on the shared tick (T3's AgentElapsed), so neither the row nor the timeline re-renders for it.
+ */
+function ToolElapsed({ startedAt }: { readonly startedAt: string }) {
+  const ref = useCallback(
+    (node: HTMLElement | null) => {
+      const startMs = Date.parse(startedAt);
+      if (!Number.isFinite(startMs)) return undefined;
+      return tickTextContent((now) => ` · ${formatElapsed(startMs, now)}`)(node);
+    },
+    [startedAt],
+  );
+  return <span className="timeline-tool__elapsed" data-testid="tool-elapsed" ref={ref} />;
 }
 
 function isWriteTool(toolName: string): boolean {

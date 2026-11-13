@@ -984,6 +984,13 @@
 }
 
 /* A fence with its own copy button in the top-right corner, shown on hover or keyboard focus. */
+/* Running tool time: digits keep their width so the row does not jitter each second. */
+.timeline-tool__elapsed {
+  margin-left: calc(-1 * var(--space-1));
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+}
+
 .message__code-block {
   position: relative;
   min-width: 0;
