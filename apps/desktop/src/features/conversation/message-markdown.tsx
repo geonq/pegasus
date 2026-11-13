@@ -9,6 +9,19 @@ import {
 import { MermaidDiagram } from "../generative-ui/diagram-view";
 import { HighlightedLine } from "../../ui/highlighted-line";
 import { fenceToLanguage } from "../../ui/syntax-highlight";
+import { CopyButton } from "../../ui/copy-button";
+
+interface HastLike {
+  readonly type: string;
+  readonly value?: string;
+  readonly children?: readonly HastLike[];
+}
+
+function hastText(node: HastLike | undefined): string {
+  if (!node) return "";
+  if (node.type === "text") return node.value ?? "";
+  return (node.children ?? []).map(hastText).join("");
+}
 
 const REMARK_PLUGINS = [remarkGfm];
 
@@ -75,7 +88,22 @@ function markdownComponents(
           .join("");
         return <MermaidDiagram source={source.trimEnd()} />;
       }
-      return <pre>{children}</pre>;
+      // Each fence carries its own copy target (T3 MarkdownCodeBlock, Orca NativeChatCodeBlock),
+      // shown on hover or focus so resting replies stay quiet.
+      const code = hastText(first as HastLike | undefined).replace(/\n$/, "");
+      return (
+        <div className="message__code-block">
+          <pre>{children}</pre>
+          {code ? (
+            <CopyButton
+              className="message__code-copy"
+              label="Copy code"
+              testId="code-block-copy"
+              text={code}
+            />
+          ) : null}
+        </div>
+      );
     },
     table: ({ children }) => (
       <div className="message__table-scroll">

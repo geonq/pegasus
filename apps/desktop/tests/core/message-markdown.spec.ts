@@ -10,6 +10,7 @@ import {
   waitForWorkspaceByPath,
 } from "../helpers/electron-app";
 import { appendMessagesToSessionFile, sessionFilePathFromCatalog } from "../helpers/session-file";
+import { copiedTexts, stubClipboard } from "../helpers/clipboard";
 
 const markdownResponse = [
   "## Markdown rendering proof",
@@ -104,6 +105,19 @@ test("renders markdown formatting in assistant responses", async () => {
     await expect
       .poll(() => code.locator("span[style*='color']").count(), { timeout: 15_000 })
       .toBeGreaterThan(2);
+
+    // The fence has its own copy button, hidden until hover, that copies only the code.
+    const copy = messageRow.getByTestId("code-block-copy");
+    await expect(copy).toHaveCSS("opacity", "0");
+    await messageRow.locator(".message__code-block").hover();
+    await expect(copy).toHaveCSS("opacity", "1");
+    await stubClipboard(window);
+    await copy.click();
+    await expect(copy).toHaveAttribute("aria-label", "Copied");
+    expect(await copiedTexts(window)).toEqual(['const rendered: string = "markdown";']);
+    if (process.env.PI_APP_SHOTS_DIR) {
+      await messageRow.screenshot({ path: join(process.env.PI_APP_SHOTS_DIR, "code-copy.png") });
+    }
 
     const issueLink = messageRow.getByRole("link", { name: "issue" });
     await expect(issueLink).toHaveAttribute(
