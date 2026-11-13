@@ -16,6 +16,17 @@
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey.svg" alt="Platform: Windows and macOS">
 </p>
 
+<p align="center">
+  <img src="./docs/media/pegasus-new-chat.png" alt="Pegasus: the new chat screen with folders and recent chats in the sidebar" width="900">
+</p>
+
+<p align="center">
+  <img src="./docs/media/pegasus-chat.png" alt="Pegasus: a chat with a syntax-highlighted code answer" width="900">
+</p>
+
+<sub>Screenshots come from a clean profile with demo folders and chats. Regenerate them with
+<code>playwright test -c apps/desktop/tests/demo/playwright.demo.config.ts readme-shots</code>.</sub>
+
 Pegasus is the app I use every day to run coding agents. One Windows PC does the work:
 it runs every conversation, model call and tool. My Mac is a native client for that same
 backend, and an iPhone app follows and answers chats over Tailscale, so a chat started on one
