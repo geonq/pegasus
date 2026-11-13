@@ -45,6 +45,7 @@ import {
   TerminalIcon,
 } from "../../ui/icons";
 import { extensionToLanguage } from "../../ui/syntax-highlight";
+import { CopyButton } from "../../ui/copy-button";
 
 export function TimelineItem({
   item,
@@ -281,6 +282,17 @@ function TimelineMessage({
     const body = annotated ? annotated.body : item.text;
     return (
       <article className="timeline-item timeline-item--user" ref={articleRef}>
+        {/* Beside the bubble, not under it, so a user row keeps its height. */}
+        {body.trim() ? (
+          <div className="timeline-item__actions timeline-item__actions--user">
+            <CopyButton
+              className="timeline-item__action"
+              label="Copy message"
+              testId="copy-message"
+              text={body}
+            />
+          </div>
+        ) : null}
         <div className="timeline-item__user-stack">
           {scheduledOrigin ? (
             <div className="timeline-item__scheduled-origin" data-testid="sent-by-scheduled-task">
@@ -346,6 +358,13 @@ function TimelineMessage({
       />
       {forkable ? (
         <div className="timeline-item__actions">
+          <CopyButton
+            className="timeline-item__action"
+            label="Copy message"
+            showLabel
+            testId="copy-message"
+            text={item.text}
+          />
           <button
             type="button"
             className="timeline-item__action"

@@ -185,6 +185,16 @@
   transform: none;
 }
 
+/* Beside a user bubble, level with its last line. */
+.timeline-item__actions--user {
+  align-self: flex-end;
+  margin: 0 0 var(--space-1) 0;
+}
+
+.timeline-item__action[data-copied] {
+  color: var(--success);
+}
+
 .timeline-item__action {
   display: inline-flex;
   align-items: center;

@@ -10,6 +10,7 @@ import {
   selectSession,
   waitForWorkspaceByPath,
 } from "../helpers/electron-app";
+import { copiedTexts, stubClipboard } from "../helpers/clipboard";
 
 test("forks a thread from an assistant response into a new sidebar session", async () => {
   test.setTimeout(90_000);
@@ -42,6 +43,26 @@ test("forks a thread from an assistant response into a new sidebar session", asy
     const secondAnswer = transcript.locator(".timeline-item--assistant", {
       hasText: "Second fork answer",
     });
+    await secondAnswer.hover();
+
+    // Copy sits beside Fork and copies the reply's markdown; a user prompt has its own copy.
+    await stubClipboard(window);
+    const copyAnswer = secondAnswer.getByTestId("copy-message");
+    await copyAnswer.click();
+    await expect(copyAnswer).toHaveAttribute("aria-label", "Copied");
+    const question = transcript.locator(".timeline-item--user", { hasText: "Second fork question" });
+    const questionHeight = (await question.boundingBox())!.height;
+    await question.hover();
+    await question.getByTestId("copy-message").click();
+    const copied = await copiedTexts(window);
+    expect(copied[0]).toContain("Second fork answer");
+    expect(copied[1]).toContain("Second fork question");
+    // The user copy button sits beside the bubble, so the row did not grow for it.
+    expect((await question.boundingBox())!.height).toBe(questionHeight);
+    if (process.env.PI_APP_SHOTS_DIR) {
+      await window.screenshot({ path: join(process.env.PI_APP_SHOTS_DIR, "copy-message.png") });
+    }
+
     await secondAnswer.hover();
     await secondAnswer.getByTestId("fork-from-message").click();
 
