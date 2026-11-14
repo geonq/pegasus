@@ -5,7 +5,7 @@
 
 .topbar {
   -webkit-app-region: drag;
-  height: 48px;
+  height: var(--chrome-bar-height);
   min-width: 0;
   padding: 0 var(--space-4);
   display: flex;
