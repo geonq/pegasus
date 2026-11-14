@@ -4,6 +4,7 @@ import {
   buildModelOptions,
   isModelSelectable,
   modelFamily,
+  versionedModelLabel,
 } from "../../src/features/conversation/composer-commands";
 
 const model = {
@@ -157,6 +158,22 @@ test("family upgrades neither enable another account nor re-enable a disabled fa
 test("Claude dates are aliases, while dated DeepSeek variants remain distinct", () => {
   expect(modelFamily("claude-haiku-4-5-20251001")).toEqual(modelFamily("claude-haiku-4-5"));
   expect(modelFamily("deepseek-v4.1-flash-1017").family).not.toBe(modelFamily("deepseek-v4.1-flash").family);
+});
+
+test("bare CLI model labels show the discovered version and follow a newer CLI catalog", () => {
+  const providerId = "claude-code-account-1";
+  const discovered = (modelId: string) => runtime({
+    models: [{ ...model, providerId, providerName: "Claude · hera", modelId, label: "Fable (Claude Code)" }],
+  });
+  const current = buildModelOptions(discovered("claude-fable-5-2"))[0]!;
+  expect(current.label).toBe("Claude · hera · Fable 5.2");
+  expect(current.modelId).toBe("claude-fable-5-2");
+  expect(buildModelOptions(discovered("claude-fable-5-3"))[0]!.label).toBe("Claude · hera · Fable 5.3");
+  expect(versionedModelLabel("claude-sonnet-5-5", "Sonnet")).toBe("Sonnet 5.5");
+  expect(versionedModelLabel("claude-haiku-4-5-20251001", "Haiku")).toBe("Haiku 4.5");
+  expect(versionedModelLabel("claude-opus-5-5[1m]", "Opus")).toBe("Opus 5.5 (1M context)");
+  expect(versionedModelLabel("default", "Default (Opus 5.5)")).toBe("Default (Opus 5.5)");
+  expect(versionedModelLabel("gpt-6.1-sol", "6.1 Sol")).toBe("6.1 Sol");
 });
 
 test("model choices are reused per runtime and follow a changed enabled list", () => {

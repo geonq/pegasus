@@ -412,11 +412,22 @@ function computeModelOptions(runtime: RuntimeSnapshot): readonly ComposerModelOp
     })
     .map((model: RuntimeSnapshot["models"][number]) => ({
       value: model.modelId,
-      label: `${model.providerName} · ${model.label}`,
+      label: `${model.providerName} · ${versionedModelLabel(model.modelId, model.label)}`,
       description: model.modelId,
       providerId: model.providerId,
       modelId: model.modelId,
     }));
+}
+
+/** CLI display names can be just "Fable" even when discovery resolves claude-fable-5-2.
+ * Show that discovered ID's version, not a stale bundled display name or a hard-coded release. */
+export function versionedModelLabel(modelId: string, fallback: string): string {
+  const match = /^claude-(opus|sonnet|haiku|fable)-(\d+)(?:[-.](\d{1,3}))?(?:-\d{8})?(?:\[1m\])?$/.exec(modelId);
+  if (!match) return fallback;
+  const family = match[1]!;
+  const version = [match[2], match[3]].filter(Boolean).join(".");
+  const context = /\b1M context\b|\[1m\]/i.test(`${modelId} ${fallback}`) ? " (1M context)" : "";
+  return `${family.charAt(0).toUpperCase()}${family.slice(1)} ${version}${context}`;
 }
 
 /**
