@@ -244,27 +244,34 @@
 }
 
 .generative-ui__callout {
+  --callout-tone: var(--accent);
   padding: var(--space-2) var(--space-2-5);
+  border: 1px solid color-mix(in srgb, var(--callout-tone) 30%, var(--line));
   border-radius: var(--radius-lg);
-  border-left: 3px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--callout-tone) 8%, transparent);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .generative-ui__callout--success {
-  border-left-color: var(--success);
-  background: color-mix(in srgb, var(--success) 10%, transparent);
+  --callout-tone: var(--success);
 }
 
 .generative-ui__callout--warning {
-  border-left-color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  --callout-tone: var(--warning);
 }
 
 .generative-ui__callout--error {
-  border-left-color: var(--error);
-  background: color-mix(in srgb, var(--error) 10%, transparent);
+  --callout-tone: var(--error);
+}
+
+/* Same liquid glass as the other cards; the tone shows as a tint, never a side stripe. */
+.enable-transparency .generative-ui__callout {
+  background: color-mix(in srgb, var(--callout-tone) 10%, var(--liquid-fill));
+  box-shadow:
+    inset 0 1px 0 var(--liquid-highlight),
+    inset 0 -1px 0 var(--liquid-shade);
+  backdrop-filter: blur(24px) saturate(180%);
 }
 
 .generative-ui__code {
