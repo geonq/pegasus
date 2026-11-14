@@ -1329,23 +1329,26 @@
   color: var(--fg-soft);
   width: 20px;
   height: 20px;
+  flex: none;
+  padding: 0;
   display: grid;
   place-items: center;
+  line-height: 0;
+}
+
+.composer-attachment__remove svg {
+  display: block;
 }
 
 .composer-attachment--image .composer-attachment__remove {
+  /* Inside the rounded corner, so the circle reads as part of the photo, not hanging off it. */
   position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
+  top: var(--space-1);
+  right: var(--space-1);
   border-radius: 50%;
   border: 1px solid var(--line);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
-  font-size: var(--text-base);
   opacity: 0;
   transition: opacity var(--motion-fast) var(--ease-out);
 }

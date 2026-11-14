@@ -53,7 +53,10 @@ textarea {
   font: inherit;
 }
 
+/* No browser padding (1px 6px): it pushed icons off-centre in every small square button.
+   Buttons that want padding set their own. */
 button {
+  padding: 0;
   border: 0;
   background: none;
   color: inherit;
