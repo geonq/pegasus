@@ -1231,8 +1231,11 @@ function projectOrchestrationChild(
       ])
     : child.evidence;
   const status = session
-    ? toOrchestrationStatus(session.status, childRef, store, knownEvidence)
-    : child.status;
+    ? toOrchestrationStatus(session.status, childRef, store, knownEvidence, child.createdAt)
+    : child.status === "queued" &&
+        idleChildStatus(knownEvidence, () => [], child.createdAt) === "failed"
+      ? "failed"
+      : child.status;
 
   return {
     ...child,
@@ -2209,6 +2212,7 @@ function toOrchestrationStatus(
   sessionRef: SessionRef,
   store: OrchestrationOwnerHost,
   evidence: readonly OrchestrationEvidenceRecord[] = [],
+  createdAt?: string,
 ): OrchestrationChildThreadStatus {
   if (store.getQueuedComposerMessages(sessionRef).length > 0) {
     return "waiting";
@@ -2222,8 +2226,15 @@ function toOrchestrationStatus(
   // An idle session that has never produced a run is queued, not complete. The
   // child record is inserted before its prompt is void-fired, so without this a
   // never-started child would read "complete" and trigger a false parent wake.
-  return idleChildStatus(evidence, () => store.transcriptFor(sessionRef));
+  return idleChildStatus(evidence, () => store.transcriptFor(sessionRef), createdAt);
 }
+
+/**
+ * How long an idle child may sit without ever starting a run before it counts as failed. Without
+ * this, a child whose first prompt was lost (a restart, a refused account) read "queued" forever and
+ * its parent showed "N subagents working" for days while nothing ran.
+ */
+export const CHILD_START_STALL_MS = 10 * 60_000;
 
 /**
  * An idle child is complete once it ran; failed when its runs failed before replying (a refused
@@ -2232,15 +2243,22 @@ function toOrchestrationStatus(
 export function idleChildStatus(
   evidence: readonly Pick<OrchestrationEvidenceRecord, "source" | "status">[],
   transcript: () => readonly TranscriptMessage[],
+  createdAt?: string,
+  nowMs: number = Date.now(),
 ): "complete" | "failed" | "queued" {
   if (childHasRun(evidence, transcript)) return "complete";
   // A blocker kept from an earlier failed status counts too: the failure itself is not saved.
-  return evidence.some(
-    (record) =>
-      record.source === "blocker" && (record.status === "failed" || record.status === "blocked"),
-  )
-    ? "failed"
-    : "queued";
+  if (
+    evidence.some(
+      (record) =>
+        record.source === "blocker" &&
+        (record.status === "failed" || record.status === "blocked"),
+    )
+  ) {
+    return "failed";
+  }
+  const created = createdAt ? Date.parse(createdAt) : Number.NaN;
+  return Number.isFinite(created) && nowMs - created > CHILD_START_STALL_MS ? "failed" : "queued";
 }
 
 /**

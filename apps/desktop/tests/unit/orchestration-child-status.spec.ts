@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { TranscriptMessage } from "../../contracts/desktop-state";
-import { childHasRun, idleChildStatus } from "../../electron/orchestration/app-store-orchestration";
+import { CHILD_START_STALL_MS, childHasRun, idleChildStatus } from "../../electron/orchestration/app-store-orchestration";
 
 const noTranscript = () => [] as readonly TranscriptMessage[];
 
@@ -56,4 +56,21 @@ test("an idle child whose runs all failed before replying reads failed, not queu
   expect(
     idleChildStatus([runFailed, { source: "worker-reported", status: "reported" }], noTranscript),
   ).toBe("complete");
+});
+
+test("a child that never started a run stops counting as working once it has stalled", () => {
+  const created = "2026-11-13T10:00:00.000Z";
+  const start = Date.parse(created);
+  expect(idleChildStatus([], noTranscript, created, start + 60_000)).toBe("queued");
+  expect(idleChildStatus([], noTranscript, created, start + CHILD_START_STALL_MS + 1)).toBe("failed");
+  // A child that ran is complete however old it is, and an unknown age keeps it queued.
+  expect(
+    idleChildStatus(
+      [{ source: "worker-reported", status: "reported" }],
+      noTranscript,
+      created,
+      start + 86_400_000,
+    ),
+  ).toBe("complete");
+  expect(idleChildStatus([], noTranscript, undefined, start + 86_400_000)).toBe("queued");
 });
