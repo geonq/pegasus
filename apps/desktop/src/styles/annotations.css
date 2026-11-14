@@ -243,8 +243,10 @@
 .annotation-chip__quote {
   display: -webkit-box;
   overflow: hidden;
-  padding-left: var(--space-2);
-  border-left: 2px solid var(--line);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--overlay-subtle);
   color: var(--muted-strong);
   font-size: var(--text-sm);
   line-height: var(--leading-snug);
@@ -275,8 +277,8 @@
 .sent-annotation__quote {
   min-width: 0;
   padding: var(--space-1) var(--space-2);
-  border-left: 2px solid var(--accent-tint-border);
-  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
   background: var(--overlay-subtle);
   color: var(--muted-strong);
   font-size: var(--text-sm);
