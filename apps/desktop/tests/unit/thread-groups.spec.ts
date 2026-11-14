@@ -492,6 +492,49 @@ test("subagent chats are listed under the chat that started them", () => {
   expect(model.recencyOrder.map((entry) => entry.session.id)).toEqual(["parent", "child", "other"]);
 });
 
+test("an idle chat with a running subagent stays in Working until the subagent finishes", () => {
+  const build = (childStatus: string, sessionStatus: "running" | "idle") =>
+    buildThreadSidebarModel(
+      state(
+        [
+          workspace("alpha", "Alpha", [
+            session("parent", "Parent chat", { updatedAt: isoDaysAgo(0, 10) }),
+            session("child", "Planner task", {
+              updatedAt: isoDaysAgo(0, 11),
+              status: sessionStatus,
+            }),
+          ]),
+        ],
+        {
+          orchestrationChildren: [
+            {
+              id: "link",
+              parentWorkspaceId: "alpha",
+              parentSessionId: "parent",
+              childWorkspaceId: "alpha",
+              childSessionId: "child",
+              title: "Planner task",
+              status: childStatus,
+            } as unknown as DesktopAppState["orchestrationChildren"][number],
+          ],
+        },
+      ),
+      nowMs,
+    );
+  for (const status of ["running", "queued"]) {
+    const model = build(status, "idle");
+    expect(model.workingThreads.map((entry) => entry.session.id)).toEqual(["parent", "child"]);
+    expect(model.workingThreads[0]!.childrenRunning).toBe(true);
+    expect(model.recencySections).toEqual([]);
+  }
+  const done = build("complete", "idle");
+  expect(done.workingThreads).toEqual([]);
+  expect(done.recencySections.flatMap((s) => s.threads).map((e) => e.session.id)).toEqual([
+    "parent",
+    "child",
+  ]);
+});
+
 test("a folded chat keeps its row and count but hides its subagent rows", () => {
   const parent = session("parent", "Parent chat", { updatedAt: isoDaysAgo(0, 10) });
   const child = session("child", "Planner task", { updatedAt: isoDaysAgo(0, 11) });
@@ -506,7 +549,7 @@ test("a folded chat keeps its row and count but hides its subagent rows", () => 
           childWorkspaceId: "alpha",
           childSessionId: "child",
           title: "Planner task",
-          status: "running",
+          status: "completed",
         } as unknown as DesktopAppState["orchestrationChildren"][number],
       ],
     }),

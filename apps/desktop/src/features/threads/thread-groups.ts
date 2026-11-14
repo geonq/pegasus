@@ -32,6 +32,8 @@ export interface ThreadListEntry {
   readonly parentKey?: string;
   /** For a chat that started subagents: how many are listed under it. */
   readonly childCount?: number;
+  /** For a chat that started subagents: one of them is queued or running, so the chat still counts as working. */
+  readonly childrenRunning?: boolean;
 }
 
 export interface WorkspaceThreadGroup {
@@ -159,9 +161,12 @@ export function buildThreadSidebarModel(
     .filter((entry) => !entry.session.archivedAt && !entry.session.pinnedAt)
     .sort((left, right) => compareByRecency(left.session, right.session));
   const needsYou = historyThreads.filter((entry) => sessionNeedsOwner(entry.session));
-  const working = historyThreads.filter((entry) => entry.session.status === "running");
+  const isWorking = (entry: ThreadListEntry) =>
+    entry.session.status === "running" ||
+    nested.parentsWithActiveChildren.has(sessionThreadKey(entry));
+  const working = historyThreads.filter(isWorking);
   const settled = historyThreads.filter(
-    (entry) => !sessionNeedsOwner(entry.session) && entry.session.status !== "running",
+    (entry) => !sessionNeedsOwner(entry.session) && !isWorking(entry),
   );
   const archivedThreads = allEntries
     .filter((entry) => Boolean(entry.session.archivedAt))
@@ -204,6 +209,7 @@ function nestChildThreads(state: DesktopAppState, entries: readonly ThreadListEn
   const byKey = new Map(entries.map((entry) => [sessionThreadKey(entry), entry] as const));
   const childrenByParent = new Map<string, ThreadListEntry[]>();
   const childKeys = new Set<string>();
+  const parentsWithActiveChildren = new Set<string>();
   for (const child of state.orchestrationChildren) {
     const childKey = `${child.childWorkspaceId}:${child.childSessionId}`;
     const parentKey = `${child.parentWorkspaceId}:${child.parentSessionId}`;
@@ -211,6 +217,14 @@ function nestChildThreads(state: DesktopAppState, entries: readonly ThreadListEn
     if (!entry || !byKey.has(parentKey) || childKey === parentKey) continue;
     childKeys.add(childKey);
     if (entry.session.archivedAt) continue;
+    if (
+      child.status === "running" ||
+      child.status === "queued" ||
+      child.status === "waiting" ||
+      entry.session.status === "running"
+    ) {
+      parentsWithActiveChildren.add(parentKey);
+    }
     const siblings = childrenByParent.get(parentKey) ?? [];
     siblings.push({ ...entry, depth: 1, parentKey });
     childrenByParent.set(parentKey, siblings);
@@ -222,10 +236,17 @@ function nestChildThreads(state: DesktopAppState, entries: readonly ThreadListEn
     threads.flatMap((thread) => {
       const children = childrenByParent.get(sessionThreadKey(thread)) ?? [];
       return children.length > 0
-        ? [{ ...thread, childCount: children.length }, ...children]
+        ? [
+            {
+              ...thread,
+              childCount: children.length,
+              ...(parentsWithActiveChildren.has(sessionThreadKey(thread)) ? { childrenRunning: true } : {}),
+            },
+            ...children,
+          ]
         : [thread];
     });
-  return { childKeys, withChildren };
+  return { childKeys, parentsWithActiveChildren, withChildren };
 }
 
 function listFolders(state: DesktopAppState): readonly WorkspaceRecord[] {

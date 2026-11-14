@@ -1580,7 +1580,7 @@ function SortablePinnedThreadRow({
 function sessionIndicatorVariant(
   thread: ThreadListEntry,
 ): "running" | "failed" | "unseen" | "none" {
-  if (thread.session.status === "running") {
+  if (thread.session.status === "running" || thread.childrenRunning) {
     return "running";
   }
   if (thread.session.status === "failed") {
