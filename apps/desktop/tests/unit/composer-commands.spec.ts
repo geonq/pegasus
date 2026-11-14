@@ -3,6 +3,7 @@ import type { RuntimeSnapshot } from "@pi-gui/session-driver/runtime-types";
 import {
   buildModelOptions,
   isModelSelectable,
+  modelFamily,
 } from "../../src/features/conversation/composer-commands";
 
 const model = {
@@ -117,6 +118,45 @@ test("shows only the newest enabled model of each family", () => {
   // The newer version the picker shows instead is usable too, though not enabled itself.
   expect(isModelSelectable(value, "openai", "gpt-6.1-sol")).toBe(true);
   expect(isModelSelectable(value, "openai", "gpt-5.6-luna")).toBe(false);
+});
+
+test("enabled Sonnet and Haiku survive catalog version pruning and dated aliases", () => {
+  const providerId = "claude-code-account-1";
+  const value = runtime({
+    models: ["claude-opus-5-5", "claude-sonnet-5", "claude-haiku-4-5-20251001"].map((modelId) => ({ ...model, providerId, modelId, label: modelId })),
+    settings: {
+      enableSkillCommands: false,
+      enabledModelPatterns: [
+        `${providerId}/claude-opus-5-5`,
+        `${providerId}/claude-sonnet-4-5`,
+        `${providerId}/claude-haiku-4-5`,
+      ],
+    },
+  });
+  expect(buildModelOptions(value).map((option) => option.modelId).sort()).toEqual([
+    "claude-haiku-4-5-20251001", "claude-opus-5-5", "claude-sonnet-5",
+  ]);
+  expect(isModelSelectable(value, providerId, "claude-sonnet-5")).toBe(true);
+  expect(isModelSelectable(value, providerId, "claude-haiku-4-5-20251001")).toBe(true);
+});
+
+test("family upgrades neither enable another account nor re-enable a disabled family", () => {
+  const value = runtime({
+    models: [
+      { ...model, providerId: "claude-code-account-1", modelId: "claude-sonnet-5" },
+      { ...model, providerId: "claude-code-account-1", modelId: "claude-haiku-4-5-20251001" },
+      { ...model, providerId: "claude-code-account-2", modelId: "claude-sonnet-5" },
+    ],
+    settings: { enableSkillCommands: false, enabledModelPatterns: ["claude-code-account-1/claude-sonnet-4-5"] },
+  });
+  expect(buildModelOptions(value).map((option) => `${option.providerId}/${option.modelId}`)).toEqual([
+    "claude-code-account-1/claude-sonnet-5",
+  ]);
+});
+
+test("Claude dates are aliases, while dated DeepSeek variants remain distinct", () => {
+  expect(modelFamily("claude-haiku-4-5-20251001")).toEqual(modelFamily("claude-haiku-4-5"));
+  expect(modelFamily("deepseek-v4.1-flash-1017").family).not.toBe(modelFamily("deepseek-v4.1-flash").family);
 });
 
 test("model choices are reused per runtime and follow a changed enabled list", () => {

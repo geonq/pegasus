@@ -369,7 +369,13 @@ function modelChoices(runtime: RuntimeSnapshot): ModelChoices {
 function computeModelOptions(runtime: RuntimeSnapshot): readonly ComposerModelOption[] {
   const enabledPatterns = runtime.settings.enabledModelPatterns;
   const allAvailable = enabledPatterns.length === 0;
+  // The runtime catalog has already pruned older Claude versions. Match saved enabled IDs by
+  // provider + family too, or an enabled Sonnet 4 disappears when only Sonnet 5 remains in it.
   const enabledSet = allAvailable ? undefined : new Set(enabledPatterns);
+  const enabledFamilies = allAvailable ? undefined : new Set(enabledPatterns.map((pattern) => {
+    const separator = pattern.indexOf("/");
+    return separator < 0 ? pattern : `${pattern.slice(0, separator)}\u0000${modelFamily(pattern.slice(separator + 1)).family}`;
+  }));
   const available = runtime.models.filter((model) => model.available);
   // Newest version per provider + family, so an enabled gpt-6-sol shows as gpt-6.1-sol once that ships.
   const newest = new Map<string, RuntimeSnapshot["models"][number]>();
@@ -384,7 +390,11 @@ function computeModelOptions(runtime: RuntimeSnapshot): readonly ComposerModelOp
   }
   const shown = new Set<RuntimeSnapshot["models"][number]>();
   for (const model of available) {
-    if (enabledSet && !enabledSet.has(`${model.providerId}/${model.modelId}`)) continue;
+    if (
+      enabledSet && !enabledSet.has(`${model.providerId}/${model.modelId}`) &&
+      !(/^claude-(?:opus|sonnet|haiku|fable)-/.test(model.modelId) &&
+        enabledFamilies?.has(`${model.providerId}\u0000${modelFamily(model.modelId).family}`))
+    ) continue;
     shown.add(newest.get(`${model.providerId}\u0000${modelFamily(model.modelId).family}`) ?? model);
   }
 
@@ -414,6 +424,11 @@ function computeModelOptions(runtime: RuntimeSnapshot): readonly ComposerModelOp
  * Only 1–2 digit tokens count as versions, so dated snapshots (`-1017`) stay their own entry.
  */
 export function modelFamily(modelId: string): { family: string; version: number[] } {
+  // A dated Claude snapshot and its canonical alias are the same family, not separate models.
+  // Keep dates on other providers (e.g. DeepSeek -1017) as distinct variants.
+  if (/^claude-(?:opus|sonnet|haiku|fable)-/.test(modelId)) {
+    modelId = modelId.replace(/\[1m\]$/, "").replace(/-\d{8}$/, "");
+  }
   const version: number[] = [];
   const family: string[] = [];
   for (const token of modelId.split(/[-_]/)) {
