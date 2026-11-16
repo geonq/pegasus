@@ -20,6 +20,10 @@ test("remote client API crosses a sandboxed Electron contextBridge", async ({}, 
   });
 
   const args = [resolve(fixtureRoot, "main.cjs")];
+  // Same opt-in as tests/helpers/electron-app.ts: Chromium's renderer sandbox cannot start under a
+  // restricted-token Windows sandbox, so PI_APP_TEST_NO_SANDBOX=1 opts out there. Off by default.
+  if (process.platform === "win32" && process.env.PI_APP_TEST_NO_SANDBOX === "1")
+    args.push("--no-sandbox");
   if (process.platform === "linux") {
     args.push("--disable-gpu", "--no-sandbox", "--disable-frame-rate-limit");
   }

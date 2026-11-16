@@ -13,7 +13,7 @@ const QUIET = /terminal-(write|resize)|report-renderer|set-focused|composer-draf
 export function traceIpcHandlers(): void {
   const handle = ipcMain.handle.bind(ipcMain);
   ipcMain.handle = (channel, listener) =>
-    handle(channel, async (event, ...args) => {
+    handle(channel, async (event, ...args: unknown[]) => {
       const short = channel.replace(/^pi-gui:/, "");
       const quiet = QUIET.test(channel);
       const started = performance.now();

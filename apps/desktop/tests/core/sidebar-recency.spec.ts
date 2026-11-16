@@ -477,8 +477,13 @@ test("caps a long Last 7 Days bucket and sorts the folder by last send", async (
 
     // ui-state is written compact, so compare the parsed value rather than the JSON text.
     await expect
-      .poll(async () =>
-        JSON.parse(await readFile(join(userDataDir, "ui-state.json"), "utf8")).threadGrouping,
+      .poll(
+        async () =>
+          (
+            JSON.parse(await readFile(join(userDataDir, "ui-state.json"), "utf8")) as {
+              threadGrouping?: unknown;
+            }
+          ).threadGrouping,
       )
       .toBe("workspace");
   } finally {

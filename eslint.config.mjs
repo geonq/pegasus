@@ -99,6 +99,13 @@ export default [
     rules: { "max-lines": ["error", { max: 2300 }] },
   },
   typedProject(["apps/desktop/src/**/*.{ts,tsx,mts,cts}"], "apps/desktop/tsconfig.json"),
+  {
+    // ui-kit is ui-sdk copied at c53df2f (see its NOTICE.md); its generic kernel trips the typed
+    // any/promise rules 140 times. Syntax lint still applies. Turn these back on file by file
+    // as ui-kit is typed for Pegasus.
+    files: ["apps/desktop/src/ui-kit/**/*.{ts,tsx,mts,cts}"],
+    rules: Object.fromEntries(Object.keys(typedRules).map((rule) => [rule, "off"])),
+  },
   typedProject(
     ["apps/desktop/electron/**/*.{ts,tsx,mts,cts}"],
     "apps/desktop/tsconfig.electron.json",

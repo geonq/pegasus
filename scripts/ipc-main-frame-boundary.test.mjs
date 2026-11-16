@@ -61,6 +61,11 @@ const rawIpcAllowlist = new Map([
       "Migrating them is a separate change; the channels below must not regress to raw handlers.",
   ],
   [
+    `${electronDir}/diagnostics/ipc-trace.ts`,
+    "wraps ipcMain.handle once at startup to time every call; it registers no channel itself, " +
+      "so each handler keeps the frame check its own registration applies.",
+  ],
+  [
     `${electronDir}/remote/remote-desktop-broker.ts`,
     "receives one-way send() messages from the hidden broker window it creates itself; " +
       "mainFrameHandler covers invoke only, so the sender is checked with isMainFrameSender.",
