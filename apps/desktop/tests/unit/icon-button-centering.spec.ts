@@ -15,7 +15,9 @@ test("the photo remove button sits inside the photo corner and centres its cross
   const base = css.match(/\.composer-attachment__remove\s*\{([^}]*)\}/)?.[1] ?? "";
   expect(base).toMatch(/padding:\s*0/);
   expect(base).toMatch(/place-items:\s*center/);
-  const image = css.match(/\.composer-attachment--image \.composer-attachment__remove\s*\{([^}]*)\}/)?.[1] ?? "";
+  const image =
+    css.match(/\.composer-attachment--image \.composer-attachment__remove\s*\{([^}]*)\}/)?.[1] ??
+    "";
   expect(image).not.toMatch(/top:\s*-/);
   expect(image).not.toMatch(/right:\s*-/);
 });

@@ -7,68 +7,65 @@ import {
   isDisabled,
   submitImplicitly,
   valueMissingMessage,
-} from "./form"
-import { checkedAttrs } from "../kernel/attrs"
-import type { ChangeDetails, ChangeOptions } from "../kernel/details"
-import type { PrimitiveContext, SlotFactory } from "../kernel/primitive-types"
+} from "./form";
+import { checkedAttrs } from "../kernel/attrs";
+import type { ChangeDetails, ChangeOptions } from "../kernel/details";
+import type { PrimitiveContext, SlotFactory } from "../kernel/primitive-types";
 
 /**
  * Checked, unchecked, or `"indeterminate"`, for a checkbox that stands for a partly checked group.
  * @stable
  */
-type CheckedState = boolean | "indeterminate"
+type CheckedState = boolean | "indeterminate";
 
 /**
  * Why a checkbox or switch wants to change.
  * @stable
  */
-type CheckboxCheckedChangeReason = "press" | "reset" | "restore" | "imperative"
+type CheckboxCheckedChangeReason = "press" | "reset" | "restore" | "imperative";
 
 /**
  * Options for every write method on a controller.
  * @stable
  */
-type CheckboxChangeOptions = ChangeOptions<CheckboxCheckedChangeReason>
+type CheckboxChangeOptions = ChangeOptions<CheckboxCheckedChangeReason>;
 
-type Details = CheckboxChangeOptions
+type Details = CheckboxChangeOptions;
 
 type ToggleOptions<Checked> = {
   /** Whether it's checked. Pass it to control the checkbox. */
-  checked?: Checked
+  checked?: Checked;
   /**
    * Whether it's checked at first, when uncontrolled. A form reset returns to it.
    * @defaultValue false
    */
-  defaultChecked?: Checked
+  defaultChecked?: Checked;
   /** Runs when a user or a form reset wants to change it. `details.reason` says why, and `details.cancel()` stops it. */
-  onCheckedChange?: (
-    checked: Checked,
-    details: ChangeDetails<CheckboxCheckedChangeReason>
-  ) => void
+  onCheckedChange?: (checked: Checked, details: ChangeDetails<CheckboxCheckedChangeReason>) => void;
   /** Disables it like a native control: it can't be focused or changed, and isn't submitted. */
-  disabled?: boolean
+  disabled?: boolean;
   /** Keeps it focusable and submitted, but stops changes. */
-  readOnly?: boolean
+  readOnly?: boolean;
   /** Blocks form submission until it's checked, with the browser's own message. */
-  required?: boolean
+  required?: boolean;
   /** The name it submits under. Without one, it submits nothing. */
-  name?: string
+  name?: string;
   /**
    * What it submits while checked.
    * @defaultValue "on"
    */
-  value?: string
+  value?: string;
   /** The id of a form to belong to, when it isn't inside that form. */
-  form?: string
-}
+  form?: string;
+};
 
 // Reads a checkbox's `checked` and `default-checked` attributes: checked,
 // unchecked or "indeterminate".
 function checkedAttribute(attribute: string | null) {
   if (attribute === null) {
-    return undefined
+    return undefined;
   }
-  return attribute === "indeterminate" ? "indeterminate" : attribute !== "false"
+  return attribute === "indeterminate" ? "indeterminate" : attribute !== "false";
 }
 
 /**
@@ -77,35 +74,35 @@ function checkedAttribute(attribute: string | null) {
  */
 type CheckboxState = {
   /** Whether it's checked. False while indeterminate. */
-  checked: boolean
+  checked: boolean;
   /** Whether it's `"indeterminate"`, for a partly checked group. A press makes it checked. */
-  indeterminate: boolean
+  indeterminate: boolean;
   /** Whether it's disabled, by itself or by a `<fieldset>`. */
-  disabled: boolean
+  disabled: boolean;
   /** Whether it's read-only: it stays focusable and submitted, but presses don't change it. */
-  readOnly: boolean
+  readOnly: boolean;
   /** Whether a form won't submit until it's checked. Indeterminate doesn't count. */
-  required: boolean
-}
+  required: boolean;
+};
 
 type ToggleState = {
-  checked: CheckedState
+  checked: CheckedState;
   // What a form reset returns to: `defaultChecked`, or the first value.
-  initial: CheckedState
-  disabled: boolean
-  readOnly: boolean
-  required: boolean
-  name: string | undefined
-  value: string
-  form: string | undefined
+  initial: CheckedState;
+  disabled: boolean;
+  readOnly: boolean;
+  required: boolean;
+  name: string | undefined;
+  value: string;
+  form: string | undefined;
   // Disabled by an ancestor fieldset, or by the element's own disabled attribute.
-  formDisabled: boolean
-}
+  formDisabled: boolean;
+};
 
-type AnyOptions = ToggleOptions<CheckedState> | ToggleOptions<boolean>
+type AnyOptions = ToggleOptions<CheckedState> | ToggleOptions<boolean>;
 
 function toggleState(options: AnyOptions): ToggleState {
-  const checked = options.checked ?? options.defaultChecked ?? false
+  const checked = options.checked ?? options.defaultChecked ?? false;
   return {
     checked,
     initial: checked,
@@ -116,7 +113,7 @@ function toggleState(options: AnyOptions): ToggleState {
     value: options.value ?? "on",
     form: options.form,
     formDisabled: false,
-  }
+  };
 }
 
 function syncToggle(options: AnyOptions) {
@@ -128,94 +125,79 @@ function syncToggle(options: AnyOptions) {
     value: options.value ?? "on",
     form: options.form,
     // Like the native `defaultChecked`, changing it changes what a reset returns to.
-    ...(options.defaultChecked === undefined
-      ? {}
-      : { initial: options.defaultChecked }),
+    ...(options.defaultChecked === undefined ? {} : { initial: options.defaultChecked }),
     ...(options.checked === undefined ? {} : { checked: options.checked }),
-  }
+  };
 }
 
 // What a toggle needs from its group: the form the group belongs to.
-type ToggleOwner = { formOwner: () => HTMLFormElement | null }
+type ToggleOwner = { formOwner: () => HTMLFormElement | null };
 
 // The group a checkbox belongs to. It takes the checkbox's changes and resets, and lends it its form.
 type ToggleGroup<Owner extends ToggleOwner> = {
-  owner: () => Owner | undefined
+  owner: () => Owner | undefined;
   write: (
     owner: Owner,
     checked: CheckedState,
-    details: { reason: CheckboxCheckedChangeReason; event?: Event }
-  ) => boolean
-}
+    details: { reason: CheckboxCheckedChangeReason; event?: Event },
+  ) => boolean;
+};
 
 // `Checked` is what the control can be: a checkbox's `CheckedState`, or a switch's boolean.
-function toggleControl<
-  Checked extends CheckedState,
-  Owner extends ToggleOwner = ToggleOwner,
->(
-  {
-    store,
-    element,
-  }: Pick<
-    PrimitiveContext<AnyOptions, ToggleState, string>,
-    "store" | "element"
-  >,
+function toggleControl<Checked extends CheckedState, Owner extends ToggleOwner = ToggleOwner>(
+  { store, element }: Pick<PrimitiveContext<AnyOptions, ToggleState, string>, "store" | "element">,
   change: (
     key: "checked",
     value: CheckedState,
-    details: { reason: CheckboxCheckedChangeReason; event?: Event }
+    details: { reason: CheckboxCheckedChangeReason; event?: Event },
   ) => boolean,
-  group?: ToggleGroup<Owner>
+  group?: ToggleGroup<Owner>,
 ) {
   // The element that takes part in the form: the hidden input, or the custom element itself.
   const formElement = () => {
-    const root = element("root")
-    return formInternals(root) ? root : element("input")
-  }
+    const root = element("root");
+    return formInternals(root) ? root : element("input");
+  };
   const formOwner = () => {
-    const root = element("root")
+    const root = element("root");
     return (
       formInternals(root)?.form ??
       (element("input") as HTMLInputElement | undefined)?.form ??
       group?.owner()?.formOwner()
-    )
-  }
+    );
+  };
 
   function write(
     checked: CheckedState,
-    details: { reason: CheckboxCheckedChangeReason; event?: Event }
+    details: { reason: CheckboxCheckedChangeReason; event?: Event },
   ) {
-    const owner = group?.owner()
+    const owner = group?.owner();
     return group && owner
       ? group.write(owner, checked, details)
-      : change("checked", checked, details)
+      : change("checked", checked, details);
   }
 
   // Sets any state. Parts and forms use it; a switch's controller takes only booleans.
-  function setState(
-    checked: CheckedState,
-    { reason = "imperative", event }: Details = {}
-  ) {
-    const state = store.get()
+  function setState(checked: CheckedState, { reason = "imperative", event }: Details = {}) {
+    const state = store.get();
     if (isDisabled(state) || state.readOnly) {
-      return false
+      return false;
     }
-    const done = write(checked, { reason, event })
+    const done = write(checked, { reason, event });
     if (done && reason !== "restore") {
-      dispatchChange(formElement())
+      dispatchChange(formElement());
     }
-    return done
+    return done;
   }
 
   return {
     // A switch's options take only booleans, so its state never holds anything else.
     getChecked: () => store.get().checked as Checked,
     // Sets the state, as a user would. Disabled and read-only controls ignore it.
-    setChecked: (checked: Checked, details?: Details) =>
-      setState(checked, details),
+    setChecked: (checked: Checked, details?: Details) => setState(checked, details),
     // An indeterminate checkbox becomes checked.
     toggle(details: Details = {}) {
-      return setState(store.get().checked !== true, details)
+      return setState(store.get().checked !== true, details);
     },
     focus: () => element("root")?.focus(),
     form: formOwner,
@@ -225,69 +207,58 @@ function toggleControl<
       restore(saved: string) {
         write(saved === "indeterminate" ? "indeterminate" : saved === "true", {
           reason: "restore",
-        })
+        });
       },
       reset() {
         // A group resets its checkboxes itself.
         if (group?.owner()) {
-          return
+          return;
         }
-        change("checked", store.get().initial, { reason: "reset" })
+        change("checked", store.get().initial, { reason: "reset" });
       },
       setFormDisabled(formDisabled: boolean) {
-        store.set({ formDisabled })
+        store.set({ formDisabled });
       },
       root: () => element("root"),
     },
-  }
+  };
 }
 
 // The api the shared slots use.
-type ToggleApi = Omit<
-  ReturnType<typeof toggleControl>,
-  "getChecked" | "setChecked"
->
+type ToggleApi = Omit<ReturnType<typeof toggleControl>, "getChecked" | "setChecked">;
 
-const isNativeButton = (el: HTMLElement | undefined) =>
-  el instanceof HTMLButtonElement
+const isNativeButton = (el: HTMLElement | undefined) => el instanceof HTMLButtonElement;
 
 const switchState = (state: ToggleState) => ({
   checked: state.checked === true,
   disabled: isDisabled(state),
   readOnly: state.readOnly,
   required: state.required,
-})
+});
 
 const toggleDataAttrs = (state: ToggleState) => ({
   ...checkedAttrs(state.checked),
   "data-disabled": isDisabled(state) ? "" : undefined,
   "data-readonly": state.readOnly ? "" : undefined,
   "data-required": state.required ? "" : undefined,
-})
+});
 
 // The slots Checkbox and Switch share. `role` is checkbox or switch.
-function toggleSlots<
-  State extends ToggleState,
-  Api extends ToggleApi,
-  Public extends object,
->(
+function toggleSlots<State extends ToggleState, Api extends ToggleApi, Public extends object>(
   role: "checkbox" | "switch",
   slot: SlotFactory<State, Api>,
-  publicState: (state: State) => Public
+  publicState: (state: State) => Public,
 ) {
   return {
     // The control itself: a button in React and Vue, the custom element on the web.
     root: slot<{}, Public>({
       // One literal at a time, since TypeScript can't check what a union of roles needs.
-      ...(role === "checkbox"
-        ? { role: "checkbox" as const }
-        : { role: "switch" as const }),
+      ...(role === "checkbox" ? { role: "checkbox" as const } : { role: "switch" as const }),
       focus: "tab-stop",
       state: publicState,
       attrs: (state) => ({
         type: "button",
-        "aria-checked":
-          state.checked === "indeterminate" ? "mixed" : String(state.checked),
+        "aria-checked": state.checked === "indeterminate" ? "mixed" : String(state.checked),
         "aria-readonly": state.readOnly ? "true" : undefined,
         "aria-required": state.required ? "true" : undefined,
         // Custom elements and fieldsets disable without the native attribute.
@@ -299,25 +270,25 @@ function toggleSlots<
       press: ({ api }, event) => {
         // A click on something inside the control, like its indicator, would
         // make a <label> around it click the control again in Firefox and Safari.
-        event?.preventDefault()
-        api.toggle({ reason: "press", event })
+        event?.preventDefault();
+        api.toggle({ reason: "press", event });
       },
       on: {
         keydown: (event, { api, el }) => {
           if (event.key === "Enter") {
             // Enter submits the form, like on a native checkbox, and never toggles.
-            event.preventDefault()
+            event.preventDefault();
             if (!event.repeat) {
-              submitImplicitly(api.form())
+              submitImplicitly(api.form());
             }
           } else if (event.key === " " && !isNativeButton(el)) {
             // Toggles on release, like a button. Stops the page from scrolling.
-            event.preventDefault()
+            event.preventDefault();
           }
         },
         keyup: (event, { api, el }) => {
           if (event.key === " " && !isNativeButton(el)) {
-            api.toggle({ reason: "press", event })
+            api.toggle({ reason: "press", event });
           }
         },
       },
@@ -329,8 +300,7 @@ function toggleSlots<
               : null,
           state: () => String(store.get().checked),
           restore: api.internal.restore,
-          valueMissing: () =>
-            store.get().required && store.get().checked !== true,
+          valueMissing: () => store.get().required && store.get().checked !== true,
           message: () => valueMissingMessage("checkbox"),
           reset: api.internal.reset,
           disabled: api.internal.setFormDisabled,
@@ -365,7 +335,7 @@ function toggleSlots<
           disabled: api.internal.setFormDisabled,
         }),
     }),
-  }
+  };
 }
 
 export {
@@ -384,4 +354,4 @@ export {
   toggleSlots,
   toggleState,
   type ToggleState,
-}
+};

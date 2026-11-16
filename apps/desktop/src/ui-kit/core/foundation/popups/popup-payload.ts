@@ -5,17 +5,14 @@
 // `onPayloadChange` hears all three. A handover opens nothing, so that
 // callback is how content outside a framework, like a web component's, hears
 // about it.
-import type { Store } from "../kernel/store"
+import type { Store } from "../kernel/store";
 
 function createPopupPayload<Reason extends string>(
   store: Store<{ trigger: string | null; payload: unknown }>,
   // Fires `onPayloadChange` and writes the payload, unless canceled.
-  change: (
-    payload: unknown,
-    details: { reason: Reason; event?: Event }
-  ) => boolean
+  change: (payload: unknown, details: { reason: Reason; event?: Event }) => boolean,
 ) {
-  type Details = { reason: Reason; event?: Event }
+  type Details = { reason: Reason; event?: Event };
 
   return {
     // Call before an open fires `onOpenChange`, so it reads the new payload.
@@ -24,26 +21,26 @@ function createPopupPayload<Reason extends string>(
       const previous = {
         trigger: store.get().trigger,
         payload: store.get().payload,
-      }
+      };
       if (trigger !== undefined) {
-        store.set({ trigger })
+        store.set({ trigger });
       }
-      change(payload, details)
-      return () => store.set(previous)
+      change(payload, details);
+      return () => store.set(previous);
     },
     // Another trigger takes the open popup over, with its own payload.
     handOver(trigger: string, payload: unknown, details: Details) {
-      store.set({ trigger })
-      change(payload, details)
+      store.set({ trigger });
+      change(payload, details);
     },
     // A controller opens the popup while it's open. A payload it passes
     // replaces the current one, like a handover, and the trigger key stays, as
     // when a controller opens it closed. Without a payload nothing changes.
     // Returns whether the payload changed, so the caller can move its anchor too.
     reopening(openOptions: { payload?: unknown }, details: Details) {
-      return "payload" in openOptions && change(openOptions.payload, details)
+      return "payload" in openOptions && change(openOptions.payload, details);
     },
-  }
+  };
 }
 
-export { createPopupPayload }
+export { createPopupPayload };

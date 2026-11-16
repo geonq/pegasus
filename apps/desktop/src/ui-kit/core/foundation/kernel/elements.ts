@@ -1,5 +1,5 @@
-import { inDocumentOrder } from "./order"
-import type { Part } from "./primitive-types"
+import { inDocumentOrder } from "./order";
+import type { Part } from "./primitive-types";
 
 /**
  * A slot's bound elements, in document order, so collections keep no index
@@ -8,17 +8,16 @@ import type { Part } from "./primitive-types"
  */
 function elements<Props extends object = object>(
   context: { parts(): Iterable<Part> },
-  slot: string
+  slot: string,
 ) {
   const bound = [...context.parts()].filter(
-    (part): part is Part & { el: HTMLElement } =>
-      part.slot === slot && !!part.el?.isConnected
-  )
+    (part): part is Part & { el: HTMLElement } => part.slot === slot && !!part.el?.isConnected,
+  );
   return inDocumentOrder(bound).map(({ el, key, props }) => ({
     el,
     key,
     props: props as Props,
-  }))
+  }));
 }
 
-export { elements }
+export { elements };

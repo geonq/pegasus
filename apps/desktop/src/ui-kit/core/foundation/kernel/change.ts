@@ -6,36 +6,27 @@ import {
   expectControlled,
   forgetControlled,
   heardControlled,
-} from "./dev-stub"
-import {
-  createDetails,
-  resolveSource,
-  withSource,
-  type ChangeSource,
-} from "./details"
-import { callbackName } from "./option-names"
-import type {
-  PrimitiveContext,
-  PrimitiveOptions,
-  ReasonFor,
-} from "./primitive-types"
-import { sameValue } from "./store"
+} from "./dev-stub";
+import { createDetails, resolveSource, withSource, type ChangeSource } from "./details";
+import { callbackName } from "./option-names";
+import type { PrimitiveContext, PrimitiveOptions, ReasonFor } from "./primitive-types";
+import { sameValue } from "./store";
 
-type InputSource = (reason: string, event?: Event) => ChangeSource
+type InputSource = (reason: string, event?: Event) => ChangeSource;
 
-type LogContext = { id: string; label: string; options: () => unknown }
+type LogContext = { id: string; label: string; options: () => unknown };
 
 function debug(
   context: LogContext,
   key: string,
   value: unknown,
   reason: string,
-  source: ChangeSource
+  source: ChangeSource,
 ) {
   if (dev && (context.options() as PrimitiveOptions).debug) {
     console.debug(
-      `[ui-sdk] ${context.label}#${context.id} ${key}: ${String(value)} (${reason}, ${source})`
-    )
+      `[ui-sdk] ${context.label}#${context.id} ${key}: ${String(value)} (${reason}, ${source})`,
+    );
   }
 }
 
@@ -43,99 +34,96 @@ function debug(
 // of ours whose changes no input causes, so it doesn't bundle input tracking.
 function changeFrom<Options, State extends object>(
   context: PrimitiveContext<Options, State, any>,
-  source: InputSource
+  source: InputSource,
 ) {
-  const { store, options } = context
-  const requested = new Map<string, { value: unknown; source: ChangeSource }>()
+  const { store, options } = context;
+  const requested = new Map<string, { value: unknown; source: ChangeSource }>();
   // Changes asked of each key, so one asked from inside `on<Key>Change`, like
   // a clamp, stands over the change that called it.
-  const asked = new Map<string, number>()
+  const asked = new Map<string, number>();
   // The value each key is changing to while its callback runs. Asking for that
   // same value from inside, like a view that renders it back, is the same
   // change: it does nothing itself, so the outer change commits or cancels it.
-  const changing = new Map<string, unknown>()
+  const changing = new Map<string, unknown>();
 
   // A controlled key's next options report the source of the change that asked for them.
   context.onOptions((next, synced) => {
     if (dev) {
-      heardControlled(requested, next as object)
+      heardControlled(requested, next as object);
     }
     if (!synced) {
-      return
+      return;
     }
-    let source: ChangeSource | undefined
+    let source: ChangeSource | undefined;
     for (const [key, entry] of requested) {
       if (!(key in synced)) {
-        continue
+        continue;
       }
       if (sameValue((synced as Record<string, unknown>)[key], entry.value)) {
-        source = entry.source
+        source = entry.source;
       }
-      requested.delete(key)
+      requested.delete(key);
     }
-    return source
-  })
+    return source;
+  });
   if (dev) {
-    context.onDestroy(() => forgetControlled(requested))
+    context.onDestroy(() => forgetControlled(requested));
   }
 
   return <Key extends keyof State & string>(
     key: Key,
     value: State[Key],
     details: {
-      reason: ReasonFor<Options, Key>
-      event?: Event
-      source?: ChangeSource
-      [extra: string]: unknown
-    }
+      reason: ReasonFor<Options, Key>;
+      event?: Event;
+      source?: ChangeSource;
+      [extra: string]: unknown;
+    },
   ) => {
     if (changing.has(key) && sameValue(changing.get(key), value)) {
-      return false
+      return false;
     }
-    const ask = (asked.get(key) ?? 0) + 1
-    asked.set(key, ask)
-    const previous = store.get()[key]
+    const ask = (asked.get(key) ?? 0) + 1;
+    asked.set(key, ask);
+    const previous = store.get()[key];
     if (sameValue(previous, value)) {
-      return false
+      return false;
     }
-    const { reason, event } = details
-    const callbackDetails = createDetails(
-      details,
-      details.source ?? source(reason, event)
-    )
+    const { reason, event } = details;
+    const callbackDetails = createDetails(details, details.source ?? source(reason, event));
     if (dev) {
-      checkEvent(reason, event, { component: context.label, id: context.id })
+      checkEvent(reason, event, { component: context.label, id: context.id });
     }
-    debug(context, key, value, reason, callbackDetails.source)
-    const current = options() as Record<string, unknown>
-    const isControlled = current[key] !== undefined
-    const outer = changing.has(key)
-    const outerValue = changing.get(key)
-    changing.set(key, value)
+    debug(context, key, value, reason, callbackDetails.source);
+    const current = options() as Record<string, unknown>;
+    const isControlled = current[key] !== undefined;
+    const outer = changing.has(key);
+    const outerValue = changing.get(key);
+    changing.set(key, value);
     try {
       withSource(callbackDetails.source, () => {
-        const name = callbackName(key, "Change")
-        const callback = current[name]
+        const name = callbackName(key, "Change");
+        const callback = current[name];
         if (typeof callback === "function") {
-          const prevented = dev && !!event?.defaultPrevented
-          callback(value, callbackDetails)
+          const prevented = dev && !!event?.defaultPrevented;
+          callback(value, callbackDetails);
           if (dev) {
             checkPrevented(name, prevented, callbackDetails, {
               component: context.label,
               id: context.id,
-            })
+            });
           }
         }
-        const askedInside = asked.get(key) !== ask
+        const askedInside = asked.get(key) !== ask;
         if (!callbackDetails.canceled && !isControlled && !askedInside) {
-          store.set({ [key]: value } as unknown as Partial<State>)
+          store.set({ [key]: value } as unknown as Partial<State>);
         }
-      })
+      });
     } finally {
       if (outer) {
-        changing.set(key, outerValue)
+        changing.set(key, outerValue);
       } else {
-        changing.delete(key)
+        changing.delete(key);
       }
     }
     if (dev) {
@@ -149,13 +137,13 @@ function changeFrom<Options, State extends object>(
         source: callbackDetails.source,
         canceled: callbackDetails.canceled,
         controlled: isControlled,
-      })
+      });
     }
     if (callbackDetails.canceled) {
-      return false
+      return false;
     }
     if (isControlled) {
-      requested.set(key, { value, source: callbackDetails.source })
+      requested.set(key, { value, source: callbackDetails.source });
       if (dev) {
         expectControlled(
           requested,
@@ -167,12 +155,12 @@ function changeFrom<Options, State extends object>(
             reason,
             source: callbackDetails.source,
           },
-          () => (options() as Record<string, unknown>)[key]
-        )
+          () => (options() as Record<string, unknown>)[key],
+        );
       }
     }
-    return true
-  }
+    return true;
+  };
 }
 
 /**
@@ -184,9 +172,9 @@ function log(
   context: LogContext,
   key: string,
   value: unknown,
-  details: { reason: string; source?: ChangeSource }
+  details: { reason: string; source?: ChangeSource },
 ) {
-  const source = details.source ?? resolveSource(details.reason)
+  const source = details.source ?? resolveSource(details.reason);
   if (dev) {
     emit({
       type: "change",
@@ -198,9 +186,9 @@ function log(
       source,
       canceled: false,
       controlled: false,
-    })
+    });
   }
-  debug(context, key, value, details.reason, source)
+  debug(context, key, value, details.reason, source);
 }
 
-export { changeFrom, log }
+export { changeFrom, log };

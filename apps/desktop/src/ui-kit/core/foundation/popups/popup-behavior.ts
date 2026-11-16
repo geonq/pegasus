@@ -1,7 +1,7 @@
-import type { PopupModal } from "./popup"
+import type { PopupModal } from "./popup";
 
 /** How Tab moves through a popup. See `PopupBehavior.tab`. */
-type PopupTab = "close" | "flow" | "trap" | "native"
+type PopupTab = "close" | "flow" | "trap" | "native";
 
 /**
  * How a kind of popup behaves. Components start from a preset in
@@ -15,33 +15,33 @@ type PopupBehavior = {
   // "trap": Tab wraps inside the popup.
   // "native": the browser moves focus, in and out, and nothing closes.
   // A function picks from the modal effects, read live.
-  tab: PopupTab | ((modal: PopupModal) => PopupTab)
+  tab: PopupTab | ((modal: PopupModal) => PopupTab);
   // Whether the window losing focus closes the popup. "iframe" closes only
   // when focus moved into an iframe outside it, so switching windows keeps it open.
-  blur: "always" | "iframe" | "never"
+  blur: "always" | "iframe" | "never";
   // An outside press dismisses at "pointerdown", or at "click", once it has
   // also been released outside.
-  outsidePress: "pointerdown" | "click"
+  outsidePress: "pointerdown" | "click";
   // Stops outside presses at this layer, so popups beneath stay open.
-  shield: boolean
+  shield: boolean;
   // Whether the trigger stays usable while the popup makes the page inert. A
   // modal dialog's trigger doesn't, since nothing outside it may be used.
-  keepTrigger: boolean
+  keepTrigger: boolean;
   // Whether focus moves in for a popup that's open from the start, once it
   // binds. A modal dialog has to hold focus; a popover leaves it alone.
-  focusOnMount: boolean
+  focusOnMount: boolean;
   // Whether focus leaving a "flow" popup closes it. A non-modal dialog stays.
-  dismissOnFocusLoss: boolean
+  dismissOnFocusLoss: boolean;
   // Whether Android's back gesture closes the popup, through a CloseWatcher,
   // with reason "back". Only the topmost watcher hears it.
-  closeWatcher: boolean
+  closeWatcher: boolean;
   // Whether the open popup pauses keyboard shortcuts registered outside it.
   // A function picks from the modal effects, read when it shows.
-  blocking: boolean | ((modal: PopupModal) => boolean)
+  blocking: boolean | ((modal: PopupModal) => boolean);
   // Whether the popup ever moves focus: in when it opens, and back when it
   // closes. A tooltip never does, since focus stays on its trigger.
-  movesFocus: boolean
-}
+  movesFocus: boolean;
+};
 
 const plain: PopupBehavior = {
   tab: "close",
@@ -54,9 +54,9 @@ const plain: PopupBehavior = {
   closeWatcher: false,
   blocking: false,
   movesFocus: true,
-}
+};
 
-const trapOrFlow = (modal: PopupModal) => (modal.trapFocus ? "trap" : "flow")
+const trapOrFlow = (modal: PopupModal) => (modal.trapFocus ? "trap" : "flow");
 
 /** The behavior of each kind of popup. Drawer adds its here. */
 const popupPresets = {
@@ -96,31 +96,22 @@ const popupPresets = {
   // next item, focus leaving the navigation closes it, and switching windows
   // leaves it as it was.
   navigationMenu: { ...plain, tab: "flow", blur: "never" },
-} satisfies Record<string, PopupBehavior>
+} satisfies Record<string, PopupBehavior>;
 
-type PopupBehaviorName = keyof typeof popupPresets
+type PopupBehaviorName = keyof typeof popupPresets;
 
 // The preset's behavior, with any option passed beside it winning. Undefined
 // options leave the preset's value.
-function resolveBehavior(
-  preset: PopupBehaviorName,
-  overrides: Partial<PopupBehavior>
-) {
-  const behavior: PopupBehavior = { ...popupPresets[preset] }
+function resolveBehavior(preset: PopupBehaviorName, overrides: Partial<PopupBehavior>) {
+  const behavior: PopupBehavior = { ...popupPresets[preset] };
   for (const key of Object.keys(plain) as (keyof PopupBehavior)[]) {
-    const value = overrides[key]
+    const value = overrides[key];
     // Each key copies its own value, which TypeScript can't follow through a loop.
     if (value !== undefined) {
-      Object.assign(behavior, { [key]: value })
+      Object.assign(behavior, { [key]: value });
     }
   }
-  return behavior
+  return behavior;
 }
 
-export {
-  type PopupBehavior,
-  type PopupBehaviorName,
-  popupPresets,
-  type PopupTab,
-  resolveBehavior,
-}
+export { type PopupBehavior, type PopupBehaviorName, popupPresets, type PopupTab, resolveBehavior };

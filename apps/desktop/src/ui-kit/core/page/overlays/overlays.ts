@@ -2,7 +2,7 @@
 // like `toast()` and `confirm()`, and later sheets. Each framework has one host
 // component (`<OverlayHost />`, `<ui-overlay-host>`) that the app mounts once.
 // It renders every entry by its type. Core never renders anything itself.
-import { dev, warn } from "../../foundation/kernel/dev-stub"
+import { dev, warn } from "../../foundation/kernel/dev-stub";
 
 /**
  * One overlay a host renders.
@@ -10,14 +10,14 @@ import { dev, warn } from "../../foundation/kernel/dev-stub"
  */
 type OverlayEntry = {
   /** Unique within its registry. */
-  id: string
+  id: string;
   /** What kind of overlay it is, which picks the component that renders it: `"toaster"` or `"confirm"`. */
-  type: string
+  type: string;
   /** What the renderer needs, like the toaster whose region it shows. */
-  data: unknown
-}
+  data: unknown;
+};
 
-let count = 0
+let count = 0;
 
 /**
  * Creates a registry of overlays. Most apps use the shared `overlays`, which
@@ -27,19 +27,19 @@ let count = 0
  */
 function createOverlays() {
   // Replaced on every change, so a framework can compare snapshots by identity.
-  let entries: readonly OverlayEntry[] = []
-  const listeners = new Set<() => void>()
-  let hosts = 0
+  let entries: readonly OverlayEntry[] = [];
+  const listeners = new Set<() => void>();
+  let hosts = 0;
 
-  const notify = () => listeners.forEach((listener) => listener())
+  const notify = () => listeners.forEach((listener) => listener());
 
   function unmount(id: string) {
-    const next = entries.filter((entry) => entry.id !== id)
+    const next = entries.filter((entry) => entry.id !== id);
     if (next.length === entries.length) {
-      return
+      return;
     }
-    entries = next
-    notify()
+    entries = next;
+    notify();
   }
 
   return {
@@ -50,24 +50,20 @@ function createOverlays() {
      * so development builds don't warn about a missing host.
      */
     mount(type: string, data: unknown, rendered?: () => boolean) {
-      const id = `${type}-${++count}`
-      entries = [...entries, { id, type, data }]
-      notify()
+      const id = `${type}-${++count}`;
+      entries = [...entries, { id, type, data }];
+      notify();
       // A host that mounts in the same task, like during hydration, still counts.
       if (dev && typeof window !== "undefined") {
         setTimeout(() => {
-          if (
-            !hosts &&
-            !rendered?.() &&
-            entries.some((entry) => entry.id === id)
-          ) {
+          if (!hosts && !rendered?.() && entries.some((entry) => entry.id === id)) {
             warn(
-              `A ${type} opened, but no host renders it. Mount <OverlayHost /> (or <ui-overlay-host>) once in your app.`
-            )
+              `A ${type} opened, but no host renders it. Mount <OverlayHost /> (or <ui-overlay-host>) once in your app.`,
+            );
           }
-        }, 1000)
+        }, 1000);
       }
-      return id
+      return id;
     },
     /** Removes an overlay. */
     unmount,
@@ -75,32 +71,32 @@ function createOverlays() {
     entries: () => entries,
     /** Calls `listener` whenever an overlay is added or removed. Returns a function that stops it. */
     subscribe(listener: () => void) {
-      listeners.add(listener)
+      listeners.add(listener);
       return () => {
-        listeners.delete(listener)
-      }
+        listeners.delete(listener);
+      };
     },
     /** Counts a host that renders this registry. Hosts call it while mounted. Returns a release. */
     attachHost() {
-      hosts++
-      let attached = true
+      hosts++;
+      let attached = true;
       return () => {
         if (attached) {
-          hosts--
+          hosts--;
         }
-        attached = false
-      }
+        attached = false;
+      };
     },
     /** Whether a host is mounted to render the overlays. */
     hasHost: () => hosts > 0,
-  }
+  };
 }
 
 /**
  * A registry of overlays, from `createOverlays()`.
  * @stable
  */
-type Overlays = ReturnType<typeof createOverlays>
+type Overlays = ReturnType<typeof createOverlays>;
 
 /**
  * The shared registry that `toast()` and `confirm()` open into, and that
@@ -108,8 +104,7 @@ type Overlays = ReturnType<typeof createOverlays>
  * the package load on one page.
  * @stable
  */
-const overlays = ((globalThis as Record<symbol, unknown>)[
-  Symbol.for("ui-sdk.overlays@1")
-] ??= createOverlays()) as Overlays
+const overlays = ((globalThis as Record<symbol, unknown>)[Symbol.for("ui-sdk.overlays@1")] ??=
+  createOverlays()) as Overlays;
 
-export { createOverlays, type OverlayEntry, overlays, type Overlays }
+export { createOverlays, type OverlayEntry, overlays, type Overlays };

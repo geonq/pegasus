@@ -42,7 +42,12 @@ function markdownComponents(
               {lines.map((line, index) => (
                 <Fragment key={index}>
                   {index > 0 ? "\n" : null}
-                  <HighlightedLine content={line} language={grammar} source={lines} lineIndex={index} />
+                  <HighlightedLine
+                    content={line}
+                    language={grammar}
+                    source={lines}
+                    lineIndex={index}
+                  />
                 </Fragment>
               ))}
             </code>

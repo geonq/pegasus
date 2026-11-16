@@ -1,16 +1,16 @@
 // A panel that shows and hides with its own enter and exit animations, size
 // variables, find in page and focus handling: Collapsible's and Accordion's
 // panels, and any panel a custom primitive shows, like a tree's group.
-import { onProps } from "../kernel/part"
-import type { Part } from "../kernel/primitive-types"
-import { animateIn, animateOut } from "./presence"
+import { onProps } from "../kernel/part";
+import type { Part } from "../kernel/primitive-types";
+import { animateIn, animateOut } from "./presence";
 
 /**
  * A panel's `hidden` attribute: absent when shown, `"until-found"` when find in page may open it, else `""`.
  * @stable
  */
 function hiddenAttrs(shown: boolean, findable: boolean) {
-  return { hidden: shown ? undefined : findable ? "until-found" : "" }
+  return { hidden: shown ? undefined : findable ? "until-found" : "" };
 }
 
 /**
@@ -18,7 +18,7 @@ function hiddenAttrs(shown: boolean, findable: boolean) {
  * @stable
  */
 function supportsHiddenUntilFound() {
-  return typeof document !== "undefined" && "onbeforematch" in document.body
+  return typeof document !== "undefined" && "onbeforematch" in document.body;
 }
 
 /**
@@ -32,39 +32,36 @@ function supportsHiddenUntilFound() {
 function bindFindable(
   el: HTMLElement,
   panel: {
-    shown: () => boolean
-    findable: () => boolean
-    reveal: (event: Event) => void
-  }
+    shown: () => boolean;
+    findable: () => boolean;
+    reveal: (event: Event) => void;
+  },
 ) {
   const keep = () => {
     if (panel.shown()) {
-      return
+      return;
     }
-    const hidden = el.getAttribute("hidden")
+    const hidden = el.getAttribute("hidden");
     if (panel.findable()) {
       if (hidden !== "until-found") {
-        el.setAttribute("hidden", "until-found")
+        el.setAttribute("hidden", "until-found");
       }
     } else if (hidden === "until-found") {
-      el.setAttribute("hidden", "")
+      el.setAttribute("hidden", "");
     }
-  }
-  keep()
-  const observer =
-    typeof MutationObserver === "undefined"
-      ? undefined
-      : new MutationObserver(keep)
-  observer?.observe(el, { attributes: true, attributeFilter: ["hidden"] })
-  el.addEventListener("beforematch", panel.reveal)
+  };
+  keep();
+  const observer = typeof MutationObserver === "undefined" ? undefined : new MutationObserver(keep);
+  observer?.observe(el, { attributes: true, attributeFilter: ["hidden"] });
+  el.addEventListener("beforematch", panel.reveal);
   return Object.assign(
     () => {
-      observer?.disconnect()
-      el.removeEventListener("beforematch", panel.reveal)
+      observer?.disconnect();
+      el.removeEventListener("beforematch", panel.reveal);
     },
     // Call when the panel's state changes.
-    { check: keep }
-  )
+    { check: keep },
+  );
 }
 
 /**
@@ -76,26 +73,26 @@ type PanelBinding = {
    * Writes the panel's size variables, like `--accordion-panel-height`: the
    * measured size while animating, `auto` once open and `0px` while closed.
    */
-  size: (el: HTMLElement, height: string, width: string) => void
+  size: (el: HTMLElement, height: string, width: string) => void;
   /** Whether the panel is open now. */
-  isOpen: () => boolean
+  isOpen: () => boolean;
   /** Whether a closed panel is still shown while it animates out. Keep the panel `present` while it is. */
-  isExiting: () => boolean
+  isExiting: () => boolean;
   /** Whether a closed panel stays in the page, findable with `hidden="until-found"`. */
-  isFindable: () => boolean
+  isFindable: () => boolean;
   /** How the panel opens: as it mounts with the page, at once, or animated. */
-  opening: () => "mount" | "instant" | "animate"
+  opening: () => "mount" | "instant" | "animate";
   /** Find in page matched text in the closed panel. Open it here. */
-  reveal: (event: Event) => void
+  reveal: (event: Event) => void;
   /** Where focus goes when the panel closes with focus inside it, like its trigger. */
-  trigger: () => HTMLElement | undefined
+  trigger: () => HTMLElement | undefined;
   /** Runs `listener` when the panel's state may have changed, like `store.subscribe`. Returns the unsubscribe. */
-  subscribe: (listener: () => void) => () => void
+  subscribe: (listener: () => void) => () => void;
   /** The open or close animation finished, or there was none. Never on mount. */
-  settled: (open: boolean) => void
+  settled: (open: boolean) => void;
   /** The exit animation finished, so the panel can leave the page: stop counting it as exiting here. */
-  exited: () => void
-}
+  exited: () => void;
+};
 
 /**
  * Binds a panel element that opens and closes: `data-starting-style` and
@@ -106,118 +103,115 @@ type PanelBinding = {
  * @stable
  */
 function bindPanel(el: HTMLElement, panel: PanelBinding) {
-  const cleanups: (() => void)[] = []
-  const size = (height: string, width = height) => panel.size(el, height, width)
-  const shown = () => panel.isOpen() || panel.isExiting()
+  const cleanups: (() => void)[] = [];
+  const size = (height: string, width = height) => panel.size(el, height, width);
+  const shown = () => panel.isOpen() || panel.isExiting();
 
   const findable = bindFindable(el, {
     shown,
     findable: panel.isFindable,
     reveal: panel.reveal,
-  })
-  cleanups.push(findable)
+  });
+  cleanups.push(findable);
 
-  let stop: (() => void) | undefined
+  let stop: (() => void) | undefined;
   const halt = () => {
-    stop?.()
-    stop = undefined
-  }
+    stop?.();
+    stop = undefined;
+  };
 
   const opening = () => {
-    halt()
-    const how = panel.opening()
+    halt();
+    const how = panel.opening();
     if (how !== "animate") {
       // Nothing animates on the first paint or for a find in page match, keyframes included.
       for (const animation of el.getAnimations()) {
-        animation.finish()
+        animation.finish();
       }
-      size("auto")
+      size("auto");
       if (how === "instant") {
-        panel.settled(true)
+        panel.settled(true);
       }
-      return
+      return;
     }
     // The render that shows the panel comes after this change. Measuring needs
     // it shown now, and keyframes keyed on the state need the state too.
-    el.removeAttribute("hidden")
-    el.removeAttribute("data-closed")
-    el.setAttribute("data-open", "")
+    el.removeAttribute("hidden");
+    el.removeAttribute("data-closed");
+    el.setAttribute("data-open", "");
     // Starting style first, so measuring computes the closed size and nothing
     // transitions from a size the panel never showed.
     stop = animateIn(el, () => {
-      stop = undefined
-      size("auto")
-      panel.settled(true)
-    })
-    size(`${el.scrollHeight}px`, `${el.scrollWidth}px`)
-  }
+      stop = undefined;
+      size("auto");
+      panel.settled(true);
+    });
+    size(`${el.scrollHeight}px`, `${el.scrollWidth}px`);
+  };
 
   const closing = () => {
-    halt()
+    halt();
     // Focus inside a closing panel would drop to the page. Its trigger is the closest place.
     if (el.contains(document.activeElement)) {
-      panel.trigger()?.focus({ preventScroll: true })
+      panel.trigger()?.focus({ preventScroll: true });
     }
     if (!panel.isExiting()) {
-      size("0px")
-      panel.settled(false)
-      return
+      size("0px");
+      panel.settled(false);
+      return;
     }
     // Exit animations keyed on the state must be running when animateOut looks for them.
-    el.removeAttribute("data-open")
-    el.setAttribute("data-closed", "")
+    el.removeAttribute("data-open");
+    el.setAttribute("data-closed", "");
     // From the size it has now, so an interrupted opening animates back from
     // where it is. Keyframes read the variable, so it holds until the end.
-    const style = getComputedStyle(el)
-    size(style.height, style.width)
+    const style = getComputedStyle(el);
+    size(style.height, style.width);
     // Commits that size, so the change to zero animates from it.
-    void el.offsetHeight
+    void el.offsetHeight;
     // `stop` stays set, so reopening before the exit resets clears it at once.
     stop = animateOut(el, () => {
-      size("0px")
-      panel.exited()
-      panel.settled(false)
-    })
-  }
+      size("0px");
+      panel.exited();
+      panel.settled(false);
+    });
+  };
 
-  let open = panel.isOpen()
+  let open = panel.isOpen();
   if (open) {
-    opening()
+    opening();
   } else {
-    size("0px")
+    size("0px");
   }
   cleanups.push(
     panel.subscribe(() => {
-      findable.check()
+      findable.check();
       if (panel.isOpen() === open) {
-        return
+        return;
       }
-      open = !open
+      open = !open;
       if (open) {
-        opening()
+        opening();
       } else {
-        closing()
+        closing();
       }
-    })
-  )
-  cleanups.push(halt)
-  return () => cleanups.forEach((cleanup) => cleanup())
+    }),
+  );
+  cleanups.push(halt);
+  return () => cleanups.forEach((cleanup) => cleanup());
 }
 
 // A panel's `subscribe`: its state, and each render of its part, which can
 // change a prop like `hiddenUntilFound` with no state change.
-function stateAndRenders(
-  store: { subscribe: (listener: () => void) => () => void },
-  part: Part
-) {
+function stateAndRenders(store: { subscribe: (listener: () => void) => () => void }, part: Part) {
   return (listener: () => void) => {
-    const offState = store.subscribe(listener)
-    const offProps = onProps(part, listener)
+    const offState = store.subscribe(listener);
+    const offProps = onProps(part, listener);
     return () => {
-      offState()
-      offProps()
-    }
-  }
+      offState();
+      offProps();
+    };
+  };
 }
 
 export {
@@ -227,4 +221,4 @@ export {
   type PanelBinding,
   stateAndRenders,
   supportsHiddenUntilFound,
-}
+};

@@ -12,7 +12,7 @@ const implicitRoles: [selector: string, role: string][] = [
   ["input[type=range]", "slider"],
   ["dialog", "dialog"],
   ["h1, h2, h3, h4, h5, h6", "heading"],
-]
+];
 
 // Roles a name can come from the element's text for. The others need
 // `aria-label`, `aria-labelledby`, a label element or `title`.
@@ -34,32 +34,32 @@ const namedByContent = new Set([
   "switch",
   "tab",
   "treeitem",
-])
+]);
 
 function roleOf(el: Element) {
-  const explicit = el.getAttribute("role")?.trim().split(/\s+/)[0]
+  const explicit = el.getAttribute("role")?.trim().split(/\s+/)[0];
   if (explicit) {
-    return explicit
+    return explicit;
   }
-  return implicitRoles.find(([selector]) => el.matches(selector))?.[1] ?? ""
+  return implicitRoles.find(([selector]) => el.matches(selector))?.[1] ?? "";
 }
 
 // Hidden from everyone, by attribute or, where there's a window to compute
 // them, by styles.
 function isHidden(el: Element) {
   if (el.hasAttribute("hidden") || el.getAttribute("aria-hidden") === "true") {
-    return true
+    return true;
   }
-  const style = el.ownerDocument.defaultView?.getComputedStyle(el)
-  return style?.display === "none" || style?.visibility === "hidden"
+  const style = el.ownerDocument.defaultView?.getComputedStyle(el);
+  return style?.display === "none" || style?.visibility === "hidden";
 }
 
 // The element an id names in the tree `el` is in, so a label inside a shadow root is found.
 function byId(el: Element, id: string) {
   const root = el.getRootNode() as Node & {
-    getElementById?: (id: string) => Element | null
-  }
-  return root.getElementById?.(id) ?? null
+    getElementById?: (id: string) => Element | null;
+  };
+  return root.getElementById?.(id) ?? null;
 }
 
 // The text of the elements aria-labelledby names, each by its aria-label or its content.
@@ -69,21 +69,18 @@ function labelledByOf(el: Element) {
     .map((id) => id && byId(el, id))
     .filter((label) => !!label)
     .map((label) => label.getAttribute("aria-label") ?? contentOf(label, true))
-    .join(" ")
+    .join(" ");
 }
 
 // What an image or an icon is called by its own markup: an `<img>`'s alt or an `<svg>`'s `<title>`.
 function embeddedName(el: Element) {
   if (el.localName === "img") {
-    return el.getAttribute("alt") ?? ""
+    return el.getAttribute("alt") ?? "";
   }
   if (el.localName !== "svg") {
-    return ""
+    return "";
   }
-  return (
-    [...el.children].find((child) => child.localName === "title")
-      ?.textContent ?? ""
-  )
+  return [...el.children].find((child) => child.localName === "title")?.textContent ?? "";
 }
 
 // What an element inside another's content adds to its name
@@ -93,49 +90,42 @@ function embeddedName(el: Element) {
 // repeat the name of the field it names.
 function nameWithin(el: Element, labelling: boolean, hidden: boolean) {
   if (el.matches("input, select, textarea")) {
-    return ""
+    return "";
   }
   const own =
-    (!labelling && labelledByOf(el)) ||
-    el.getAttribute("aria-label")?.trim() ||
-    embeddedName(el)
+    (!labelling && labelledByOf(el)) || el.getAttribute("aria-label")?.trim() || embeddedName(el);
   if (own) {
-    return ` ${own} `
+    return ` ${own} `;
   }
   // An icon's drawing isn't text.
   if (el.localName === "svg") {
-    return ""
+    return "";
   }
-  const content = contentOf(el, labelling, hidden)
-  const title = el.getAttribute("title")
-  return content || (title ? ` ${title} ` : "")
+  const content = contentOf(el, labelling, hidden);
+  const title = el.getAttribute("title");
+  return content || (title ? ` ${title} ` : "");
 }
 
 // The text an element's content names it with, without its hidden descendants.
 // A hidden element can still name another through aria-labelledby, and then
 // gives all its text, as browsers do.
 function contentOf(el: Element, labelling = false, hidden = isHidden(el)) {
-  let text = ""
+  let text = "";
   for (const node of el.childNodes) {
     if (node.nodeType === Node.TEXT_NODE) {
-      text += node.nodeValue
-    } else if (
-      node.nodeType === Node.ELEMENT_NODE &&
-      (hidden || !isHidden(node as Element))
-    ) {
-      text += nameWithin(node as Element, labelling, hidden)
+      text += node.nodeValue;
+    } else if (node.nodeType === Node.ELEMENT_NODE && (hidden || !isHidden(node as Element))) {
+      text += nameWithin(node as Element, labelling, hidden);
     }
   }
-  return text
+  return text;
 }
 
-const collapse = (text: string) => text.replace(/\s+/g, " ").trim()
+const collapse = (text: string) => text.replace(/\s+/g, " ").trim();
 
 // Only labelable elements have `labels`. Read only when needed: Chromium walks the page for them.
 const labelsOf = (el: Element) =>
-  [...((el as HTMLInputElement).labels ?? [])]
-    .map((label) => contentOf(label))
-    .join(" ")
+  [...((el as HTMLInputElement).labels ?? [])].map((label) => contentOf(label)).join(" ");
 
 // Where a name comes from, in the order browsers take them.
 const nameSources = [
@@ -145,22 +135,19 @@ const nameSources = [
   embeddedName,
   (el: Element) => (namedByContent.has(roleOf(el)) ? contentOf(el) : ""),
   (el: Element) => el.getAttribute("title") ?? "",
-]
+];
 
 // The same sources with labels last, for asking only whether there's a name.
-const labelsLast = [
-  ...nameSources.filter((source) => source !== labelsOf),
-  labelsOf,
-]
+const labelsLast = [...nameSources.filter((source) => source !== labelsOf), labelsOf];
 
 function firstName(el: Element, sources: typeof nameSources) {
   for (const source of sources) {
-    const name = collapse(source(el))
+    const name = collapse(source(el));
     if (name) {
-      return name
+      return name;
     }
   }
-  return ""
+  return "";
 }
 
 /**
@@ -170,12 +157,12 @@ function firstName(el: Element, sources: typeof nameSources) {
  * and its elements' own labels.
  */
 function accessibleName(el: Element) {
-  return firstName(el, nameSources)
+  return firstName(el, nameSources);
 }
 
 /** Whether `el` has an accessible name, reading its labels only when nothing else names it. */
 function hasAccessibleName(el: Element) {
-  return firstName(el, labelsLast) !== ""
+  return firstName(el, labelsLast) !== "";
 }
 
-export { accessibleName, hasAccessibleName, namedByContent, roleOf }
+export { accessibleName, hasAccessibleName, namedByContent, roleOf };

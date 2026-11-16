@@ -8,7 +8,13 @@ import {
 } from "../../electron/remote/remote-state-delta";
 
 const message = (id: string, text: string): TranscriptMessage =>
-  ({ kind: "message", id, role: "assistant", text, createdAt: "2026-11-12T00:00:00.000Z" }) as never;
+  ({
+    kind: "message",
+    id,
+    role: "assistant",
+    text,
+    createdAt: "2026-11-12T00:00:00.000Z",
+  }) as never;
 const record = (...items: TranscriptMessage[]): SelectedTranscriptRecord => ({
   workspaceId: "w",
   sessionId: "s",
@@ -31,9 +37,9 @@ test("a streamed token becomes one update patch and rebuilds the same transcript
 
 test("appends, removals and an unchanged transcript round-trip exactly", () => {
   const before = record(message("a", "1"), message("b", "2"));
-  expect(roundTrip(before, record(message("a", "1"), message("b", "2"), message("c", "3")))).toEqual(
-    record(message("a", "1"), message("b", "2"), message("c", "3")),
-  );
+  expect(
+    roundTrip(before, record(message("a", "1"), message("b", "2"), message("c", "3"))),
+  ).toEqual(record(message("a", "1"), message("b", "2"), message("c", "3")));
   expect(roundTrip(before, record(message("b", "2")))).toEqual(record(message("b", "2")));
   expect(transcriptDelta(before, record(message("a", "1"), message("b", "2")), 1)).toBeNull();
 });
@@ -47,7 +53,11 @@ test("a row inserted mid-transcript or a reorder is sent as the full record", ()
 });
 
 test("a delta never stands alone and keeps the record's other fields", () => {
-  const delta = transcriptDelta(record(message("a", "1")), record(message("a", "1"), message("b", "2")), 1)!;
+  const delta = transcriptDelta(
+    record(message("a", "1")),
+    record(message("a", "1"), message("b", "2")),
+    1,
+  )!;
   expect(applyTranscriptDelta(null, delta)).toBeNull();
   const withSchema = { ...record(message("a", "1")), schemaInfo: { version: 3 } } as never;
   expect(applyTranscriptDelta(withSchema, delta)).toMatchObject({ schemaInfo: { version: 3 } });
@@ -58,7 +68,10 @@ test("a run of streamed edits round-trips at every step", () => {
   let main = shown;
   for (let step = 1; step <= 40; step += 1) {
     const reply = message("r", "x".repeat(step));
-    const next = step % 10 === 0 ? record(...main.transcript, message(`t${step}`, "tool")) : record(...main.transcript.filter((item) => item.id !== "r"), reply);
+    const next =
+      step % 10 === 0
+        ? record(...main.transcript, message(`t${step}`, "tool"))
+        : record(...main.transcript.filter((item) => item.id !== "r"), reply);
     const change = transcriptChange(main, next, step);
     if (change === "full") shown = next;
     else if (change !== "none") shown = applyTranscriptDelta(shown, change)!;

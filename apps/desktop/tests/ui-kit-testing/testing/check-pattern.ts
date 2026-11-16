@@ -3,23 +3,10 @@
 // then the pattern's keys, pressed from the focused element. Every problem
 // is collected and thrown in one error. Keysmash's invariants, without the
 // fuzzer.
-import { createContext, stopped, type PatternContext } from "./pattern-context"
-import {
-  accordion,
-  checkbox,
-  disclosure,
-  slider,
-  switchPattern,
-} from "./pattern-controls"
-import {
-  listbox,
-  menubar,
-  radioGroup,
-  tabs,
-  toolbar,
-  tree,
-} from "./pattern-lists"
-import { alertdialog, combobox, dialog, menu } from "./pattern-popups"
+import { createContext, stopped, type PatternContext } from "./pattern-context";
+import { accordion, checkbox, disclosure, slider, switchPattern } from "./pattern-controls";
+import { listbox, menubar, radioGroup, tabs, toolbar, tree } from "./pattern-lists";
+import { alertdialog, combobox, dialog, menu } from "./pattern-popups";
 
 /**
  * A WAI-ARIA Authoring Practices pattern, by its APG name.
@@ -40,11 +27,9 @@ type Pattern =
   | "combobox"
   | "slider"
   | "switch"
-  | "checkbox"
+  | "checkbox";
 
-const checks: Partial<
-  Record<Pattern, (context: PatternContext) => Promise<void>>
-> = {
+const checks: Partial<Record<Pattern, (context: PatternContext) => Promise<void>>> = {
   listbox,
   menu,
   menubar,
@@ -60,7 +45,7 @@ const checks: Partial<
   slider,
   switch: switchPattern,
   checkbox,
-}
+};
 
 /**
  * Checks a rendered widget against its WAI-ARIA pattern, and throws one
@@ -89,29 +74,29 @@ const checks: Partial<
  * @experimental
  */
 async function checkPattern(root: Element, pattern: Pattern) {
-  const check = checks[pattern]
+  const check = checks[pattern];
   if (!check) {
     throw new Error(
-      `checkPattern doesn't support "${pattern}" yet. It supports ${Object.keys(checks).join(", ")}.`
-    )
+      `checkPattern doesn't support "${pattern}" yet. It supports ${Object.keys(checks).join(", ")}.`,
+    );
   }
-  const context = createContext(root)
-  context.checkReferences()
+  const context = createContext(root);
+  context.checkReferences();
   try {
-    await check(context)
+    await check(context);
   } catch (error) {
     if (error !== stopped) {
-      throw error
+      throw error;
     }
   }
-  const problems = [...context.problems]
+  const problems = [...context.problems];
   if (!problems.length) {
-    return
+    return;
   }
-  const count = `${problems.length} problem${problems.length === 1 ? "" : "s"}`
+  const count = `${problems.length} problem${problems.length === 1 ? "" : "s"}`;
   throw new Error(
-    `checkPattern found ${count} with the ${pattern} pattern:\n${problems.map((problem) => `- ${problem}`).join("\n")}`
-  )
+    `checkPattern found ${count} with the ${pattern} pattern:\n${problems.map((problem) => `- ${problem}`).join("\n")}`,
+  );
 }
 
-export { checkPattern, type Pattern }
+export { checkPattern, type Pattern };

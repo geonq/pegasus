@@ -1,20 +1,16 @@
 // The Shortcut part Dialog, Drawer, Popover and Tooltip share: the keys of a
 // shortcut, for people to see. Screen readers hear `aria-keyshortcuts` on the
 // trigger instead, so the part is hidden from them.
-import { formatShortcut, isApple } from "../platform/platform"
-import { elements } from "../kernel/elements"
-import type { Part, SlotFactory } from "../kernel/primitive-types"
-import type { Store } from "../kernel/store"
-import {
-  shortcuts,
-  type ShortcutHandler,
-  type ShortcutOptions,
-} from "./shortcuts"
+import { formatShortcut, isApple } from "../platform/platform";
+import { elements } from "../kernel/elements";
+import type { Part, SlotFactory } from "../kernel/primitive-types";
+import type { Store } from "../kernel/store";
+import { shortcuts, type ShortcutHandler, type ShortcutOptions } from "./shortcuts";
 
 // What a Shortcut part shows: "⌘K" on Apple platforms, "Ctrl+K" elsewhere,
 // and nothing without keys.
 function shortcutText(shortcut: string | undefined, apple: boolean) {
-  return shortcut ? formatShortcut(shortcut, apple) : ""
+  return shortcut ? formatShortcut(shortcut, apple) : "";
 }
 
 // Switches shortcut names to the client's platform once an element binds.
@@ -23,10 +19,8 @@ function shortcutText(shortcut: string | undefined, apple: boolean) {
 function adoptPlatform<State extends { apple: boolean }>(store: Store<State>) {
   // A cast, since TypeScript can't tell that `apple` alone is a Partial<State>.
   queueMicrotask(
-    () =>
-      store.get().apple !== isApple() &&
-      store.set({ apple: isApple() } as Partial<State>)
-  )
+    () => store.get().apple !== isApple() && store.set({ apple: isApple() } as Partial<State>),
+  );
 }
 
 // Registers the shortcut a part's props name while they name one, and again
@@ -37,25 +31,25 @@ function bindPartShortcut(
   keys: () => string | null | undefined,
   handler: ShortcutHandler,
   options: ShortcutOptions,
-  onProps: (listener: () => void) => () => void
+  onProps: (listener: () => void) => () => void,
 ) {
-  let current: string | undefined
-  let off: (() => void) | undefined
+  let current: string | undefined;
+  let off: (() => void) | undefined;
   const update = () => {
-    const next = keys() || undefined
+    const next = keys() || undefined;
     if (next === current) {
-      return
+      return;
     }
-    off?.()
-    current = next
-    off = next ? shortcuts.register(next, handler, options) : undefined
-  }
-  update()
-  const unwatch = onProps(update)
+    off?.();
+    current = next;
+    off = next ? shortcuts.register(next, handler, options) : undefined;
+  };
+  update();
+  const unwatch = onProps(update);
   return () => {
-    unwatch()
-    off?.()
-  }
+    unwatch();
+    off?.();
+  };
 }
 
 // The shortcut of the part of `slot` an element sits in, like the trigger or
@@ -65,26 +59,24 @@ function shortcutOf(
   context: { parts(): Iterable<Part> },
   slot: string,
   el: HTMLElement,
-  { beside = false } = {}
+  { beside = false } = {},
 ) {
   const owner = elements<{ shortcut?: string }>(context, slot).find(
-    (entry) =>
-      entry.el.contains(el) ||
-      (beside && !!el.parentElement?.contains(entry.el))
-  )
-  return owner?.props?.shortcut
+    (entry) => entry.el.contains(el) || (beside && !!el.parentElement?.contains(entry.el)),
+  );
+  return owner?.props?.shortcut;
 }
 
 // `inherited` names the keys a part without its own `shortcut` shows, like the
 // shortcut of the trigger it sits in. Renders call it without an element.
 function shortcutSlot<State extends { apple: boolean }, Api>(
   slot: SlotFactory<State, Api>,
-  inherited: (state: State, api: Api, el?: HTMLElement) => string | undefined
+  inherited: (state: State, api: Api, el?: HTMLElement) => string | undefined,
 ) {
   return slot<
     {
       /** The keys to show, like `"mod+s"`. By default, the shortcut of its trigger or component. */
-      shortcut?: string
+      shortcut?: string;
     },
     { text: string }
   >({
@@ -95,26 +87,23 @@ function shortcutSlot<State extends { apple: boolean }, Api>(
     attrs: () => ({ "aria-hidden": "true", translate: "no" }),
     bind(el, { store, api, props }) {
       // A popup opened only through a controller has no trigger to learn the platform from.
-      adoptPlatform(store)
+      adoptPlatform(store);
       // An empty element shows the keys itself, like a web component without children.
       if (el.childNodes.length) {
-        return
+        return;
       }
       const write = () => {
-        const state = store.get()
-        el.textContent = shortcutText(
-          props.shortcut ?? inherited(state, api, el),
-          state.apple
-        )
-      }
-      write()
-      const off = store.subscribe(write)
+        const state = store.get();
+        el.textContent = shortcutText(props.shortcut ?? inherited(state, api, el), state.apple);
+      };
+      write();
+      const off = store.subscribe(write);
       return () => {
-        off()
-        el.textContent = ""
-      }
+        off();
+        el.textContent = "";
+      };
     },
-  })
+  });
 }
 
-export { adoptPlatform, bindPartShortcut, shortcutOf, shortcutSlot }
+export { adoptPlatform, bindPartShortcut, shortcutOf, shortcutSlot };

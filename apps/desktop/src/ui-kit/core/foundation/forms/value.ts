@@ -3,18 +3,18 @@
 // form reset puts every default back. Parts that show whether a field is
 // filled, or size a textarea to its text, hear all of them through here.
 
-type TextControl = HTMLInputElement | HTMLTextAreaElement
+type TextControl = HTMLInputElement | HTMLTextAreaElement;
 
 /** What changed the value: typing, a write from code, or a form reset. */
-type ValueSource = "input" | "write" | "reset"
+type ValueSource = "input" | "write" | "reset";
 
-const watchers = new WeakMap<TextControl, Set<(source: ValueSource) => void>>()
+const watchers = new WeakMap<TextControl, Set<(source: ValueSource) => void>>();
 
 // The setter on the element's prototype. Writing through it skips whatever an
 // own `value` property does, like React's tracker, so React still sees the
 // next `input` event as a change and calls `onChange`.
 function prototypeValue(el: TextControl) {
-  return Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), "value")!
+  return Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), "value")!;
 }
 
 // Runs once a form reset has put every control back, unless it was canceled.
@@ -23,34 +23,34 @@ function prototypeValue(el: TextControl) {
 function afterReset(event: Event, run: () => void) {
   setTimeout(() => {
     if (!event.defaultPrevented) {
-      run()
+      run();
     }
-  })
+  });
 }
 
 // State set from script, like a custom element's `value` property, fires no
 // `input` or `change`, like a native control's.
-const scriptWrites = new Set<Element>()
+const scriptWrites = new Set<Element>();
 
 function writeFromScript(el: Element, write: () => void) {
   if (scriptWrites.has(el)) {
-    return write()
+    return write();
   }
-  scriptWrites.add(el)
+  scriptWrites.add(el);
   try {
-    write()
+    write();
   } finally {
-    scriptWrites.delete(el)
+    scriptWrites.delete(el);
   }
 }
 
 function writingFromScript(el: Element) {
   for (let node: Element | null = el; node; node = node.parentElement) {
     if (scriptWrites.has(node)) {
-      return true
+      return true;
     }
   }
-  return false
+  return false;
 }
 
 /**
@@ -61,21 +61,17 @@ function writingFromScript(el: Element) {
  * sees a change, then `input` fires so frameworks, form libraries and fields
  * hear it.
  */
-function writeValue(
-  el: TextControl,
-  value: string,
-  options?: { asUser?: boolean }
-) {
+function writeValue(el: TextControl, value: string, options?: { asUser?: boolean }) {
   if (options?.asUser && !writingFromScript(el)) {
-    prototypeValue(el).set!.call(el, value)
-    el.dispatchEvent(new Event("input", { bubbles: true, composed: true }))
+    prototypeValue(el).set!.call(el, value);
+    el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
   } else if (el.value !== value) {
-    el.value = value
+    el.value = value;
   }
 }
 
 function notify(el: TextControl, source: ValueSource) {
-  watchers.get(el)?.forEach((listener) => listener(source))
+  watchers.get(el)?.forEach((listener) => listener(source));
 }
 
 /**
@@ -83,64 +79,64 @@ function notify(el: TextControl, source: ValueSource) {
  * writes to `value` from code, and form resets. Returns a cleanup.
  */
 function watchValue(el: TextControl, listener: (source: ValueSource) => void) {
-  let listeners = watchers.get(el)
+  let listeners = watchers.get(el);
   if (!listeners) {
-    listeners = new Set()
-    watchers.set(el, listeners)
-    intercept(el)
+    listeners = new Set();
+    watchers.set(el, listeners);
+    intercept(el);
   }
-  listeners.add(listener)
+  listeners.add(listener);
   return () => {
-    listeners.delete(listener)
+    listeners.delete(listener);
     if (listeners.size) {
-      return
+      return;
     }
-    watchers.delete(el)
-    release(el)
-  }
+    watchers.delete(el);
+    release(el);
+  };
 }
 
-const restores = new WeakMap<TextControl, () => void>()
+const restores = new WeakMap<TextControl, () => void>();
 
 // Wraps `value` with an own property that reports writes. It wraps whatever
 // was there, so a framework's own tracker (React defines one) keeps working,
 // and the cleanup puts it back.
 function intercept(el: TextControl) {
-  const own = Object.getOwnPropertyDescriptor(el, "value")
-  const base = own ?? prototypeValue(el)
+  const own = Object.getOwnPropertyDescriptor(el, "value");
+  const base = own ?? prototypeValue(el);
   Object.defineProperty(el, "value", {
     configurable: true,
     enumerable: base.enumerable,
     get() {
-      return base.get!.call(el)
+      return base.get!.call(el);
     },
     set(value: string) {
-      base.set!.call(el, value)
-      notify(el, "write")
+      base.set!.call(el, value);
+      notify(el, "write");
     },
-  })
-  const onInput = () => notify(el, "input")
+  });
+  const onInput = () => notify(el, "input");
   const onReset = (event: Event) => {
     if (event.target === el.form) {
-      afterReset(event, () => notify(el, "reset"))
+      afterReset(event, () => notify(el, "reset"));
     }
-  }
-  el.addEventListener("input", onInput)
-  el.ownerDocument.addEventListener("reset", onReset, true)
+  };
+  el.addEventListener("input", onInput);
+  el.ownerDocument.addEventListener("reset", onReset, true);
   restores.set(el, () => {
-    el.removeEventListener("input", onInput)
-    el.ownerDocument.removeEventListener("reset", onReset, true)
+    el.removeEventListener("input", onInput);
+    el.ownerDocument.removeEventListener("reset", onReset, true);
     if (own) {
-      Object.defineProperty(el, "value", own)
+      Object.defineProperty(el, "value", own);
     } else {
-      delete (el as { value?: string }).value
+      delete (el as { value?: string }).value;
     }
-  })
+  });
 }
 
 function release(el: TextControl) {
-  restores.get(el)?.()
-  restores.delete(el)
+  restores.get(el)?.();
+  restores.delete(el);
 }
 
 export {
@@ -151,4 +147,4 @@ export {
   writeFromScript,
   writeValue,
   writingFromScript,
-}
+};

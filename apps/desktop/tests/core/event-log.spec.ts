@@ -49,7 +49,9 @@ test("a failed run leaves a few structured lines with totals and context", async
       harness.electronApp.evaluate(async (_, payload) => {
         const hooks = (
           globalThis as {
-            __PI_APP_TEST_HOOKS?: { emitSessionEvent?: (event: SessionDriverEvent) => Promise<void> };
+            __PI_APP_TEST_HOOKS?: {
+              emitSessionEvent?: (event: SessionDriverEvent) => Promise<void>;
+            };
           }
         ).__PI_APP_TEST_HOOKS;
         await hooks!.emitSessionEvent!(payload);
@@ -72,7 +74,11 @@ test("a failed run leaves a few structured lines with totals and context", async
     }
     await emit({ ...base, type: "toolStarted", toolName: "bash", callId: "call-1" });
     await emit({ ...base, type: "toolFinished", callId: "call-1", success: true });
-    await emit({ ...base, type: "runFailed", error: { message: "provider overloaded", code: "529" } });
+    await emit({
+      ...base,
+      type: "runFailed",
+      error: { message: "provider overloaded", code: "529" },
+    });
 
     // Lines reach the file within the 250 ms batch window.
     await expect
@@ -97,7 +103,9 @@ test("a failed run leaves a few structured lines with totals and context", async
     expect(run.find((line) => line.k === "tool.end")).toMatchObject({ tool: "bash" });
     // The failure carries what came just before it, marked as context.
     const failedAt = lines.findIndex((line) => line.k === "run.failed");
-    expect(lines.slice(0, failedAt).some((line) => line.ctx === 1 && line.k === "tool.start")).toBe(true);
+    expect(lines.slice(0, failedAt).some((line) => line.ctx === 1 && line.k === "tool.start")).toBe(
+      true,
+    );
   } finally {
     await harness.close();
   }

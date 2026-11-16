@@ -2,12 +2,12 @@
 // it holds, their labels, toggling one, and the keys it submits as. A value is
 // one item's value or `null`, or a list with `multiple`, and values may be
 // objects: keys are their strings, from `itemToValue`.
-import { type Listbox } from "./listbox"
-import { pageLocale } from "../text/locale"
-import { deriveFromOptions } from "../kernel/derive"
-import { type Store, sameValue } from "../kernel/store"
+import { type Listbox } from "./listbox";
+import { pageLocale } from "../text/locale";
+import { deriveFromOptions } from "../kernel/derive";
+import { type Store, sameValue } from "../kernel/store";
 
-const listFormats = new Map<string | undefined, Intl.ListFormat>()
+const listFormats = new Map<string | undefined, Intl.ListFormat>();
 
 /**
  * Labels as one text. Without `maxLabels`, joined with commas. With it, the first
@@ -19,63 +19,53 @@ function formatLabels(
   {
     maxLabels,
     getMoreLabel = (count) => `${count} more`,
-  }: { maxLabels?: number; getMoreLabel?: (count: number) => string } = {}
+  }: { maxLabels?: number; getMoreLabel?: (count: number) => string } = {},
 ) {
   if (maxLabels === undefined) {
-    return labels.join(", ")
+    return labels.join(", ");
   }
   const shown =
     labels.length > maxLabels
       ? [...labels.slice(0, maxLabels), getMoreLabel(labels.length - maxLabels)]
-      : labels
+      : labels;
   if (typeof Intl.ListFormat !== "function") {
-    return shown.join(", ")
+    return shown.join(", ");
   }
-  const locale = pageLocale()
-  let format = listFormats.get(locale)
+  const locale = pageLocale();
+  let format = listFormats.get(locale);
   if (!format) {
-    listFormats.set(
-      locale,
-      (format = new Intl.ListFormat(locale, { type: "conjunction" }))
-    )
+    listFormats.set(locale, (format = new Intl.ListFormat(locale, { type: "conjunction" })));
   }
-  return format.format(shown)
+  return format.format(shown);
 }
 
 // One value, nothing, or a list, as a list.
 function listOf(value: unknown) {
-  return Array.isArray(value)
-    ? value
-    : value === null || value === undefined
-      ? []
-      : [value]
+  return Array.isArray(value) ? value : value === null || value === undefined ? [] : [value];
 }
 
 // Whether a memo made from one value holds `value`: the same single value, or
 // a list with the same items.
-const holds = (
-  memo: { value: unknown; values: readonly unknown[] },
-  value: unknown
-) =>
-  Array.isArray(value) ? sameValue(memo.values, value) : memo.value === value
+const holds = (memo: { value: unknown; values: readonly unknown[] }, value: unknown) =>
+  Array.isArray(value) ? sameValue(memo.values, value) : memo.value === value;
 
 function createValueSelection(config: {
   store: Store<{
-    value: unknown
-    initial: unknown
-    multiple: boolean
-    labels: number
-  }>
+    value: unknown;
+    initial: unknown;
+    multiple: boolean;
+    labels: number;
+  }>;
   options: () => {
-    itemToValue?: (value: unknown) => string
-    itemToLabel?: (value: unknown) => string
-    isItemEqualToValue?: (itemValue: unknown, value: unknown) => boolean
-  }
-  listbox: Listbox
-  toKey: (value: unknown) => string
-  onDestroy: (cleanup: () => void) => void
+    itemToValue?: (value: unknown) => string;
+    itemToLabel?: (value: unknown) => string;
+    isItemEqualToValue?: (itemValue: unknown, value: unknown) => boolean;
+  };
+  listbox: Listbox;
+  toKey: (value: unknown) => string;
+  onDestroy: (cleanup: () => void) => void;
 }) {
-  const { store, options, listbox, toKey, onDestroy } = config
+  const { store, options, listbox, toKey, onDestroy } = config;
   // The keys of the last value read, so items asking whether they're selected
   // share one lookup instead of mapping the value each. Renderers hand a list
   // changed in place over as a new copy (`createListSnapshots`). The memo
@@ -86,63 +76,53 @@ function createValueSelection(config: {
   // once per item stays linear.
   let keysMemo:
     | {
-        value: unknown
-        options: object
-        itemToValue: unknown
-        values: unknown[]
-        keys: string[]
-        set: Set<string>
-        restoring: Restoring | undefined
+        value: unknown;
+        options: object;
+        itemToValue: unknown;
+        values: unknown[];
+        keys: string[];
+        set: Set<string>;
+        restoring: Restoring | undefined;
       }
-    | undefined
-  let labelsQueued = false
-  let learned = false
-  let lastLabels: string[] = []
+    | undefined;
+  let labelsQueued = false;
+  let learned = false;
+  let lastLabels: string[] = [];
   // A restored value's slots still waiting for their items, which submit their saved keys meanwhile.
-  let restoring: Restoring | undefined
-  let stopWaiting: (() => void) | undefined
-  let filling = false
-  onDestroy(stopRestoring)
+  let restoring: Restoring | undefined;
+  let stopWaiting: (() => void) | undefined;
+  let filling = false;
+  onDestroy(stopRestoring);
 
   // A list that starts or stops holding several values keeps what was chosen,
   // in its new shape, unless the value is controlled.
-  deriveFromOptions(
-    { store },
-    ["value", "initial"],
-    (synced, state, next: { value?: unknown }) => {
-      if (synced.multiple === undefined || synced.multiple === state.multiple) {
-        return
-      }
-      const shaped = (value: unknown) =>
-        synced.multiple
-          ? listOf(value)
-          : Array.isArray(value)
-            ? (value[0] ?? null)
-            : value
-      return {
-        initial: shaped(state.initial),
-        ...(next.value === undefined && { value: shaped(state.value) }),
-      }
+  deriveFromOptions({ store }, ["value", "initial"], (synced, state, next: { value?: unknown }) => {
+    if (synced.multiple === undefined || synced.multiple === state.multiple) {
+      return;
     }
-  )
+    const shaped = (value: unknown) =>
+      synced.multiple ? listOf(value) : Array.isArray(value) ? (value[0] ?? null) : value;
+    return {
+      initial: shaped(state.initial),
+      ...(next.value === undefined && { value: shaped(state.value) }),
+    };
+  });
 
   function memoFor(value: unknown) {
-    const given = options()
-    const { itemToValue } = given
-    const waiting = restoring?.value === value ? restoring : undefined
-    const memo = keysMemo?.restoring === waiting ? keysMemo : undefined
+    const given = options();
+    const { itemToValue } = given;
+    const waiting = restoring?.value === value ? restoring : undefined;
+    const memo = keysMemo?.restoring === waiting ? keysMemo : undefined;
     if (memo && memo.value === value && memo.options === given) {
-      return memo
+      return memo;
     }
     if (memo && memo.itemToValue === itemToValue && holds(memo, value)) {
-      memo.value = value
-      memo.options = given
-      return memo
+      memo.value = value;
+      memo.options = given;
+      return memo;
     }
-    const values = [...listOf(value)]
-    const keys = values.map(
-      (item, index) => waiting?.keys.get(index) ?? toKey(item)
-    )
+    const values = [...listOf(value)];
+    const keys = values.map((item, index) => waiting?.keys.get(index) ?? toKey(item));
     return (keysMemo = {
       value,
       options: given,
@@ -151,79 +131,78 @@ function createValueSelection(config: {
       keys,
       set: new Set(keys),
       restoring: waiting,
-    })
+    });
   }
 
   function stopRestoring() {
-    stopWaiting?.()
-    stopWaiting = restoring = undefined
+    stopWaiting?.();
+    stopWaiting = restoring = undefined;
   }
 
   // Items that arrive take their slots with no change: the value still names the same keys.
   function fillArrived() {
-    const current = restoring
+    const current = restoring;
     if (!current) {
-      return
+      return;
     }
     if (store.get().value !== current.value) {
-      return stopRestoring()
+      return stopRestoring();
     }
-    const values = [...listOf(current.value)]
-    const keys = new Map(current.keys)
+    const values = [...listOf(current.value)];
+    const keys = new Map(current.keys);
     for (const [index, key] of current.keys) {
-      const value = listbox.valueOf(key)
+      const value = listbox.valueOf(key);
       if (value === undefined) {
-        continue
+        continue;
       }
-      values[index] = value
-      keys.delete(index)
+      values[index] = value;
+      keys.delete(index);
     }
     if (keys.size === current.keys.size) {
-      return
+      return;
     }
-    const value = Array.isArray(current.value) ? values : values[0]
+    const value = Array.isArray(current.value) ? values : values[0];
     if (keys.size) {
-      restoring = { value, keys }
+      restoring = { value, keys };
     } else {
-      stopRestoring()
+      stopRestoring();
     }
-    filling = true
+    filling = true;
     try {
-      store.set({ value })
+      store.set({ value });
     } finally {
-      filling = false
+      filling = false;
     }
   }
 
-  const values = () => memoFor(store.get().value).values
-  const keys = () => memoFor(store.get().value).keys
+  const values = () => memoFor(store.get().value).values;
+  const keys = () => memoFor(store.get().value).keys;
 
   // Whether an item is selected: by key, or by `isItemEqualToValue` for object
   // values that aren't the same object.
   function isSelected(key: string, itemValue?: unknown) {
-    const equal = options().isItemEqualToValue
+    const equal = options().isItemEqualToValue;
     if (equal && itemValue !== undefined) {
-      return values().some((value) => equal(itemValue, value))
+      return values().some((value) => equal(itemValue, value));
     }
-    return memoFor(store.get().value).set.has(key)
+    return memoFor(store.get().value).set.has(key);
   }
 
   // The text a value shows: from `itemToLabel`, its item, or the value itself.
   function labelOf(value: unknown) {
-    const itemToLabel = options().itemToLabel
+    const itemToLabel = options().itemToLabel;
     if (itemToLabel) {
-      return itemToLabel(value)
+      return itemToLabel(value);
     }
-    const label = listbox.labelOf(toKey(value))
+    const label = listbox.labelOf(toKey(value));
     if (label !== undefined) {
-      return label
+      return label;
     }
-    return typeof value === "string" ? value : toKey(value)
+    return typeof value === "string" ? value : toKey(value);
   }
 
   // The keys of the value whose items never mounted, so no label is known.
-  const unlabeled = () =>
-    keys().filter((key) => listbox.labelOf(key) === undefined)
+  const unlabeled = () => keys().filter((key) => listbox.labelOf(key) === undefined);
 
   return {
     values,
@@ -234,49 +213,45 @@ function createValueSelection(config: {
     labelOf,
     // Each value's label, the same list while nothing changed, so a part that reads it doesn't re-render.
     labels() {
-      const next = values().map(labelOf)
+      const next = values().map(labelOf);
       if (
         next.length !== lastLabels.length ||
         next.some((label, index) => label !== lastLabels[index])
       ) {
-        lastLabels = next
+        lastLabels = next;
       }
-      return lastLabels
+      return lastLabels;
     },
     // A label learned from an item that's selected shows in the value. Batched,
     // since a long list registers all at once.
     queueLabels() {
       if (labelsQueued) {
-        return
+        return;
       }
-      labelsQueued = true
+      labelsQueued = true;
       queueMicrotask(() => {
-        labelsQueued = false
-        store.set({ labels: listbox.labelsVersion() })
-      })
+        labelsQueued = false;
+        store.set({ labels: listbox.labelsVersion() });
+      });
     },
     // Learns the labels of values whose items haven't mounted, like on the
     // server. `find` answers for the keys with none, from the items among an
     // adapter's children. Only the first call looks, since it's for the
     // render before the items mount. Returns whether it found any.
-    learn(
-      find: (
-        keys: ReadonlySet<string>
-      ) => readonly { value: unknown; label: string }[]
-    ) {
+    learn(find: (keys: ReadonlySet<string>) => readonly { value: unknown; label: string }[]) {
       if (learned || options().itemToLabel) {
-        return false
+        return false;
       }
-      learned = true
-      const unknown = new Set(unlabeled())
+      learned = true;
+      const unknown = new Set(unlabeled());
       if (!unknown.size) {
-        return false
+        return false;
       }
-      const found = find(unknown)
+      const found = find(unknown);
       for (const { value, label } of found) {
-        listbox.remember(toKey(value), label, value)
+        listbox.remember(toKey(value), label, value);
       }
-      return found.length > 0
+      return found.length > 0;
     },
     // Whether a closed list must mount its items hidden for the value: for a
     // label only its item knows, or for a value icon in the page, which copies
@@ -286,9 +261,9 @@ function createValueSelection(config: {
     // The value with an item added, or removed when it's there, for `multiple`.
     toggled(key: string, itemValue: unknown) {
       if (!isSelected(key, itemValue)) {
-        return [...values(), itemValue]
+        return [...values(), itemValue];
       }
-      return values().filter((value) => toKey(value) !== key)
+      return values().filter((value) => toKey(value) !== key);
     },
     // The value without one item's key, for removing a chip.
     without: (key: string) => values().filter((value) => toKey(value) !== key),
@@ -298,49 +273,49 @@ function createValueSelection(config: {
     // `write`. Keys whose items haven't arrived hold their place until they
     // do, unless something sets the value first.
     restore(saved: string, write: (value: unknown) => void) {
-      stopRestoring()
-      let keys: string[] = []
+      stopRestoring();
+      let keys: string[] = [];
       try {
-        keys = JSON.parse(saved)
+        keys = JSON.parse(saved);
       } catch {}
-      const { multiple } = store.get()
+      const { multiple } = store.get();
       if (!multiple) {
-        keys = keys.slice(0, 1)
+        keys = keys.slice(0, 1);
       }
-      const waiting = new Map<number, string>()
+      const waiting = new Map<number, string>();
       const found = keys.map((key, index) => {
-        const value = listbox.valueOf(key)
+        const value = listbox.valueOf(key);
         if (value === undefined) {
-          waiting.set(index, key)
+          waiting.set(index, key);
         }
-        return value ?? key
-      })
-      const value = multiple ? found : (found[0] ?? null)
+        return value ?? key;
+      });
+      const value = multiple ? found : (found[0] ?? null);
       if (!waiting.size) {
-        return write(value)
+        return write(value);
       }
-      const request = { value, keys: waiting }
-      restoring = request
-      write(value)
+      const request = { value, keys: waiting };
+      restoring = request;
+      write(value);
       // A callback may have canceled the restore, or set a value of its own.
       if (restoring !== request) {
-        return
+        return;
       }
-      const held = store.get().value
+      const held = store.get().value;
       if (!sameValue(held, value)) {
-        return stopRestoring()
+        return stopRestoring();
       }
-      restoring = { value: held, keys: waiting }
-      stopWaiting = store.subscribe(fillArrived)
+      restoring = { value: held, keys: waiting };
+      stopWaiting = store.subscribe(fillArrived);
     },
     stopRestoring,
     // Whether the value changing now is a restore's late items taking their slots.
     isFilling: () => filling,
-  }
+  };
 }
 
-type Restoring = { value: unknown; keys: ReadonlyMap<number, string> }
+type Restoring = { value: unknown; keys: ReadonlyMap<number, string> };
 
-type ValueSelection = ReturnType<typeof createValueSelection>
+type ValueSelection = ReturnType<typeof createValueSelection>;
 
-export { createValueSelection, formatLabels, listOf, type ValueSelection }
+export { createValueSelection, formatLabels, listOf, type ValueSelection };

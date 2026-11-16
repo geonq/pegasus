@@ -1,14 +1,7 @@
 // Attributes core writes to a bound element itself, so a change to them
 // re-renders nothing: a slot's `live` attributes, and its `direct` ones.
-import {
-  attrs,
-  authorOwned,
-  liveAttrs,
-  madeLabel,
-  references,
-  subscribe,
-} from "./part"
-import type { Attrs, Part } from "./primitive-types"
+import { attrs, authorOwned, liveAttrs, madeLabel, references, subscribe } from "./part";
+import type { Attrs, Part } from "./primitive-types";
 
 /**
  * Attributes from live state, written straight to the bound element on every
@@ -17,12 +10,7 @@ import type { Attrs, Part } from "./primitive-types"
  * @stable
  */
 function live<State extends object, Api, Props>(
-  read: NoInfer<
-    (
-      state: State,
-      part: { id: string; key: string; props: Props; api: Api }
-    ) => Attrs
-  >
+  read: NoInfer<(state: State, part: { id: string; key: string; props: Props; api: Api }) => Attrs>,
 ) {
   return {
     read,
@@ -31,23 +19,21 @@ function live<State extends object, Api, Props>(
      * Returns the cleanup, which removes them again.
      */
     attach(part: Part<State, Api, Props>, el: HTMLElement) {
-      const channel = `live:${part.id}`
-      const write = () => applyAttrs(el, liveAttrs(part), channel)
-      write()
-      const unsubscribe = subscribe(part, write)
+      const channel = `live:${part.id}`;
+      const write = () => applyAttrs(el, liveAttrs(part), channel);
+      write();
+      const unsubscribe = subscribe(part, write);
       // An element the part lets go of, like a button moved out of a tab,
       // keeps none of them. A part that binds it again writes them again.
       return () => {
-        unsubscribe()
-        applyAttrs(el, {}, channel)
-      }
+        unsubscribe();
+        applyAttrs(el, {}, channel);
+      };
     },
-  }
+  };
 }
 
-type Live<State extends object, Api, Props> = ReturnType<
-  typeof live<State, Api, Props>
->
+type Live<State extends object, Api, Props> = ReturnType<typeof live<State, Api, Props>>;
 
 /**
  * Attributes of `attrs` that core keeps current on an element a framework
@@ -58,63 +44,56 @@ type Live<State extends object, Api, Props> = ReturnType<
  * @stable
  */
 function direct(names: readonly string[]) {
-  const written = new WeakMap<HTMLElement, Map<string, string>>()
+  const written = new WeakMap<HTMLElement, Map<string, string>>();
   return {
     names,
     /** Keeps the attributes current on `el` on every change the part hears. Returns the cleanup. */
     attach: (part: Part, el: HTMLElement) => {
       // What the part last had, so dropping a value removes only that, not
       // one the framework merged in, like a Field's label on a trigger.
-      let last = attrs(part)
+      let last = attrs(part);
       // A framework that reuses the element for another key never saw what
       // this slot wrote for the last one, so what the new key lacks goes.
-      const own = written.get(el) ?? new Map<string, string>()
-      written.set(el, own)
+      const own = written.get(el) ?? new Map<string, string>();
+      written.set(el, own);
       for (const [name, value] of own) {
         if (last[name] === undefined && el.getAttribute(name) === value) {
-          el.removeAttribute(name)
+          el.removeAttribute(name);
         }
       }
-      own.clear()
+      own.clear();
       return subscribe(part, () => {
-        const values = attrs(part)
+        const values = attrs(part);
         for (const name of names) {
-          const value = values[name]
+          const value = values[name];
           if (value === undefined) {
-            if (
-              last[name] !== undefined &&
-              el.getAttribute(name) === last[name]
-            ) {
-              el.removeAttribute(name)
+            if (last[name] !== undefined && el.getAttribute(name) === last[name]) {
+              el.removeAttribute(name);
             }
-            continue
+            continue;
           }
-          const current = el.getAttribute(name)
+          const current = el.getAttribute(name);
           if (current === value) {
-            continue
+            continue;
           }
           // An author's name or hint, rendered in place of the part's, stays.
-          if (
-            authorOwned.has(name) &&
-            current !== null &&
-            current !== last[name]
-          ) {
-            continue
+          if (authorOwned.has(name) && current !== null && current !== last[name]) {
+            continue;
           }
-          el.setAttribute(name, value)
-          own.set(name, value)
+          el.setAttribute(name, value);
+          own.set(name, value);
         }
-        last = values
-      })
+        last = values;
+      });
     },
-  }
+  };
 }
 
-type Direct = ReturnType<typeof direct>
+type Direct = ReturnType<typeof direct>;
 
-const applied = new WeakMap<HTMLElement, Record<string, Map<string, string>>>()
-const found = new WeakMap<HTMLElement, Record<string, Map<string, string>>>()
-let writing: HTMLElement | undefined
+const applied = new WeakMap<HTMLElement, Record<string, Map<string, string>>>();
+const found = new WeakMap<HTMLElement, Record<string, Map<string, string>>>();
+let writing: HTMLElement | undefined;
 
 /**
  * Writes attributes and removes the ones a previous call wrote but this one
@@ -125,7 +104,7 @@ let writing: HTMLElement | undefined
  * removing each other's.
  */
 function applyAttrs(el: HTMLElement, attrs: Attrs, channel = "render") {
-  writeAttrs(el, attrs, channel, false)
+  writeAttrs(el, attrs, channel, false);
 }
 
 /**
@@ -134,7 +113,7 @@ function applyAttrs(el: HTMLElement, attrs: Attrs, channel = "render") {
  * where it wrote the same value.
  */
 function releaseAttrs(el: HTMLElement, channel: string) {
-  writeAttrs(el, {}, channel, true)
+  writeAttrs(el, {}, channel, true);
 }
 
 /**
@@ -145,170 +124,149 @@ function releaseAttrs(el: HTMLElement, channel: string) {
  */
 function markAuthored(el: HTMLElement, name: string) {
   if (el === writing) {
-    return
+    return;
   }
   for (const written of Object.values(applied.get(el) ?? {})) {
-    written.delete(name)
+    written.delete(name);
   }
   for (const values of Object.values(found.get(el) ?? {})) {
-    values.delete(name)
+    values.delete(name);
   }
 }
 
-function writeAttrs(
-  el: HTMLElement,
-  attrs: Attrs,
-  channel: string,
-  release: boolean
-) {
-  const outer = writing
-  writing = el
+function writeAttrs(el: HTMLElement, attrs: Attrs, channel: string, release: boolean) {
+  const outer = writing;
+  writing = el;
   try {
-    writeChannel(el, attrs, channel, release)
+    writeChannel(el, attrs, channel, release);
   } finally {
-    writing = outer
+    writing = outer;
   }
 }
 
-function writeChannel(
-  el: HTMLElement,
-  attrs: Attrs,
-  channel: string,
-  release: boolean
-) {
-  const channels = applied.get(el) ?? {}
-  const previous = channels[channel] ?? new Map()
-  const written = new Map<string, string>()
-  const styles = attrs.style === undefined ? [] : styleDeclarations(attrs.style)
+function writeChannel(el: HTMLElement, attrs: Attrs, channel: string, release: boolean) {
+  const channels = applied.get(el) ?? {};
+  const previous = channels[channel] ?? new Map();
+  const written = new Map<string, string>();
+  const styles = attrs.style === undefined ? [] : styleDeclarations(attrs.style);
   for (const [property, value] of styles) {
-    written.set(`style:${property}`, value)
+    written.set(`style:${property}`, value);
   }
   for (const [name, value] of Object.entries(attrs)) {
     if (value !== undefined && name !== "style") {
-      written.set(name, value)
+      written.set(name, value);
     }
   }
   // Only a channel that writes an id, or wrote one, reads the element's, so
   // live attributes and parts without an id cost no extra read per change.
-  const id =
-    written.has("id") || previous.has("id") ? el.getAttribute("id") : null
-  const keeps = keepsId(id, channels, channel)
+  const id = written.has("id") || previous.has("id") ? el.getAttribute("id") : null;
+  const keeps = keepsId(id, channels, channel);
   if (keeps) {
-    written.delete("id")
+    written.delete("id");
   }
   // A value no channel wrote, and not the part's own, like a copied
   // component's, is the author's, even when set after the part wrote its own.
-  const authors = new Set<string>()
-  const read = new Map<string, string | null>()
+  const authors = new Set<string>();
+  const read = new Map<string, string | null>();
   for (const name of new Set([...written.keys(), ...previous.keys()])) {
     if (!authorOwned.has(name)) {
-      continue
+      continue;
     }
-    const current = el.getAttribute(name)
-    read.set(name, current)
+    const current = el.getAttribute(name);
+    read.set(name, current);
     if (
       current === null ||
       current === written.get(name) ||
       (name === "aria-labelledby" && madeLabel(current))
     ) {
-      continue
+      continue;
     }
     if (!Object.values(channels).some((wrote) => wrote.get(name) === current)) {
-      authors.add(name)
+      authors.add(name);
     }
   }
   for (const name of authors) {
-    written.delete(name)
+    written.delete(name);
   }
   for (const name of previous.keys()) {
     if (written.has(name) || authors.has(name) || (name === "id" && keeps)) {
-      continue
+      continue;
     }
     if (name.startsWith("style:")) {
-      el.style.removeProperty(name.slice(6))
-      continue
+      el.style.removeProperty(name.slice(6));
+      continue;
     }
     if (!release) {
-      el.removeAttribute(name)
-      keepFound(el, channel, name, null)
-      continue
+      el.removeAttribute(name);
+      keepFound(el, channel, name, null);
+      continue;
     }
     // One changed since the channel last wrote it, or removed, is the author's.
-    const current = el.getAttribute(name)
+    const current = el.getAttribute(name);
     if (current !== previous.get(name)) {
-      continue
+      continue;
     }
-    const original = found.get(el)?.[channel]?.get(name)
+    const original = found.get(el)?.[channel]?.get(name);
     if (original === undefined) {
-      el.removeAttribute(name)
+      el.removeAttribute(name);
     } else if (current !== original) {
-      el.setAttribute(name, original)
+      el.setAttribute(name, original);
     }
   }
   for (const [property, value] of styles) {
     if (el.style.getPropertyValue(property) !== value) {
-      el.style.setProperty(property, value)
+      el.style.setProperty(property, value);
     }
   }
   for (const [name, value] of Object.entries(attrs)) {
     if (value === undefined || !written.has(name)) {
-      continue
+      continue;
     }
     // A text field shows its value property. The attribute is only the default,
     // and setting it before anyone types replaces the text with the caret at
     // the start, so the property goes first, as every framework writes it.
     if (name === "value" && isTextField(el) && el.value !== value) {
-      el.value = value
+      el.value = value;
     }
-    const current =
-      name === "id"
-        ? id
-        : read.has(name)
-          ? read.get(name)
-          : el.getAttribute(name)
+    const current = name === "id" ? id : read.has(name) ? read.get(name) : el.getAttribute(name);
     if (current !== (previous.get(name) ?? null)) {
-      keepFound(el, channel, name, current)
+      keepFound(el, channel, name, current);
     }
     if (current !== value) {
-      el.setAttribute(name, value)
+      el.setAttribute(name, value);
     }
   }
-  channels[channel] = written
-  applied.set(el, channels)
+  channels[channel] = written;
+  applied.set(el, channels);
   if (release) {
-    delete found.get(el)?.[channel]
+    delete found.get(el)?.[channel];
   }
 }
 
 // What was on the element before the channel wrote over it, which letting go
 // puts back. A copied component's ids, and references to them, never come back.
-function keepFound(
-  el: HTMLElement,
-  channel: string,
-  name: string,
-  value?: string | null
-) {
+function keepFound(el: HTMLElement, channel: string, name: string, value?: string | null) {
   const kept =
     value == null || name === "id"
       ? undefined
       : references.includes(name)
         ? authoredIds(value)
-        : value
+        : value;
   if (kept === undefined) {
-    return void found.get(el)?.[channel]?.delete(name)
+    return void found.get(el)?.[channel]?.delete(name);
   }
-  let channels = found.get(el)
+  let channels = found.get(el);
   if (!channels) {
-    found.set(el, (channels = {}))
+    found.set(el, (channels = {}));
   }
-  ;(channels[channel] ??= new Map()).set(name, kept)
+  (channels[channel] ??= new Map()).set(name, kept);
 }
 
 const authoredIds = (ids: string) =>
   ids
     .split(/\s+/)
     .filter((id) => id && !id.startsWith("ui-sdk-"))
-    .join(" ") || undefined
+    .join(" ") || undefined;
 
 // An id a channel didn't write stays: an author's, a script's, or another
 // component's on the same element. The exception is an id ui-sdk made (every
@@ -319,44 +277,30 @@ const authoredIds = (ids: string) =>
 function keepsId(
   id: string | null,
   channels: Record<string, Map<string, string>>,
-  channel: string
+  channel: string,
 ) {
   if (id === null || id === channels[channel]?.get("id")) {
-    return false
+    return false;
   }
   return (
-    !id.startsWith("ui-sdk-") ||
-    Object.values(channels).some((written) => written.get("id") === id)
-  )
+    !id.startsWith("ui-sdk-") || Object.values(channels).some((written) => written.get("id") === id)
+  );
 }
 
 // A file input's value can only be cleared, so it keeps the attribute alone.
-const isTextField = (
-  el: HTMLElement
-): el is HTMLInputElement | HTMLTextAreaElement =>
+const isTextField = (el: HTMLElement): el is HTMLInputElement | HTMLTextAreaElement =>
   el.localName === "textarea" ||
-  (el.localName === "input" && (el as HTMLInputElement).type !== "file")
+  (el.localName === "input" && (el as HTMLInputElement).type !== "file");
 
 function styleDeclarations(css: string) {
-  const declarations: [string, string][] = []
+  const declarations: [string, string][] = [];
   for (const declaration of css.split(";")) {
-    const index = declaration.indexOf(":")
+    const index = declaration.indexOf(":");
     if (index > 0) {
-      declarations.push([
-        declaration.slice(0, index).trim(),
-        declaration.slice(index + 1).trim(),
-      ])
+      declarations.push([declaration.slice(0, index).trim(), declaration.slice(index + 1).trim()]);
     }
   }
-  return declarations
+  return declarations;
 }
 
-export {
-  applyAttrs,
-  direct,
-  type Direct,
-  live,
-  type Live,
-  markAuthored,
-  releaseAttrs,
-}
+export { applyAttrs, direct, type Direct, live, type Live, markAuthored, releaseAttrs };

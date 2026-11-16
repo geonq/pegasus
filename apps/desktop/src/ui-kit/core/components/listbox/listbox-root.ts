@@ -4,86 +4,63 @@
 // primitive. State and the API live in listbox-root-api.ts, keys and
 // presses in listbox-root-keyboard.ts, parts in listbox-root-parts.ts, and
 // the range math in listbox-range.ts.
-import {
-  type ItemIconProps,
-  type ItemIconState,
-} from "../../foundation/lists/item-icon"
-import {
-  type ListData,
-  type ListHighlightDetails,
-} from "../../foundation/lists/listbox"
-import { listboxSlots } from "./listbox-root-parts"
-import {
-  initialListboxStore,
-  listboxApi,
-  syncListboxStore,
-} from "./listbox-root-api"
-import type { ListboxGeneric } from "./listbox-root-generic"
-import { createController } from "../../foundation/kernel/controller"
-import type {
-  ChangeDetails,
-  ChangeOptions,
-} from "../../foundation/kernel/details"
-import { definePrimitive } from "../../foundation/kernel/primitive"
-import type {
-  PrimitiveOptions,
-  WithGeneric,
-} from "../../foundation/kernel/primitive-types"
+import { type ItemIconProps, type ItemIconState } from "../../foundation/lists/item-icon";
+import { type ListData, type ListHighlightDetails } from "../../foundation/lists/listbox";
+import { listboxSlots } from "./listbox-root-parts";
+import { initialListboxStore, listboxApi, syncListboxStore } from "./listbox-root-api";
+import type { ListboxGeneric } from "./listbox-root-generic";
+import { createController } from "../../foundation/kernel/controller";
+import type { ChangeDetails, ChangeOptions } from "../../foundation/kernel/details";
+import { definePrimitive } from "../../foundation/kernel/primitive";
+import type { PrimitiveOptions, WithGeneric } from "../../foundation/kernel/primitive-types";
 
 /**
  * Why a listbox's value wants to change.
  * @stable
  */
 type ListboxValueChangeReason =
-  "item-press" | "list-navigation" | "reset" | "restore" | "imperative"
+  "item-press" | "list-navigation" | "reset" | "restore" | "imperative";
 
 /**
  * The value of a listbox: one item's value or `null`, or a list with `multiple`.
  * @stable
  */
-type ListboxValue<
-  T = string,
-  Multiple extends boolean | undefined = false,
-> = Multiple extends true ? T[] : T | null
+type ListboxValue<T = string, Multiple extends boolean | undefined = false> = Multiple extends true
+  ? T[]
+  : T | null;
 
 /**
  * Options for every write method on a listbox controller.
  * @stable
  */
-type ListboxChangeOptions = ChangeOptions<ListboxValueChangeReason>
+type ListboxChangeOptions = ChangeOptions<ListboxValueChangeReason>;
 
 /**
  * Reads and sets a listbox from outside it, like a reset button or a test. Pass it as the `controller` option.
  * @stable
  */
-function createListboxController<
-  T = string,
-  Multiple extends boolean | undefined = false,
->() {
+function createListboxController<T = string, Multiple extends boolean | undefined = false>() {
   return createController<{
     /** The selected value. */
-    getValue: () => ListboxValue<T, Multiple>
+    getValue: () => ListboxValue<T, Multiple>;
     /**
      * Selects a value, as a user would. A disabled or read-only listbox ignores it.
      * Returns false when the change was canceled or nothing changed.
      */
-    setValue: (
-      value: ListboxValue<T, Multiple>,
-      options?: ListboxChangeOptions
-    ) => boolean
+    setValue: (value: ListboxValue<T, Multiple>, options?: ListboxChangeOptions) => boolean;
     /**
      * Selects nothing: `null`, or an empty list with `multiple`.
      * Returns false when the change was canceled or nothing changed.
      */
-    clear: (options?: ListboxChangeOptions) => boolean
+    clear: (options?: ListboxChangeOptions) => boolean;
     /**
      * Selects every enabled item, with `multiple`.
      * Returns false when the change was canceled or nothing changed.
      */
-    selectAll: (options?: ListboxChangeOptions) => boolean
+    selectAll: (options?: ListboxChangeOptions) => boolean;
     /** Moves focus into the list, onto the option that holds its tab stop. */
-    focus: () => void
-  }>()
+    focus: () => void;
+  }>();
 }
 
 /**
@@ -91,10 +68,9 @@ function createListboxController<
  * option.
  * @stable
  */
-type ListboxController<
-  T = string,
-  Multiple extends boolean | undefined = false,
-> = ReturnType<typeof createListboxController<T, Multiple>>
+type ListboxController<T = string, Multiple extends boolean | undefined = false> = ReturnType<
+  typeof createListboxController<T, Multiple>
+>;
 
 /**
  * The options `listbox` takes. A component takes them as props on its root.
@@ -112,7 +88,7 @@ type ListboxOptions<
     | ListboxMultipleOptions<T, Multiple>
     | ListboxSingleOptions<T, Multiple>
     | ListboxEitherOptions<T, Multiple>
-  )
+  );
 
 /** The value options of a listbox that selects one item. `Multiple` true or `boolean` rules them out. */
 type ListboxSingleOptions<T, Multiple> = {
@@ -120,39 +96,32 @@ type ListboxSingleOptions<T, Multiple> = {
    * Whether several items can be selected. The value is then a list, Shift selects ranges, and Ctrl or ⌘ with A selects every item.
    * @defaultValue false
    */
-  multiple?: false
+  multiple?: false;
   /** The selected value. Pass it to control the listbox. `null` selects nothing. */
-  value?: T | null
+  value?: T | null;
   /** The value selected at first, when uncontrolled. A form reset returns to it. */
-  defaultValue?: T | null
+  defaultValue?: T | null;
   // TypeScript infers `T` from both sides of the union, so a multiple one's
   // state setter would make `T` a list here. `NoInfer` leaves `T` to the
   // value, the items and the multiple side's callback.
   /** Runs when a user, a form reset or a controller wants to change the value. `details.reason` says why, and `details.cancel()` stops it. */
   onValueChange?: (
     value: NoInfer<T> | null,
-    details: ChangeDetails<ListboxValueChangeReason>
-  ) => void
-} & (boolean extends Multiple
-  ? never
-  : [Multiple] extends [true]
-    ? never
-    : unknown)
+    details: ChangeDetails<ListboxValueChangeReason>,
+  ) => void;
+} & (boolean extends Multiple ? never : [Multiple] extends [true] ? never : unknown);
 
 /** The value options of a listbox that selects several items. `Multiple` `boolean` rules them out. */
 type ListboxMultipleOptions<T, Multiple> = {
   /** Whether several items can be selected. The value is then a list, Shift selects ranges, and Ctrl or ⌘ with A selects every item. */
-  multiple: true
+  multiple: true;
   /** The selected values. Pass it to control the listbox. */
-  value?: T[]
+  value?: T[];
   /** The values selected at first, when uncontrolled. A form reset returns to them. */
-  defaultValue?: T[]
+  defaultValue?: T[];
   /** Runs when a user, a form reset or a controller wants to change the value. `details.reason` says why, and `details.cancel()` stops it. */
-  onValueChange?: (
-    value: T[],
-    details: ChangeDetails<ListboxValueChangeReason>
-  ) => void
-} & (boolean extends Multiple ? never : unknown)
+  onValueChange?: (value: T[], details: ChangeDetails<ListboxValueChangeReason>) => void;
+} & (boolean extends Multiple ? never : unknown);
 
 // Only when `Multiple` is `boolean`, like `<Listbox<string, boolean>>`, so
 // a `multiple` known only at run time takes a value of either shape.
@@ -162,17 +131,17 @@ type ListboxEitherOptions<T, Multiple> = {
    * Whether several items can be selected.
    * @defaultValue false
    */
-  multiple?: boolean
+  multiple?: boolean;
   /** The selected value, or values with `multiple`. Pass it to control the listbox. */
-  value?: T | T[] | null
+  value?: T | T[] | null;
   /** The value or values selected at first, when uncontrolled. A form reset returns to it. */
-  defaultValue?: T | T[] | null
+  defaultValue?: T | T[] | null;
   /** Runs when a user, a form reset or a controller wants to change the value. `details.reason` says why, and `details.cancel()` stops it. */
   onValueChange?: (
     value: NoInfer<T> | NoInfer<T>[] | null,
-    details: ChangeDetails<ListboxValueChangeReason>
-  ) => void
-} & (boolean extends Multiple ? unknown : never)
+    details: ChangeDetails<ListboxValueChangeReason>,
+  ) => void;
+} & (boolean extends Multiple ? unknown : never);
 
 /** The options of a listbox that don't depend on `multiple`. */
 type ListboxSharedOptions<T> = {
@@ -180,48 +149,48 @@ type ListboxSharedOptions<T> = {
    * Whether the selection follows focus. `"automatic"`: arrow keys, Home, End and typing select the option they move to, and with `multiple` a press replaces the selection while Ctrl or ⌘ adds to it, like a native multiple select. `"manual"`: keys only move focus, and Space, Enter or a press selects, or toggles with `multiple`.
    * @defaultValue "automatic", or "manual" with `multiple`
    */
-  activation?: "automatic" | "manual"
+  activation?: "automatic" | "manual";
   /**
    * Whether pressing the selected item of a single listbox unselects it, so nothing is selected.
    * @defaultValue false
    */
-  deselectable?: boolean
+  deselectable?: boolean;
   /**
    * Which arrow keys move between items. Horizontal lists use Left and Right, swapped in right-to-left text.
    * @defaultValue "vertical"
    */
-  orientation?: "horizontal" | "vertical"
+  orientation?: "horizontal" | "vertical";
   /**
    * Whether arrow keys wrap from the last item to the first. Shift with an arrow never wraps.
    * @defaultValue true
    */
-  loop?: boolean
+  loop?: boolean;
   /**
    * Whether the list scrolls the option keys move to into view, and the selected option when it first shows. Turn it off when something else scrolls the list, like `bindScrollPicker`.
    * @defaultValue true
    */
-  keepInView?: boolean
+  keepInView?: boolean;
   /** The items as data. Renders them for you, and lets typing find items a virtualized list hasn't rendered. */
-  items?: ListData<T>
+  items?: ListData<T>;
   /** The string an item's value submits as and is identified by, for object values. Strings pass through, and objects use their `value` or `id`. */
-  itemToValue?: (value: T) => string
+  itemToValue?: (value: T) => string;
   /** Whether an item's value is the selected value, for object values that aren't the same object. */
-  isItemEqualToValue?: (itemValue: T, value: T) => boolean
+  isItemEqualToValue?: (itemValue: T, value: T) => boolean;
   /** Runs when focus moves to another item, with its index among the items, so a virtualized list can scroll to it. */
-  onHighlight?: (value: T | null, details: ListHighlightDetails) => void
+  onHighlight?: (value: T | null, details: ListHighlightDetails) => void;
   /** Disables the listbox like a native control: its items can't be focused or chosen, and the value isn't submitted. */
-  disabled?: boolean
+  disabled?: boolean;
   /** Keeps the listbox focusable and its value submitted, but stops changes. */
-  readOnly?: boolean
+  readOnly?: boolean;
   /** Blocks form submission until a value is selected, with the browser's own message. */
-  required?: boolean
+  required?: boolean;
   /** The name the value submits under. Without one, the listbox submits nothing. */
-  name?: string
+  name?: string;
   /** The id of a form to belong to, when the listbox isn't inside that form. */
-  form?: string
+  form?: string;
   /** Reads and sets the listbox from anywhere. Create one with `createListboxController()`. */
-  controller?: ListboxController<any, any>
-} & PrimitiveOptions
+  controller?: ListboxController<any, any>;
+} & PrimitiveOptions;
 
 /**
  * Props of an item, in every framework.
@@ -229,14 +198,14 @@ type ListboxSharedOptions<T> = {
  */
 type ListboxItemProps<T = string> = {
   /** What the value becomes when the item is chosen. A string, or any value with `itemToValue`. */
-  value: T
+  value: T;
   /** The text typing finds, when the content isn't plain text. Not the accessible name: use `aria-label` for that. */
-  label?: string
+  label?: string;
   /** Keeps the item from being chosen. Arrow keys, typing and ranges skip it. Sets `data-disabled` and `aria-disabled`. */
-  disabled?: boolean
+  disabled?: boolean;
   /** The item's position among all items, for virtualized lists that render only some. Sets `aria-posinset` and `aria-setsize`. */
-  index?: number
-}
+  index?: number;
+};
 
 /**
  * Props of the check inside an item, in every framework.
@@ -247,8 +216,8 @@ type ListboxItemIndicatorProps = {
    * Whether the indicator stays in the page while its item isn't selected, so it can be styled or animated in both states.
    * @defaultValue false
    */
-  keepMounted?: boolean
-}
+  keepMounted?: boolean;
+};
 
 /**
  * The state the `root` slot of `listbox` hands `render` functions and
@@ -260,18 +229,18 @@ type ListboxState = {
    * Whether several items can be selected.
    * @defaultValue false
    */
-  multiple?: boolean
+  multiple?: boolean;
   /** Which arrow keys move between items. */
-  orientation: "horizontal" | "vertical"
+  orientation: "horizontal" | "vertical";
   /** Whether the listbox is disabled, by itself, a Field or a `<fieldset>`. */
-  disabled: boolean
+  disabled: boolean;
   /** Whether the listbox keeps its value but refuses changes, from its `readOnly` option. A form reset still restores it. */
-  readOnly: boolean
+  readOnly: boolean;
   /** Whether a value is required. */
-  required: boolean
+  required: boolean;
   /** The data items, for rendering a virtualized list yourself. Empty without `items`. */
-  items: ListData<unknown>
-}
+  items: ListData<unknown>;
+};
 /**
  * The state the `item` slot of `listbox` hands `render` functions and
  * state-based class names.
@@ -279,12 +248,12 @@ type ListboxState = {
  */
 type ListboxItemState = {
   /** Whether the item has focus. */
-  highlighted: boolean
+  highlighted: boolean;
   /** Whether its value is in the listbox's value, compared with `isItemEqualToValue` when you pass one. */
-  selected: boolean
+  selected: boolean;
   /** Whether the item can't be chosen, by itself or a disabled listbox. */
-  disabled: boolean
-}
+  disabled: boolean;
+};
 /**
  * The state the `item-indicator` slot of `listbox` hands `render` functions
  * and state-based class names.
@@ -292,19 +261,19 @@ type ListboxItemState = {
  */
 type ListboxItemIndicatorState = {
   /** Whether its item is selected. While false, the indicator isn't shown unless `keepMounted` is set. */
-  selected: boolean
-}
+  selected: boolean;
+};
 /**
  * The props the `item-icon` slot of `listbox` takes.
  * @stable
  */
-type ListboxItemIconProps = ItemIconProps
+type ListboxItemIconProps = ItemIconProps;
 /**
  * The state the `item-icon` slot of `listbox` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type ListboxItemIconState = ItemIconState
+type ListboxItemIconState = ItemIconState;
 
 const listboxPrimitive = /* @__PURE__ */ definePrimitive({
   name: "listbox",
@@ -335,15 +304,12 @@ const listboxPrimitive = /* @__PURE__ */ definePrimitive({
   api: listboxApi,
   // An arrow function, so TypeScript infers the slot names before it checks the parts.
   slots: (slot) => listboxSlots(slot),
-})
+});
 /**
  * The type of `listbox`.
  * @stable
  */
-interface ListboxPrimitive extends WithGeneric<
-  typeof listboxPrimitive,
-  ListboxGeneric
-> {}
+interface ListboxPrimitive extends WithGeneric<typeof listboxPrimitive, ListboxGeneric> {}
 
 /**
  * The listbox primitive, with the slots `root`, `item`, `item-indicator`,
@@ -353,7 +319,7 @@ interface ListboxPrimitive extends WithGeneric<
  * primitive.
  * @stable
  */
-const listbox = listboxPrimitive as ListboxPrimitive
+const listbox = listboxPrimitive as ListboxPrimitive;
 
 export {
   createListboxController,
@@ -371,12 +337,12 @@ export {
   type ListboxState,
   type ListboxValue,
   type ListboxValueChangeReason,
-}
+};
 export type {
   ListData,
   ListGroup,
   ListHighlightDetails,
   ListItem,
   ListSeparator,
-} from "../../foundation/lists/listbox"
-export type { ListboxApi } from "./listbox-root-api"
+} from "../../foundation/lists/listbox";
+export type { ListboxApi } from "./listbox-root-api";

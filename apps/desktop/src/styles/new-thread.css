@@ -126,7 +126,7 @@
   color: var(--fg-strong);
   font: inherit;
   font-size: var(--text-md);
-  line-height: var(--leading-normal)5;
+  line-height: var(--leading-normal) 5;
 }
 
 .new-thread__textarea:focus {

@@ -4,11 +4,11 @@
 // presets of popups a press opens are here, with the sheet they can present
 // as; hover presets are in `popup-hover-presets.ts`, so a page with only
 // those never has the sheet's lazily loaded module in its graph.
-import type { Side } from "../platform/sides"
-import type { Modal } from "./popup"
-import type { PopupCore } from "./create-popup"
-import { createDismissal } from "./dismissal"
-import type { PopupBehaviorName } from "./popup-behavior"
+import type { Side } from "../platform/sides";
+import type { Modal } from "./popup";
+import type { PopupCore } from "./create-popup";
+import { createDismissal } from "./dismissal";
+import type { PopupBehaviorName } from "./popup-behavior";
 import {
   type focusOpening,
   hoverOpening,
@@ -17,30 +17,24 @@ import {
   styleReset,
   triggerName,
   type warmGroup,
-} from "./popup-features"
-import { createPopupPayload } from "./popup-payload"
-import { createPresentation } from "./presentation"
+} from "./popup-features";
+import { createPopupPayload } from "./popup-payload";
+import { createPresentation } from "./presentation";
 
 // Presenting as a sheet from the bottom of the screen, with `presentation`.
 // The sheet's code loads only once a popup presents as one.
-function sheetPresentation(
-  core: PopupCore,
-  dismissal?: ReturnType<typeof createDismissal>
-) {
-  const dialog = core.preset.behavior === "dialog"
+function sheetPresentation(core: PopupCore, dismissal?: ReturnType<typeof createDismissal>) {
+  const dialog = core.preset.behavior === "dialog";
   if (dialog) {
-    core.store.set({ presentation: "dialog" })
+    core.store.set({ presentation: "dialog" });
   }
   return createPresentation(
     core.store,
     () => core.popup,
-    () =>
-      core.rules?.presentation
-        ? core.rules.presentation()
-        : core.options().presentation,
+    () => (core.rules?.presentation ? core.rules.presentation() : core.options().presentation),
     dialog ? "dialog" : "popover",
-    dismissal
-  )
+    dismissal,
+  );
 }
 
 /**
@@ -50,40 +44,40 @@ function sheetPresentation(
  */
 type PopupPreset = {
   /** How Tab, Escape, outside presses and the window losing focus behave, by the pattern it follows. */
-  behavior: PopupBehaviorName
+  behavior: PopupBehaviorName;
   /** The content's role. None for content that isn't a widget of its own, like a hover card. */
-  role?: "dialog" | "alertdialog" | "menu" | "tooltip"
+  role?: "dialog" | "alertdialog" | "menu" | "tooltip";
   /** The `modal` it has when the primitive's option doesn't say. Without one, the primitive keeps `modal` in its state itself, or it's never modal. */
-  modal?: Modal
+  modal?: Modal;
   /** The side it opens on when its content doesn't say. */
-  side?: Side
+  side?: Side;
   /** Milliseconds the pointer rests on the trigger before it opens, unless the `delay` option says. */
-  delay?: number
+  delay?: number;
   /** Milliseconds before it closes once the pointer has left, unless the `closeDelay` option says. */
-  closeDelay?: number
+  closeDelay?: number;
   /** Milliseconds keyboard focus rests on the trigger before it opens. `delay` by default. */
-  focusDelay?: number
+  focusDelay?: number;
   /** The data each trigger hands the content, its `payload`. */
-  payload?: typeof createPopupPayload
+  payload?: typeof createPopupPayload;
   /** Placement beside the trigger. */
-  placement?: typeof placement
+  placement?: typeof placement;
   /** Presenting as a sheet, with the `presentation` option. */
-  presentation?: typeof sheetPresentation
+  presentation?: typeof sheetPresentation;
   /** `dismissible` and `onDismissAttempt`. Hover content takes neither, since WCAG 1.4.13 needs it dismissible. */
-  dismissal?: typeof createDismissal
+  dismissal?: typeof createDismissal;
   /** Opening on a press, with a button trigger and focus moving in. Without it, resting the pointer and keyboard focus open it. */
-  press?: typeof pressOpening
+  press?: typeof pressOpening;
   /** Opening when the pointer rests on the trigger. */
-  hover?: typeof hoverOpening
+  hover?: typeof hoverOpening;
   /** Opening when keyboard focus rests on the trigger. */
-  focus?: typeof focusOpening
+  focus?: typeof focusOpening;
   /** One open at a time, the next opening at once while one is warm. */
-  group?: typeof warmGroup
+  group?: typeof warmGroup;
   /** Naming an untitled popup after the trigger that opened it, whose name is copied since the page, its trigger included, goes inert. */
-  triggerName?: typeof triggerName
+  triggerName?: typeof triggerName;
   /** Undoing the browser's own popover styles. */
-  resetStyles?: typeof styleReset
-}
+  resetStyles?: typeof styleReset;
+};
 
 /**
  * Rich content opened from a button: a non-modal dialog by default, part of
@@ -102,7 +96,7 @@ const popoverPreset = {
   press: pressOpening,
   hover: hoverOpening,
   resetStyles: styleReset,
-} satisfies PopupPreset
+} satisfies PopupPreset;
 
 /**
  * A modal dialog by default: it holds focus, makes the page inert and locks
@@ -120,7 +114,7 @@ const dialogPreset = {
   press: pressOpening,
   triggerName,
   resetStyles: styleReset,
-} satisfies PopupPreset
+} satisfies PopupPreset;
 
 // Alert Dialog's: a dialog that never presents as a sheet, so it doesn't
 // carry the code for one. Alert Dialog keeps itself modal, whatever its
@@ -133,7 +127,7 @@ const alertDialogPreset = {
   press: pressOpening,
   triggerName,
   resetStyles: styleReset,
-} satisfies PopupPreset
+} satisfies PopupPreset;
 
 // Drawer's: a dialog that is a sheet of its own. Its snap point decides
 // whether it's modal, so the preset names no `modal`.
@@ -145,7 +139,7 @@ const drawerPreset = {
   press: pressOpening,
   triggerName,
   resetStyles: styleReset,
-} satisfies PopupPreset
+} satisfies PopupPreset;
 
 // Menu's: placed beside its trigger, presenting as a sheet, and handing each
 // trigger's payload to the content. Its own triggers open it, and it keeps
@@ -157,7 +151,7 @@ const menuPreset = {
   dismissal: createDismissal,
   placement,
   presentation: sheetPresentation,
-} satisfies PopupPreset
+} satisfies PopupPreset;
 
 // Select's: like a native select, Tab closes it and focus moves on from the
 // trigger. Placed below its trigger, modal to the pointer, and presenting as
@@ -168,7 +162,7 @@ const selectPreset = {
   dismissal: createDismissal,
   placement,
   presentation: sheetPresentation,
-} satisfies PopupPreset
+} satisfies PopupPreset;
 
 // The list of Combobox and Autocomplete: focus stays in their input while
 // it's open, so Tab is the browser's. Placed below the input and presenting as
@@ -179,7 +173,7 @@ const comboboxPreset = {
   dismissal: createDismissal,
   placement,
   presentation: sheetPresentation,
-} satisfies PopupPreset
+} satisfies PopupPreset;
 
 // Date Picker's calendar: placed beside its input and presenting as a sheet,
 // and never modal. Its own trigger and inputs open it, so it carries no
@@ -189,7 +183,7 @@ const datePickerPreset = {
   dismissal: createDismissal,
   placement,
   presentation: sheetPresentation,
-} satisfies PopupPreset
+} satisfies PopupPreset;
 
 // Trigger Menu's list: opened by a character typed in an editor and placed at
 // the caret, while focus stays in the editor. It never presents as a sheet.
@@ -197,7 +191,7 @@ const triggerMenuPreset = {
   behavior: "combobox",
   dismissal: createDismissal,
   placement,
-} satisfies PopupPreset
+} satisfies PopupPreset;
 
 export {
   alertDialogPreset,
@@ -210,4 +204,4 @@ export {
   type PopupPreset,
   selectPreset,
   triggerMenuPreset,
-}
+};

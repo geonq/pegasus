@@ -1,30 +1,18 @@
 // Defines Dialog and Alert Dialog on the api and parts they share. What
 // only Dialog has, its presentation, comes in as an extension, so an alert
 // dialog doesn't carry it.
-import { initialApple } from "../../foundation/platform/platform"
-import { definePrimitive } from "../../foundation/kernel/primitive"
-import type {
-  PropSchema,
-  SlotFactory,
-} from "../../foundation/kernel/primitive-types"
-import type { Store } from "../../foundation/kernel/store"
-import type {
-  AlertDialogController,
-  DialogController,
-  DialogSharedOptions,
-} from "./dialog"
-import {
-  dialogApi,
-  type DialogApi,
-  type DialogRules,
-  type DialogState,
-} from "./dialog-api"
-import { dialogSlots } from "./dialog-parts"
+import { initialApple } from "../../foundation/platform/platform";
+import { definePrimitive } from "../../foundation/kernel/primitive";
+import type { PropSchema, SlotFactory } from "../../foundation/kernel/primitive-types";
+import type { Store } from "../../foundation/kernel/store";
+import type { AlertDialogController, DialogController, DialogSharedOptions } from "./dialog";
+import { dialogApi, type DialogApi, type DialogRules, type DialogState } from "./dialog-api";
+import { dialogSlots } from "./dialog-parts";
 
 function defineDialog<
   Options extends DialogSharedOptions & {
-    modal?: boolean | "trap-focus"
-    controller?: DialogController<any, any> | AlertDialogController<any, any>
+    modal?: boolean | "trap-focus";
+    controller?: DialogController<any, any> | AlertDialogController<any, any>;
   },
   Extra extends object = {},
 >(
@@ -34,10 +22,10 @@ function defineDialog<
   options: PropSchema<Omit<Options, keyof DialogSharedOptions>>,
   extension?: {
     /** Behavior beyond the shared api. */
-    rules: (store: Store<DialogState>, options: () => Options) => DialogRules
+    rules: (store: Store<DialogState>, options: () => Options) => DialogRules;
     /** Parts beyond the shared ones. */
-    slots: (slot: SlotFactory<DialogState, DialogApi>) => Extra
-  }
+    slots: (slot: SlotFactory<DialogState, DialogApi>) => Extra;
+  },
 ) {
   return definePrimitive({
     name,
@@ -75,18 +63,13 @@ function defineDialog<
       // An alert dialog is always modal.
       modal: alert ? true : (options.modal ?? true),
     }),
-    api: (context) =>
-      dialogApi(
-        context,
-        alert,
-        extension?.rules(context.store, context.options)
-      ),
+    api: (context) => dialogApi(context, alert, extension?.rules(context.store, context.options)),
     // Without an extension there are no extra parts, and spreading undefined adds none.
     slots: (slot) => ({
       ...dialogSlots(slot, { name }),
       ...(extension?.slots(slot) as Extra),
     }),
-  })
+  });
 }
 
-export { defineDialog }
+export { defineDialog };

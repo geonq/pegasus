@@ -1,5 +1,4 @@
-const isBrowser =
-  typeof window !== "undefined" && typeof document !== "undefined"
+const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
 
 // iPhone and iPad, including iPads that report a Mac.
 function isIOS() {
@@ -7,7 +6,7 @@ function isIOS() {
     isBrowser &&
     (/iP(hone|ad|od)/.test(navigator.platform) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1))
-  )
+  );
 }
 
 /**
@@ -15,7 +14,7 @@ function isIOS() {
  * @stable
  */
 function isRTL(el: Element | null | undefined) {
-  return !!el && isBrowser && getComputedStyle(el).direction === "rtl"
+  return !!el && isBrowser && getComputedStyle(el).direction === "rtl";
 }
 
-export { isBrowser, isIOS, isRTL }
+export { isBrowser, isIOS, isRTL };

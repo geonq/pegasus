@@ -1,4 +1,4 @@
-import { isAfter } from "../kernel/order"
+import { isAfter } from "../kernel/order";
 
 const candidates = [
   "a[href]",
@@ -13,53 +13,48 @@ const candidates = [
   "video[controls]",
   "[contenteditable]:not([contenteditable='false'])",
   "[tabindex]",
-].join(",")
+].join(",");
 
 function isTabbable(el: Element): el is HTMLElement {
   if (!(el instanceof HTMLElement) || el.tabIndex < 0) {
-    return false
+    return false;
   }
   if (el.matches(":disabled") || el.closest("[inert]")) {
-    return false
+    return false;
   }
   // Only one radio button per group takes Tab: the checked one, or the first.
   // Without a form, a radio's group is the same-named radios outside a form in
   // its document or shadow root. A checked radio that can't take focus leaves the rest reachable.
-  const group = (el as HTMLInputElement).checked ? [] : radioGroup(el)
+  const group = (el as HTMLInputElement).checked ? [] : radioGroup(el);
   if (group.some((radio) => radio.checked && isTabbable(radio))) {
-    return false
+    return false;
   }
   if (typeof el.checkVisibility === "function") {
-    return el.checkVisibility({ visibilityProperty: true })
+    return el.checkVisibility({ visibilityProperty: true });
   }
-  return (
-    el.getClientRects().length > 0 &&
-    getComputedStyle(el).visibility !== "hidden"
-  )
+  return el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
 }
 
 function radioGroup(el: Element) {
   if (!(el instanceof HTMLInputElement) || el.type !== "radio" || !el.name) {
-    return []
+    return [];
   }
   const scope = el.form
     ? Array.from(el.form.elements)
     : Array.from(
-        (el.getRootNode() as ParentNode).querySelectorAll(
-          `input[name="${CSS.escape(el.name)}"]`
-        )
-      )
+        (el.getRootNode() as ParentNode).querySelectorAll(`input[name="${CSS.escape(el.name)}"]`),
+      );
   return scope.filter(
     (radio): radio is HTMLInputElement =>
       radio instanceof HTMLInputElement &&
       radio.type === "radio" &&
       radio.name === el.name &&
-      radio.form === el.form
-  )
+      radio.form === el.form,
+  );
 }
 
 function tabbables(root: ParentNode) {
-  return Array.from(root.querySelectorAll(candidates)).filter(isTabbable)
+  return Array.from(root.querySelectorAll(candidates)).filter(isTabbable);
 }
 
 // The stops Tab visits before the rest: positive tabindex values, lowest
@@ -67,63 +62,54 @@ function tabbables(root: ParentNode) {
 // keeps its host's place.
 function positiveTabStops(stops: HTMLElement[], root: Element) {
   const slotted = (el: Element) => {
-    for (
-      let node: Element | null = el;
-      node && node !== root;
-      node = node.parentElement
-    ) {
+    for (let node: Element | null = el; node && node !== root; node = node.parentElement) {
       if (node.assignedSlot) {
-        return true
+        return true;
       }
     }
-    return false
-  }
+    return false;
+  };
   return stops
     .filter((el) => el.tabIndex > 0 && !slotted(el))
-    .sort((a, b) => a.tabIndex - b.tabIndex)
+    .sort((a, b) => a.tabIndex - b.tabIndex);
 }
 
 // The first tabbable element after `node` in the document, skipping anything
 // inside `skip`, like the popup that is handing focus back.
 function nextTabbable(node: Node, skip?: Element) {
-  const doc = node.ownerDocument ?? document
+  const doc = node.ownerDocument ?? document;
   return tabbables(doc.body).find(
-    (el) => !el.contains(node) && !skip?.contains(el) && isAfter(node, el)
-  )
+    (el) => !el.contains(node) && !skip?.contains(el) && isAfter(node, el),
+  );
 }
 
 const focusables =
-  'a[href],button,input:not([type="hidden"]),select,textarea,iframe,summary,[contenteditable]:not([contenteditable="false"]),[tabindex]'
+  'a[href],button,input:not([type="hidden"]),select,textarea,iframe,summary,[contenteditable]:not([contenteditable="false"]),[tabindex]';
 
-const ownTabStops = new WeakSet<Element>()
+const ownTabStops = new WeakSet<Element>();
 
 // Only inert content inside `root` counts: the observer never sees `root` or
 // its ancestors become inert or stop being.
 function takesFocus(node: Element, root: Element) {
-  const inert = node.closest("[inert]")
+  const inert = node.closest("[inert]");
   return (
     (node as HTMLElement).tabIndex >= 0 &&
     !node.matches(":disabled") &&
     !(inert !== root && root.contains(inert))
-  )
+  );
 }
 
 function holdsFocusableNode(node: Node, root: Element) {
   if (!(node instanceof Element)) {
-    return false
+    return false;
   }
-  return (
-    (node.matches(focusables) && takesFocus(node, root)) ||
-    holdsFocusable(node, root)
-  )
+  return (node.matches(focusables) && takesFocus(node, root)) || holdsFocusable(node, root);
 }
 
 // Whether Tab could stop inside `el` once it shows. Visibility is ignored,
 // since a hidden panel checks before it shows.
 function holdsFocusable(el: Element, root = el) {
-  return Array.from(el.querySelectorAll(focusables)).some((node) =>
-    takesFocus(node, root)
-  )
+  return Array.from(el.querySelectorAll(focusables)).some((node) => takesFocus(node, root));
 }
 
 /**
@@ -143,65 +129,54 @@ function bindTabStop(
   }: {
     // A scroller holding focusable content leaves the tab order with
     // `tabindex="-1"`, since Firefox makes every scroller a stop of its own.
-    skipWhenHolding?: boolean
-  } = {}
+    skipWhenHolding?: boolean;
+  } = {},
 ) {
   // Binding again, like React's StrictMode does, finds the stop written last time.
-  const authored = el.hasAttribute("tabindex") && !ownTabStops.has(el)
-  let holds = holdsFocusable(el)
+  const authored = el.hasAttribute("tabindex") && !ownTabStops.has(el);
+  let holds = holdsFocusable(el);
   const check = () => {
     if (authored) {
-      return
+      return;
     }
-    const stop = wanted() && !holds ? "0" : skipWhenHolding ? "-1" : null
+    const stop = wanted() && !holds ? "0" : skipWhenHolding ? "-1" : null;
     if (el.getAttribute("tabindex") === stop) {
-      return
+      return;
     }
     if (stop === null) {
-      el.removeAttribute("tabindex")
-      ownTabStops.delete(el)
+      el.removeAttribute("tabindex");
+      ownTabStops.delete(el);
     } else {
-      el.setAttribute("tabindex", stop)
-      ownTabStops.add(el)
+      el.setAttribute("tabindex", stop);
+      ownTabStops.add(el);
     }
-  }
-  check()
+  };
+  check();
   if (typeof MutationObserver === "undefined") {
-    return { check, stop: () => {} }
+    return { check, stop: () => {} };
   }
   const observer = new MutationObserver((records) => {
     for (const record of records) {
       if (record.target === el && record.type === "attributes") {
-        continue
+        continue;
       }
-      if (
-        record.type === "attributes" ||
-        (holds && record.removedNodes.length)
-      ) {
-        holds = holdsFocusable(el)
-        break
+      if (record.type === "attributes" || (holds && record.removedNodes.length)) {
+        holds = holdsFocusable(el);
+        break;
       }
       if (!holds) {
-        holds = Array.from(record.addedNodes).some((node) =>
-          holdsFocusableNode(node, el)
-        )
+        holds = Array.from(record.addedNodes).some((node) => holdsFocusableNode(node, el));
       }
     }
-    check()
-  })
+    check();
+  });
   observer.observe(el, {
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: [
-      "tabindex",
-      "disabled",
-      "href",
-      "contenteditable",
-      "inert",
-    ],
-  })
-  return { check, stop: () => observer.disconnect() }
+    attributeFilter: ["tabindex", "disabled", "href", "contenteditable", "inert"],
+  });
+  return { check, stop: () => observer.disconnect() };
 }
 
 export {
@@ -212,4 +187,4 @@ export {
   positiveTabStops,
   radioGroup,
   tabbables,
-}
+};

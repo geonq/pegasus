@@ -1,15 +1,15 @@
-import type { ListData } from "../core/components/select/select"
-import type * as React from "react"
+import type { ListData } from "../core/components/select/select";
+import type * as React from "react";
 
-type Part = React.ComponentType<any>
+type Part = React.ComponentType<any>;
 
 // The parts a list renders its data with, which every list component has.
 type ListParts = {
-  Item: Part
-  Group: Part
-  GroupLabel: Part
-  Separator: Part
-}
+  Item: Part;
+  Group: Part;
+  GroupLabel: Part;
+  Separator: Part;
+};
 
 // Renders a list's data with its parts: an option per item, groups with their
 // labels, and separators. Keyed by each item's key, and each group by its
@@ -19,21 +19,21 @@ function ListItems({
   parts,
   keyOf,
 }: {
-  items: readonly ListData<any>[number][]
-  parts: ListParts
-  keyOf: (value: unknown) => string
+  items: readonly ListData<any>[number][];
+  parts: ListParts;
+  keyOf: (value: unknown) => string;
 }) {
-  const { Item, Group, GroupLabel, Separator } = parts
+  const { Item, Group, GroupLabel, Separator } = parts;
   return items.map((entry, index) => {
     if (typeof entry === "string") {
       return (
         <Item key={entry} value={entry}>
           {entry}
         </Item>
-      )
+      );
     }
     if ("type" in entry && entry.type === "separator") {
-      return <Separator key={`separator-${index}`} />
+      return <Separator key={`separator-${index}`} />;
     }
     if ("type" in entry && entry.type === "group") {
       return (
@@ -41,14 +41,14 @@ function ListItems({
           {entry.label && <GroupLabel>{entry.label}</GroupLabel>}
           <ListItems items={entry.items} parts={parts} keyOf={keyOf} />
         </Group>
-      )
+      );
     }
     const { value, label, disabled, keywords } = entry as {
-      value: unknown
-      label: string
-      disabled?: boolean
-      keywords?: string[]
-    }
+      value: unknown;
+      label: string;
+      disabled?: boolean;
+      keywords?: string[];
+    };
     return (
       <Item
         key={keyOf(value)}
@@ -59,8 +59,8 @@ function ListItems({
       >
         {label}
       </Item>
-    )
-  })
+    );
+  });
 }
 
-export { ListItems, type ListParts }
+export { ListItems, type ListParts };

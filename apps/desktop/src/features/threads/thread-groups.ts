@@ -240,7 +240,9 @@ function nestChildThreads(state: DesktopAppState, entries: readonly ThreadListEn
             {
               ...thread,
               childCount: children.length,
-              ...(parentsWithActiveChildren.has(sessionThreadKey(thread)) ? { childrenRunning: true } : {}),
+              ...(parentsWithActiveChildren.has(sessionThreadKey(thread))
+                ? { childrenRunning: true }
+                : {}),
             },
             ...children,
           ]

@@ -124,7 +124,12 @@ test("shows only the newest enabled model of each family", () => {
 test("enabled Sonnet and Haiku survive catalog version pruning and dated aliases", () => {
   const providerId = "claude-code-account-1";
   const value = runtime({
-    models: ["claude-opus-5-5", "claude-sonnet-5", "claude-haiku-4-5-20251001"].map((modelId) => ({ ...model, providerId, modelId, label: modelId })),
+    models: ["claude-opus-5-5", "claude-sonnet-5", "claude-haiku-4-5-20251001"].map((modelId) => ({
+      ...model,
+      providerId,
+      modelId,
+      label: modelId,
+    })),
     settings: {
       enableSkillCommands: false,
       enabledModelPatterns: [
@@ -134,9 +139,11 @@ test("enabled Sonnet and Haiku survive catalog version pruning and dated aliases
       ],
     },
   });
-  expect(buildModelOptions(value).map((option) => option.modelId).sort()).toEqual([
-    "claude-haiku-4-5-20251001", "claude-opus-5-5", "claude-sonnet-5",
-  ]);
+  expect(
+    buildModelOptions(value)
+      .map((option) => option.modelId)
+      .sort(),
+  ).toEqual(["claude-haiku-4-5-20251001", "claude-opus-5-5", "claude-sonnet-5"]);
   expect(isModelSelectable(value, providerId, "claude-sonnet-5")).toBe(true);
   expect(isModelSelectable(value, providerId, "claude-haiku-4-5-20251001")).toBe(true);
 });
@@ -148,27 +155,43 @@ test("family upgrades neither enable another account nor re-enable a disabled fa
       { ...model, providerId: "claude-code-account-1", modelId: "claude-haiku-4-5-20251001" },
       { ...model, providerId: "claude-code-account-2", modelId: "claude-sonnet-5" },
     ],
-    settings: { enableSkillCommands: false, enabledModelPatterns: ["claude-code-account-1/claude-sonnet-4-5"] },
+    settings: {
+      enableSkillCommands: false,
+      enabledModelPatterns: ["claude-code-account-1/claude-sonnet-4-5"],
+    },
   });
-  expect(buildModelOptions(value).map((option) => `${option.providerId}/${option.modelId}`)).toEqual([
-    "claude-code-account-1/claude-sonnet-5",
-  ]);
+  expect(
+    buildModelOptions(value).map((option) => `${option.providerId}/${option.modelId}`),
+  ).toEqual(["claude-code-account-1/claude-sonnet-5"]);
 });
 
 test("Claude dates are aliases, while dated DeepSeek variants remain distinct", () => {
   expect(modelFamily("claude-haiku-4-5-20251001")).toEqual(modelFamily("claude-haiku-4-5"));
-  expect(modelFamily("deepseek-v4.1-flash-1017").family).not.toBe(modelFamily("deepseek-v4.1-flash").family);
+  expect(modelFamily("deepseek-v4.1-flash-1017").family).not.toBe(
+    modelFamily("deepseek-v4.1-flash").family,
+  );
 });
 
 test("bare CLI model labels show the discovered version and follow a newer CLI catalog", () => {
   const providerId = "claude-code-account-1";
-  const discovered = (modelId: string) => runtime({
-    models: [{ ...model, providerId, providerName: "Claude · hera", modelId, label: "Fable (Claude Code)" }],
-  });
+  const discovered = (modelId: string) =>
+    runtime({
+      models: [
+        {
+          ...model,
+          providerId,
+          providerName: "Claude · hera",
+          modelId,
+          label: "Fable (Claude Code)",
+        },
+      ],
+    });
   const current = buildModelOptions(discovered("claude-fable-5-2"))[0]!;
   expect(current.label).toBe("Claude · hera · Fable 5.2");
   expect(current.modelId).toBe("claude-fable-5-2");
-  expect(buildModelOptions(discovered("claude-fable-5-3"))[0]!.label).toBe("Claude · hera · Fable 5.3");
+  expect(buildModelOptions(discovered("claude-fable-5-3"))[0]!.label).toBe(
+    "Claude · hera · Fable 5.3",
+  );
   expect(versionedModelLabel("claude-sonnet-5-5", "Sonnet")).toBe("Sonnet 5.5");
   expect(versionedModelLabel("claude-haiku-4-5-20251001", "Haiku")).toBe("Haiku 4.5");
   expect(versionedModelLabel("claude-opus-5-5[1m]", "Opus")).toBe("Opus 5.5 (1M context)");

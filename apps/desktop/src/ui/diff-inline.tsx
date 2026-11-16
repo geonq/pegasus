@@ -39,7 +39,12 @@ export function InlineDiff({
           )}
           <span className="diff-line__content">
             {highlightActive && line.type !== "header" && line.type !== "unmodified" ? (
-              <HighlightedLine content={line.content} language={language!} source={source} lineIndex={index} />
+              <HighlightedLine
+                content={line.content}
+                language={language!}
+                source={source}
+                lineIndex={index}
+              />
             ) : (
               line.content
             )}

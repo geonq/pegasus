@@ -8,49 +8,39 @@
  * How urgently a screen reader reads an announcement: `"polite"` waits for a pause, `"assertive"` interrupts.
  * @stable
  */
-type AnnouncePriority = "polite" | "assertive"
+type AnnouncePriority = "polite" | "assertive";
 
-const regions = new WeakMap<
-  Document,
-  Partial<Record<AnnouncePriority, HTMLElement>>
->()
-let announcer: ((text: string, priority: AnnouncePriority) => void) | undefined
-const pending: Partial<
-  Record<AnnouncePriority, ReturnType<typeof setTimeout>>
-> = {}
+const regions = new WeakMap<Document, Partial<Record<AnnouncePriority, HTMLElement>>>();
+let announcer: ((text: string, priority: AnnouncePriority) => void) | undefined;
+const pending: Partial<Record<AnnouncePriority, ReturnType<typeof setTimeout>>> = {};
 
 /**
  * Replaces how text is announced, like in unit tests, which run without a
  * document. Undefined goes back to the live regions.
  */
-function setAnnouncer(
-  announce: ((text: string, priority: AnnouncePriority) => void) | undefined
-) {
-  announcer = announce
+function setAnnouncer(announce: ((text: string, priority: AnnouncePriority) => void) | undefined) {
+  announcer = announce;
 }
 
 function regionIn(doc: Document, priority: AnnouncePriority) {
-  let found = regions.get(doc)
+  let found = regions.get(doc);
   if (!found) {
-    regions.set(doc, (found = {}))
+    regions.set(doc, (found = {}));
   }
-  const existing = found[priority]
+  const existing = found[priority];
   if (existing?.isConnected) {
-    return existing
+    return existing;
   }
-  const region = doc.createElement("div")
-  region.setAttribute("role", priority === "assertive" ? "alert" : "status")
-  region.setAttribute("aria-live", priority)
-  region.setAttribute("aria-atomic", "true")
-  region.setAttribute(
-    "data-ui-sdk-announcer",
-    priority === "assertive" ? "assertive" : ""
-  )
+  const region = doc.createElement("div");
+  region.setAttribute("role", priority === "assertive" ? "alert" : "status");
+  region.setAttribute("aria-live", priority);
+  region.setAttribute("aria-atomic", "true");
+  region.setAttribute("data-ui-sdk-announcer", priority === "assertive" ? "assertive" : "");
   region.style.cssText =
-    "position:fixed;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap"
-  doc.body.append(region)
-  found[priority] = region
-  return region
+    "position:fixed;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap";
+  doc.body.append(region);
+  found[priority] = region;
+  return region;
 }
 
 /**
@@ -60,10 +50,10 @@ function regionIn(doc: Document, priority: AnnouncePriority) {
  */
 function prepareAnnouncements(doc: Document) {
   if (announcer || !doc.body) {
-    return
+    return;
   }
-  regionIn(doc, "polite")
-  regionIn(doc, "assertive")
+  regionIn(doc, "polite");
+  regionIn(doc, "assertive");
 }
 
 /**
@@ -76,26 +66,26 @@ function announce(
   {
     priority = "polite",
     doc = typeof document === "undefined" ? undefined : document,
-  }: { priority?: AnnouncePriority; doc?: Document } = {}
+  }: { priority?: AnnouncePriority; doc?: Document } = {},
 ) {
   if (!text) {
-    return
+    return;
   }
   if (announcer) {
-    return announcer(text, priority)
+    return announcer(text, priority);
   }
   if (!doc?.body) {
-    return
+    return;
   }
-  const region = regionIn(doc, priority)
-  region.textContent = ""
+  const region = regionIn(doc, priority);
+  region.textContent = "";
   // Screen readers only notice text that changes after the region exists, and
   // the same text twice only after it was cleared. A newer text replaces one
   // still waiting at the same priority.
-  clearTimeout(pending[priority])
+  clearTimeout(pending[priority]);
   pending[priority] = setTimeout(() => {
-    region.textContent = text
-  }, 100)
+    region.textContent = text;
+  }, 100);
 }
 
-export { announce, type AnnouncePriority, prepareAnnouncements, setAnnouncer }
+export { announce, type AnnouncePriority, prepareAnnouncements, setAnnouncer };

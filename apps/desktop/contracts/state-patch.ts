@@ -18,7 +18,10 @@ export interface DesktopStatePatch {
   readonly set: Readonly<Record<string, unknown>>;
   /** Record-valued top-level keys (maps by workspace or session id): entries to set and delete. */
   readonly maps: Readonly<
-    Record<string, { readonly set: Readonly<Record<string, unknown>>; readonly del: readonly string[] }>
+    Record<
+      string,
+      { readonly set: Readonly<Record<string, unknown>>; readonly del: readonly string[] }
+    >
   >;
   /** Present when any workspace or session changed. */
   readonly workspaces?: WorkspacesPatch;
@@ -235,7 +238,10 @@ export function isDesktopStatePatch(update: DesktopStateUpdate): update is Deskt
  * replaced by the old object. A full state (first load, resync, an action reply) would otherwise
  * hand every row a new object and re-render the whole sidebar.
  */
-export function shareIdentity(previous: DesktopAppState | null, next: DesktopAppState): DesktopAppState {
+export function shareIdentity(
+  previous: DesktopAppState | null,
+  next: DesktopAppState,
+): DesktopAppState {
   if (!previous || previous === next) return next;
   const before = previous as unknown as Json;
   const result: Record<string, unknown> = { ...(next as unknown as Json) };

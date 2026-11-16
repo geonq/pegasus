@@ -6,7 +6,7 @@
  * @experimental
  */
 function projectDistance(velocity: number, rate: number) {
-  return (velocity * rate) / (1 - rate)
+  return (velocity * rate) / (1 - rate);
 }
 
 // Picks the index of the candidate extent a release settles on. `candidates`
@@ -14,68 +14,57 @@ function projectDistance(velocity: number, rate: number) {
 // `velocity` is the extent's velocity in px/ms, positive when growing.
 function chooseSnapTarget(input: {
   /** The extent at release, in px. */
-  extent: number
+  extent: number;
   /** px/ms, positive toward a larger extent. */
-  velocity: number
+  velocity: number;
   /** Ascending resting extents, in px. */
-  candidates: readonly number[]
+  candidates: readonly number[];
   /** Per-millisecond deceleration used for the projection. */
-  rate: number
+  rate: number;
   /** Below this speed, in px/ms, the nearest candidate wins. */
-  minFlingVelocity: number
+  minFlingVelocity: number;
   /** Whether a fling can pass over a candidate. */
-  skipSnapPoints: boolean
+  skipSnapPoints: boolean;
 }) {
-  const { extent, velocity, candidates } = input
+  const { extent, velocity, candidates } = input;
   if (Math.abs(velocity) < input.minFlingVelocity) {
-    return nearestIndex(candidates, extent)
+    return nearestIndex(candidates, extent);
   }
-  const projected = extent + projectDistance(velocity, input.rate)
-  const nextInDirection = firstBeyond(candidates, extent, Math.sign(velocity))
-  let target = nearestIndex(candidates, projected)
+  const projected = extent + projectDistance(velocity, input.rate);
+  const nextInDirection = firstBeyond(candidates, extent, Math.sign(velocity));
+  let target = nearestIndex(candidates, projected);
   const isBehind =
-    velocity > 0
-      ? candidates[target]! <= extent + 0.5
-      : candidates[target]! >= extent - 0.5
+    velocity > 0 ? candidates[target]! <= extent + 0.5 : candidates[target]! >= extent - 0.5;
   if (isBehind && nextInDirection !== -1) {
-    target = nextInDirection
+    target = nextInDirection;
   }
   if (!input.skipSnapPoints && nextInDirection !== -1) {
-    target =
-      velocity > 0
-        ? Math.min(target, nextInDirection)
-        : Math.max(target, nextInDirection)
+    target = velocity > 0 ? Math.min(target, nextInDirection) : Math.max(target, nextInDirection);
   }
-  return target
+  return target;
 }
 
 function nearestIndex(candidates: readonly number[], value: number) {
-  let best = 0
+  let best = 0;
   for (let index = 1; index < candidates.length; index++) {
-    if (
-      Math.abs(candidates[index]! - value) < Math.abs(candidates[best]! - value)
-    ) {
-      best = index
+    if (Math.abs(candidates[index]! - value) < Math.abs(candidates[best]! - value)) {
+      best = index;
     }
   }
-  return best
+  return best;
 }
 
 // The first candidate strictly past `extent` in `direction`, or -1.
-function firstBeyond(
-  candidates: readonly number[],
-  extent: number,
-  direction: number
-) {
+function firstBeyond(candidates: readonly number[], extent: number, direction: number) {
   if (direction > 0) {
-    return candidates.findIndex((candidate) => candidate > extent + 0.5)
+    return candidates.findIndex((candidate) => candidate > extent + 0.5);
   }
   for (let index = candidates.length - 1; index >= 0; index--) {
     if (candidates[index]! < extent - 0.5) {
-      return index
+      return index;
     }
   }
-  return -1
+  return -1;
 }
 
-export { chooseSnapTarget, nearestIndex, projectDistance }
+export { chooseSnapTarget, nearestIndex, projectDistance };

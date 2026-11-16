@@ -1,5 +1,5 @@
-import { tabs } from "../core/components/tabs/tabs"
-import { createParts } from "./use-primitive"
+import { tabs } from "../core/components/tabs/tabs";
+import { createParts } from "./use-primitive";
 
 const parts = createParts(tabs, {
   root: "div",
@@ -8,47 +8,47 @@ const parts = createParts(tabs, {
   "tab-icon": "span",
   indicator: "span",
   panel: "div",
-})
+});
 
 /**
  * Layered sections of content, one shown at a time.
  * `T` is inferred from `value`, `defaultValue` or `onValueChange`.
  * @stable
  */
-const Tabs = parts.Root
+const Tabs = parts.Root;
 
 /**
  * The row of tabs, a tablist with one tab stop and arrow keys between its tabs.
  * @stable
  */
-const TabsList = parts.List
+const TabsList = parts.List;
 
 /**
  * A tab. Selecting it shows the panel with the same `value`.
  * @stable
  */
-const TabsTab = parts.Tab
+const TabsTab = parts.Tab;
 
 /**
  * An icon inside a tab. A tab with only an icon needs an `aria-label`. Screen readers skip it, and
  * `mirror` flips it in right-to-left text.
  * @stable
  */
-const TabsTabIcon = parts.TabIcon
+const TabsTabIcon = parts.TabIcon;
 
 /**
  * Marks the selected tab. Its box comes from the `--active-tab-*` variables, measured from the tab list.
  * @stable
  */
-const TabsIndicator = parts.Indicator
+const TabsIndicator = parts.Indicator;
 
 /**
  * The content of the tab with the same `value`, shown while that tab is selected.
  * @stable
  */
-const TabsPanel = parts.Panel
+const TabsPanel = parts.Panel;
 
-export { createTabsController } from "../core/components/tabs/tabs"
+export { createTabsController } from "../core/components/tabs/tabs";
 export type {
   TabsApi,
   TabsChangeOptions,
@@ -67,6 +67,6 @@ export type {
   TabsTabProps,
   TabsTabState,
   TabsValueChangeReason,
-} from "../core/components/tabs/tabs"
+} from "../core/components/tabs/tabs";
 
-export { Tabs, TabsIndicator, TabsList, TabsPanel, TabsTab, TabsTabIcon }
+export { Tabs, TabsIndicator, TabsList, TabsPanel, TabsTab, TabsTabIcon };

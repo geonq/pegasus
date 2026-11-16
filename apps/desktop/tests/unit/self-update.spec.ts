@@ -22,10 +22,16 @@ test("paused runs survive one restart, are read once, and go stale", async () =>
   await writePausedRuns(dir, [{ workspaceId: "w1", sessionId: "s1" }]);
   expect(await consumePausedRuns(dir)).toEqual([{ workspaceId: "w1", sessionId: "s1" }]);
   expect(await consumePausedRuns(dir)).toEqual([]);
-  const stale = { createdAt: Date.now() - 60 * 60_000, runs: [{ workspaceId: "w", sessionId: "s" }] };
+  const stale = {
+    createdAt: Date.now() - 60 * 60_000,
+    runs: [{ workspaceId: "w", sessionId: "s" }],
+  };
   await writeFile(join(dir, "paused.json"), JSON.stringify(stale));
   expect(await consumePausedRuns(dir)).toEqual([]);
-  const mixed = { createdAt: Date.now(), runs: [{ workspaceId: "w" }, "x", { workspaceId: "w", sessionId: "s" }] };
+  const mixed = {
+    createdAt: Date.now(),
+    runs: [{ workspaceId: "w" }, "x", { workspaceId: "w", sessionId: "s" }],
+  };
   await writeFile(join(dir, "paused.json"), JSON.stringify(mixed));
   expect(await consumePausedRuns(dir)).toEqual([{ workspaceId: "w", sessionId: "s" }]);
 });

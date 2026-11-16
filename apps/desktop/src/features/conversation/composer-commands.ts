@@ -372,10 +372,16 @@ function computeModelOptions(runtime: RuntimeSnapshot): readonly ComposerModelOp
   // The runtime catalog has already pruned older Claude versions. Match saved enabled IDs by
   // provider + family too, or an enabled Sonnet 4 disappears when only Sonnet 5 remains in it.
   const enabledSet = allAvailable ? undefined : new Set(enabledPatterns);
-  const enabledFamilies = allAvailable ? undefined : new Set(enabledPatterns.map((pattern) => {
-    const separator = pattern.indexOf("/");
-    return separator < 0 ? pattern : `${pattern.slice(0, separator)}\u0000${modelFamily(pattern.slice(separator + 1)).family}`;
-  }));
+  const enabledFamilies = allAvailable
+    ? undefined
+    : new Set(
+        enabledPatterns.map((pattern) => {
+          const separator = pattern.indexOf("/");
+          return separator < 0
+            ? pattern
+            : `${pattern.slice(0, separator)}\u0000${modelFamily(pattern.slice(separator + 1)).family}`;
+        }),
+      );
   const available = runtime.models.filter((model) => model.available);
   // Newest version per provider + family, so an enabled gpt-6-sol shows as gpt-6.1-sol once that ships.
   const newest = new Map<string, RuntimeSnapshot["models"][number]>();
@@ -391,10 +397,14 @@ function computeModelOptions(runtime: RuntimeSnapshot): readonly ComposerModelOp
   const shown = new Set<RuntimeSnapshot["models"][number]>();
   for (const model of available) {
     if (
-      enabledSet && !enabledSet.has(`${model.providerId}/${model.modelId}`) &&
-      !(/^claude-(?:opus|sonnet|haiku|fable)-/.test(model.modelId) &&
-        enabledFamilies?.has(`${model.providerId}\u0000${modelFamily(model.modelId).family}`))
-    ) continue;
+      enabledSet &&
+      !enabledSet.has(`${model.providerId}/${model.modelId}`) &&
+      !(
+        /^claude-(?:opus|sonnet|haiku|fable)-/.test(model.modelId) &&
+        enabledFamilies?.has(`${model.providerId}\u0000${modelFamily(model.modelId).family}`)
+      )
+    )
+      continue;
     shown.add(newest.get(`${model.providerId}\u0000${modelFamily(model.modelId).family}`) ?? model);
   }
 
@@ -422,7 +432,10 @@ function computeModelOptions(runtime: RuntimeSnapshot): readonly ComposerModelOp
 /** CLI display names can be just "Fable" even when discovery resolves claude-fable-5-2.
  * Show that discovered ID's version, not a stale bundled display name or a hard-coded release. */
 export function versionedModelLabel(modelId: string, fallback: string): string {
-  const match = /^claude-(opus|sonnet|haiku|fable)-(\d+)(?:[-.](\d{1,3}))?(?:-\d{8})?(?:\[1m\])?$/.exec(modelId);
+  const match =
+    /^claude-(opus|sonnet|haiku|fable)-(\d+)(?:[-.](\d{1,3}))?(?:-\d{8})?(?:\[1m\])?$/.exec(
+      modelId,
+    );
   if (!match) return fallback;
   const family = match[1]!;
   const version = [match[2], match[3]].filter(Boolean).join(".");

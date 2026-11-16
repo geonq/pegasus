@@ -12,95 +12,85 @@
 // others, like a submenu anchored to the item that changed, and not the popup
 // itself: moving the highlight through a menu runs no positioning frames.
 
-const wakers = new Map<() => void, Element | undefined>()
+const wakers = new Map<() => void, Element | undefined>();
 // What `unlisten` goes back to once the last popup closes. The old one keeps
 // its aborted signal, whose reason is an error whose stack keeps the closed
 // popup, its anchor and the page around them alive. It's made out here, since
 // a function made in the cleanup would share its scope and keep them too.
-const idle = () => {}
-let unlisten = idle
+const idle = () => {};
+let unlisten = idle;
 
 const wakeOutside = (event: Event) =>
   wakers.forEach(
-    (popup, wake) =>
-      (event.target instanceof Node && popup?.contains(event.target)) || wake()
-  )
+    (popup, wake) => (event.target instanceof Node && popup?.contains(event.target)) || wake(),
+  );
 
 const wakeOnChanges = (records: MutationRecord[]) =>
   wakers.forEach(
     (popup, wake) =>
       records.some(
         (record) =>
-          record.attributeName != "aria-activedescendant" &&
-          !popup?.contains(record.target)
-      ) && wake()
-  )
+          record.attributeName != "aria-activedescendant" && !popup?.contains(record.target),
+      ) && wake(),
+  );
 
 function listen() {
-  const listening = new AbortController()
+  const listening = new AbortController();
   // The capture phase, so events that don't bubble count too: element
   // scrolls, and images loading, which never reach the window.
-  const options = { capture: true, passive: true, signal: listening.signal }
+  const options = { capture: true, passive: true, signal: listening.signal };
   const targets = [
     // Pointer moves and focus can change layout through `:hover` and `:focus`
     // styles, and typing through fields that grow with their text. A
     // transition starts after its delay.
     [
       document,
-      [
-        "scroll",
-        "load",
-        "input",
-        "pointermove",
-        "focusin",
-        "transitionstart",
-        "animationstart",
-      ],
+      ["scroll", "load", "input", "pointermove", "focusin", "transitionstart", "animationstart"],
     ],
     [window, ["resize"]],
     // Pinch zoom moves the visual viewport without resizing the window.
     [window.visualViewport, ["resize", "scroll"]],
     [document.fonts, ["loadingdone"]],
-  ] as const
+  ] as const;
   for (const [target, types] of targets) {
     for (const type of types) {
-      target?.addEventListener(type, wakeOutside, options)
+      target?.addEventListener(type, wakeOutside, options);
     }
   }
-  const changes = new MutationObserver(wakeOnChanges)
+  const changes = new MutationObserver(wakeOnChanges);
   changes.observe(document, {
     subtree: true,
     childList: true,
     attributes: true,
     characterData: true,
-  })
+  });
   return () => {
-    listening.abort()
-    changes.disconnect()
-  }
+    listening.abort();
+    changes.disconnect();
+  };
 }
 
 // Scrolls, loads, animations and changes inside a shadow root never reach the
 // document's listeners, so each root an anchor renders in gets its own.
-const roots = new Map<Node, { count: number; stop: () => void }>()
+const roots = new Map<Node, { count: number; stop: () => void }>();
 
 function listenIn(root: Node) {
-  const listening = new AbortController()
-  const options = { capture: true, passive: true, signal: listening.signal }
+  const listening = new AbortController();
+  const options = { capture: true, passive: true, signal: listening.signal };
   for (const type of ["scroll", "load", "transitionstart", "animationstart"]) {
-    root.addEventListener(type, wakeOutside, options)
+    root.addEventListener(type, wakeOutside, options);
   }
-  const changes = new MutationObserver(wakeOnChanges)
+  const changes = new MutationObserver(wakeOnChanges);
   changes.observe(root, {
     subtree: true,
     childList: true,
     attributes: true,
     characterData: true,
-  })
+  });
   return () => {
-    listening.abort()
-    changes.disconnect()
-  }
+    listening.abort();
+    changes.disconnect();
+  };
 }
 
 /**
@@ -109,18 +99,18 @@ function listenIn(root: Node) {
  * moves with that scroller, though its own root is the document.
  */
 function shadowRootsAround(node: Node) {
-  const found: Node[] = []
+  const found: Node[] = [];
   for (let at: Node | null = node; at;) {
     // A shadow root is the only fragment with a host. Checked by shape, since
     // `instanceof ShadowRoot` fails for nodes from another window.
     if (at.nodeType === 11 && "host" in at) {
-      found.push(at)
-      at = (at as ShadowRoot).host
+      found.push(at);
+      at = (at as ShadowRoot).host;
     } else {
-      at = (at as Element).assignedSlot ?? at.parentNode
+      at = (at as Element).assignedSlot ?? at.parentNode;
     }
   }
-  return found
+  return found;
 }
 
 /**
@@ -128,22 +118,22 @@ function shadowRootsAround(node: Node) {
  * returned cleanup runs.
  */
 function watchShadowRoots(shadowRoots: Node[]) {
-  const watched = [...shadowRoots]
+  const watched = [...shadowRoots];
   for (const root of watched) {
-    const entry = roots.get(root) ?? { count: 0, stop: listenIn(root) }
-    entry.count++
-    roots.set(root, entry)
+    const entry = roots.get(root) ?? { count: 0, stop: listenIn(root) };
+    entry.count++;
+    roots.set(root, entry);
   }
   return () => {
     for (const root of watched.splice(0)) {
-      const entry = roots.get(root)!
+      const entry = roots.get(root)!;
       if (--entry.count) {
-        continue
+        continue;
       }
-      entry.stop()
-      roots.delete(root)
+      entry.stop();
+      roots.delete(root);
     }
-  }
+  };
 }
 
 /**
@@ -153,23 +143,22 @@ function watchShadowRoots(shadowRoots: Node[]) {
  */
 function watchMoves(wake: () => void, popup?: Element) {
   if (!wakers.size) {
-    unlisten = listen()
+    unlisten = listen();
   }
-  const sizes =
-    typeof ResizeObserver == "function" ? new ResizeObserver(wake) : undefined
+  const sizes = typeof ResizeObserver == "function" ? new ResizeObserver(wake) : undefined;
   if (popup) {
-    sizes?.observe(popup)
+    sizes?.observe(popup);
   }
-  wakers.set(wake, sizes && popup)
+  wakers.set(wake, sizes && popup);
   return () => {
-    sizes?.disconnect()
-    wakers.delete(wake)
+    sizes?.disconnect();
+    wakers.delete(wake);
     if (wakers.size) {
-      return
+      return;
     }
-    unlisten()
-    unlisten = idle
-  }
+    unlisten();
+    unlisten = idle;
+  };
 }
 
-export { shadowRootsAround, watchMoves, watchShadowRoots }
+export { shadowRootsAround, watchMoves, watchShadowRoots };

@@ -5,18 +5,18 @@
 // is the scroll area's edge in the direction that shrinks the sheet.
 function handoff(input: {
   /** The finger moves toward a larger extent. */
-  towardMore: boolean
+  towardMore: boolean;
   /** The scroll area is at its start (scrollTop 0 for a bottom sheet). */
-  scrollAtStart: boolean
+  scrollAtStart: boolean;
   /** The sheet rests at its largest snap point. */
-  atLargest: boolean
+  atLargest: boolean;
   /** Dragging up on scrollable content first expands the sheet. */
-  expandOnScroll: boolean
+  expandOnScroll: boolean;
 }) {
   if (!input.towardMore) {
-    return input.scrollAtStart ? "sheet" : "scroll"
+    return input.scrollAtStart ? "sheet" : "scroll";
   }
-  return !input.atLargest && input.expandOnScroll ? "sheet" : "scroll"
+  return !input.atLargest && input.expandOnScroll ? "sheet" : "scroll";
 }
 
-export { handoff }
+export { handoff };

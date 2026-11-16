@@ -2861,7 +2861,7 @@ details.provider-sign-in-help[open] > p.settings-row__description {
   margin: 0;
   color: var(--fg);
   font-size: var(--text-body);
-  line-height: var(--leading-normal)5;
+  line-height: var(--leading-normal) 5;
 }
 
 .resource-detail__code {
@@ -3417,7 +3417,7 @@ details.provider-sign-in-help[open] > p.settings-row__description {
   color: var(--muted-strong);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  line-height: var(--leading-normal)5;
+  line-height: var(--leading-normal) 5;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -3463,7 +3463,7 @@ details.provider-sign-in-help[open] > p.settings-row__description {
 .tree-summary-option__description {
   color: var(--muted-strong);
   font-size: var(--text-body);
-  line-height: var(--leading-normal)5;
+  line-height: var(--leading-normal) 5;
 }
 
 .tree-modal__custom-instructions {

@@ -9,7 +9,7 @@ function openAttrs(open: boolean) {
   return {
     "data-open": open ? "" : undefined,
     "data-closed": open ? undefined : "",
-  }
+  };
 }
 
 /**
@@ -22,7 +22,7 @@ function checkedAttrs(checked: boolean | "indeterminate") {
     "data-checked": checked === true ? "" : undefined,
     "data-unchecked": checked === false ? "" : undefined,
     "data-indeterminate": checked === "indeterminate" ? "" : undefined,
-  }
+  };
 }
 
 /**
@@ -32,7 +32,7 @@ function checkedAttrs(checked: boolean | "indeterminate") {
  * @stable
  */
 function idPart(value: string) {
-  return value.replace(/[\s%]/g, encodeURIComponent)
+  return value.replace(/[\s%]/g, encodeURIComponent);
 }
 
-export { checkedAttrs, idPart, openAttrs }
+export { checkedAttrs, idPart, openAttrs };

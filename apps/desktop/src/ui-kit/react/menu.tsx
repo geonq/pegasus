@@ -1,4 +1,4 @@
-import { formatShortcut } from "../core/foundation/platform/platform"
+import { formatShortcut } from "../core/foundation/platform/platform";
 import {
   menu as menuPrimitive,
   type MenuCheckboxItemProps,
@@ -23,11 +23,15 @@ import {
   type MenuSubTriggerProps,
   type MenuTriggerProps,
   type MenuTriggerState,
-} from "../core/components/menu/menu"
-import { menuCheckable, menuContextTrigger, menuItemIcons } from "../core/components/menu/menu-parts"
-import * as React from "react"
-import { hasChild, Placed, usePlaceContent, usePlacedContent } from "./children"
-import { MenubarContext } from "./menubar-context"
+} from "../core/components/menu/menu";
+import {
+  menuCheckable,
+  menuContextTrigger,
+  menuItemIcons,
+} from "../core/components/menu/menu-parts";
+import * as React from "react";
+import { hasChild, Placed, usePlaceContent, usePlacedContent } from "./children";
+import { MenubarContext } from "./menubar-context";
 import {
   Connected,
   renderPopup,
@@ -36,7 +40,7 @@ import {
   usePopupContainer,
   useControllerEntry,
   type PopupContainer,
-} from "./popup"
+} from "./popup";
 import {
   createParts,
   HandleScope,
@@ -48,64 +52,63 @@ import {
   usePart,
   usePrimitive,
   type PartProps,
-} from "./use-primitive"
+} from "./use-primitive";
 
 const parts = createParts(menuPrimitive, {
   trigger: "button",
   shortcut: "span",
   separator: "div",
-})
+});
 // Radio items take their group's name, and read its value as it renders.
-sharesProps(menuPrimitive, "radio-group")
+sharesProps(menuPrimitive, "radio-group");
 
 // Where root popups render. Set on <Menu> or <MenuContent>.
-const ContainerContext = React.createContext<PopupContainer>(undefined)
-const GroupContext = React.createContext<string | null>(null)
+const ContainerContext = React.createContext<PopupContainer>(undefined);
+const GroupContext = React.createContext<string | null>(null);
 // The checkbox or radio item an indicator belongs to.
 const ItemContext = React.createContext<{
-  item: "checkbox-item" | "radio-item"
-  itemKey: string
-  group?: string
-} | null>(null)
+  item: "checkbox-item" | "radio-item";
+  itemKey: string;
+  group?: string;
+} | null>(null);
 
 function useMenu() {
-  return useHandle(menuPrimitive)
+  return useHandle(menuPrimitive);
 }
 
 // The name of the radio group around the part rendering, in this menu.
 function useRadioGroup() {
-  return useAround(menuPrimitive, "radio-group")?.name as string | undefined
+  return useAround(menuPrimitive, "radio-group")?.name as string | undefined;
 }
 
 // Element props that mean something else on a menu part.
-type Clashing =
-  "value" | "defaultValue" | "onChange" | "onSelect" | "defaultChecked"
+type Clashing = "value" | "defaultValue" | "onChange" | "onSelect" | "defaultChecked";
 
 /**
  * The props of `Menu`.
  * @stable
  */
 type MenuProps = MenuOptions & {
-  children?: React.ReactNode
-}
+  children?: React.ReactNode;
+};
 
 /**
  * A list of actions and options, opened from a button or a right-click. Put its trigger and content inside.
  * @stable
  */
 function Menu({ children, items, container, ...options }: MenuProps) {
-  const menubar = React.useContext(MenubarContext)
+  const menubar = React.useContext(MenubarContext);
   const menu = usePrimitive(menuPrimitive, {
     items,
     ...options,
     menubar: menubar ? reading(menubar, () => menubar.api) : undefined,
-  })
-  useControllerEntry(options.controller, menu)
+  });
+  useControllerEntry(options.controller, menu);
   // A data menu renders its content, unless the app placed a MenuContent: in
   // the markup, or inside a component of its own.
-  const found = hasChild(children, MenuContent)
-  const [placed, place] = usePlacedContent(!!items && !found)
-  const own = placed || found
+  const found = hasChild(children, MenuContent);
+  const [placed, place] = usePlacedContent(!!items && !found);
+  const own = placed || found;
   return (
     <HandleScope handle={menu}>
       <ContainerContext.Provider value={container}>
@@ -122,10 +125,10 @@ function Menu({ children, items, container, ...options }: MenuProps) {
         </Placed>
       </ContainerContext.Provider>
     </HandleScope>
-  )
+  );
 }
 
-type TriggerProps = MenuTriggerProps
+type TriggerProps = MenuTriggerProps;
 
 /**
  * The button that opens the menu. A trigger outside the menu connects through `controller`.
@@ -135,14 +138,7 @@ function MenuTrigger({
   controller,
   ...props
 }: Omit<PartProps<"button", MenuTriggerState>, Clashing> & TriggerProps) {
-  const {
-    disabled,
-    focusableWhenDisabled,
-    payload: _,
-    shortcut: __,
-    render,
-    ...rest
-  } = props
+  const { disabled, focusableWhenDisabled, payload: _, shortcut: __, render, ...rest } = props;
   // Until the menu it names mounts, a trigger outside the menu is a plain button.
   const unconnected = () =>
     renderElement(
@@ -157,17 +153,13 @@ function MenuTrigger({
       {
         open: false,
         disabled: !!disabled,
-      }
-    )
+      },
+    );
   return (
-    <Connected
-      primitive={menuPrimitive}
-      controller={controller}
-      fallback={unconnected}
-    >
+    <Connected primitive={menuPrimitive} controller={controller} fallback={unconnected}>
       <parts.Trigger {...props} />
     </Connected>
-  )
+  );
 }
 
 /**
@@ -178,18 +170,14 @@ function MenuContextTrigger({
   controller,
   ...props
 }: PartProps<"div", MenuContextTriggerState> & MenuContextTriggerProps) {
-  const { disabled, payload: _, render, ...rest } = props
+  const { disabled, payload: _, render, ...rest } = props;
   const unconnected = () =>
-    renderElement("div", rest, render, { open: false, disabled: !!disabled })
+    renderElement("div", rest, render, { open: false, disabled: !!disabled });
   return (
-    <Connected
-      primitive={menuPrimitive}
-      controller={controller}
-      fallback={unconnected}
-    >
+    <Connected primitive={menuPrimitive} controller={controller} fallback={unconnected}>
       <ContextTriggerPart {...props} />
     </Connected>
-  )
+  );
 }
 
 function ContextTriggerPart({
@@ -197,14 +185,9 @@ function ContextTriggerPart({
   payload,
   ...props
 }: PartProps<"div", MenuContextTriggerState> & MenuContextTriggerProps) {
-  const menu = useMenu()
-  menu.instance.use(menuContextTrigger)
-  return usePart(
-    menu,
-    "context-trigger",
-    { id: React.useId(), disabled, payload },
-    props
-  )
+  const menu = useMenu();
+  menu.instance.use(menuContextTrigger);
+  return usePart(menu, "context-trigger", { id: React.useId(), disabled, payload }, props);
 }
 
 /**
@@ -225,9 +208,9 @@ function MenuContent<Payload = unknown>({
   render,
   ...props
 }: PartProps<"div", MenuContentState<Payload>> & MenuContentProps) {
-  usePlaceContent()
-  const menu = useMenu()
-  const target = usePopupContainer(useOwnContainer(container, ContainerContext))
+  usePlaceContent();
+  const menu = useMenu();
+  const target = usePopupContainer(useOwnContainer(container, ContainerContext));
   const content = {
     side,
     align,
@@ -238,16 +221,16 @@ function MenuContent<Payload = unknown>({
     anchor,
     finalFocus,
     keepMounted,
-  }
+  };
   // Submenus render inside their parent's popup.
-  const nested = menu.api.root() !== menu.api
+  const nested = menu.api.root() !== menu.api;
   // The payload's type is the app's, from `Payload`; the part hands its state on as it is.
   const partProps = {
     ...props,
     render: nested ? render : sheetViewport(menu, render),
-  } as PartProps<"div", MenuContentState>
-  const element = usePart(menu, "content", content, partProps)
-  return element && (nested ? element : renderPopup(element, target))
+  } as PartProps<"div", MenuContentState>;
+  const element = usePart(menu, "content", content, partProps);
+  return element && (nested ? element : renderPopup(element, target));
 }
 
 /**
@@ -266,8 +249,8 @@ function MenuItem({
   children,
   ...props
 }: Omit<PartProps<"div", MenuItemState>, Clashing> & MenuItemProps) {
-  const menu = useMenu()
-  const id = React.useId()
+  const menu = useMenu();
+  const id = React.useId();
   const item = {
     id,
     value,
@@ -277,25 +260,21 @@ function MenuItem({
     closeOnSelect,
     destructive,
     onSelect,
-  }
+  };
   const content = (state: MenuItemState) => (
     <>
       {typeof children === "function" ? children(state) : children}
-      {shortcut && (
-        <MenuShortcut>
-          {formatShortcut(shortcut, menu.state.apple)}
-        </MenuShortcut>
-      )}
+      {shortcut && <MenuShortcut>{formatShortcut(shortcut, menu.state.apple)}</MenuShortcut>}
     </>
-  )
-  return usePart(menu, "item", item, { ...props, children: content, render })
+  );
+  return usePart(menu, "item", item, { ...props, children: content, render });
 }
 
 /**
  * Shows the keys of an item's shortcut, like `⌘S`, inside the item. Hidden from screen readers.
  * @stable
  */
-const MenuShortcut = parts.Shortcut
+const MenuShortcut = parts.Shortcut;
 
 /**
  * An item that checks and unchecks an option.
@@ -311,10 +290,9 @@ function MenuCheckboxItem({
   closeOnSelect,
   render,
   ...props
-}: Omit<PartProps<"div", MenuCheckboxItemState>, Clashing> &
-  MenuCheckboxItemProps) {
-  const menu = useMenu()
-  menu.instance.use(menuCheckable)
+}: Omit<PartProps<"div", MenuCheckboxItemState>, Clashing> & MenuCheckboxItemProps) {
+  const menu = useMenu();
+  menu.instance.use(menuCheckable);
   const item = {
     value,
     label,
@@ -323,16 +301,16 @@ function MenuCheckboxItem({
     defaultChecked,
     onCheckedChange,
     closeOnSelect,
-  }
+  };
   const indicator = React.useMemo(
     () => ({ item: "checkbox-item" as const, itemKey: value }),
-    [value]
-  )
+    [value],
+  );
   return (
     <ItemContext.Provider value={indicator}>
       {usePart(menu, "checkbox-item", item, { ...props, render })}
     </ItemContext.Provider>
-  )
+  );
 }
 
 /**
@@ -346,20 +324,19 @@ function MenuRadioGroup<T extends string = string>({
   onValueChange,
   render,
   ...props
-}: Omit<PartProps<"div", MenuRadioGroupState>, Clashing> &
-  MenuRadioGroupProps<T>) {
-  const menu = useMenu()
-  menu.instance.use(menuCheckable)
-  const generated = React.useId()
-  const group = name ?? generated
+}: Omit<PartProps<"div", MenuRadioGroupState>, Clashing> & MenuRadioGroupProps<T>) {
+  const menu = useMenu();
+  menu.instance.use(menuCheckable);
+  const generated = React.useId();
+  const group = name ?? generated;
   const part = {
     id: group,
     name: group,
     value,
     defaultValue,
     onValueChange: onValueChange as MenuRadioGroupProps["onValueChange"],
-  }
-  return usePart(menu, "radio-group", part, { ...props, render })
+  };
+  return usePart(menu, "radio-group", part, { ...props, render });
 }
 
 /**
@@ -374,22 +351,22 @@ function MenuRadioItem({
   render,
   ...props
 }: Omit<PartProps<"div", MenuRadioItemState>, Clashing> & MenuRadioItemProps) {
-  const menu = useMenu()
-  menu.instance.use(menuCheckable)
-  const group = useRadioGroup()
-  const item = { group: group ?? "", value, label, disabled, closeOnSelect }
+  const menu = useMenu();
+  menu.instance.use(menuCheckable);
+  const group = useRadioGroup();
+  const item = { group: group ?? "", value, label, disabled, closeOnSelect };
   const indicator = React.useMemo(
     () => ({ item: "radio-item" as const, itemKey: value, group: group ?? "" }),
-    [value, group]
-  )
+    [value, group],
+  );
   if (!group) {
-    throw new Error("<MenuRadioItem> must be used inside <MenuRadioGroup>.")
+    throw new Error("<MenuRadioItem> must be used inside <MenuRadioGroup>.");
   }
   return (
     <ItemContext.Provider value={indicator}>
       {usePart(menu, "radio-item", item, { ...props, render })}
     </ItemContext.Provider>
-  )
+  );
 }
 
 /**
@@ -401,23 +378,15 @@ function MenuItemIndicator({
   render,
   ...props
 }: PartProps<"span", MenuItemIndicatorState> & MenuItemIndicatorProps) {
-  const menu = useMenu()
-  menu.instance.use(menuCheckable)
-  const id = React.useId()
-  const item = React.useContext(ItemContext)
+  const menu = useMenu();
+  menu.instance.use(menuCheckable);
+  const id = React.useId();
+  const item = React.useContext(ItemContext);
   if (!item) {
-    throw new Error(
-      "<MenuItemIndicator> must be used inside a checkbox or radio item."
-    )
+    throw new Error("<MenuItemIndicator> must be used inside a checkbox or radio item.");
   }
-  const indicator = { id, ...item, keepMounted }
-  return usePart(
-    menu,
-    "item-indicator",
-    indicator,
-    { ...props, render },
-    "span"
-  )
+  const indicator = { id, ...item, keepMounted };
+  return usePart(menu, "item-indicator", indicator, { ...props, render }, "span");
 }
 
 /**
@@ -430,10 +399,10 @@ function MenuItemIcon({
   render,
   ...props
 }: PartProps<"span", MenuItemIconState> & MenuItemIconProps) {
-  const menu = useMenu()
-  menu.instance.use(menuItemIcons)
-  const part = { id: React.useId(), mirror }
-  return usePart(menu, "item-icon", part, { ...props, render }, "span")
+  const menu = useMenu();
+  menu.instance.use(menuItemIcons);
+  const part = { id: React.useId(), mirror };
+  return usePart(menu, "item-icon", part, { ...props, render }, "span");
 }
 
 /**
@@ -441,13 +410,13 @@ function MenuItemIcon({
  * @stable
  */
 function MenuGroup(props: PartProps<"div">) {
-  const id = React.useId()
+  const id = React.useId();
   // It's named by its label once the label is in the page.
   return (
     <GroupContext.Provider value={id}>
       {usePart(useMenu(), "group", { id }, props)}
     </GroupContext.Provider>
-  )
+  );
 }
 
 /**
@@ -455,29 +424,21 @@ function MenuGroup(props: PartProps<"div">) {
  * @stable
  */
 function MenuGroupLabel({ render, ...props }: PartProps<"div">) {
-  const menu = useMenu()
-  const radioGroup = useRadioGroup()
-  const plainGroup = React.useContext(GroupContext)
-  const group = radioGroup ?? plainGroup
+  const menu = useMenu();
+  const radioGroup = useRadioGroup();
+  const plainGroup = React.useContext(GroupContext);
+  const group = radioGroup ?? plainGroup;
   if (!group) {
-    throw new Error(
-      "<MenuGroupLabel> must be used inside <MenuGroup> or <MenuRadioGroup>."
-    )
+    throw new Error("<MenuGroupLabel> must be used inside <MenuGroup> or <MenuRadioGroup>.");
   }
-  return usePart(
-    menu,
-    "group-label",
-    { id: group, group },
-    { ...props, render },
-    "div"
-  )
+  return usePart(menu, "group-label", { id: group, group }, { ...props, render }, "div");
 }
 
 /**
  * A line between items or groups.
  * @stable
  */
-const MenuSeparator = parts.Separator
+const MenuSeparator = parts.Separator;
 
 /**
  * The props of `MenuSub`.
@@ -493,16 +454,16 @@ type MenuSubProps = Pick<
   | "delay"
   | "controller"
   | "debug"
-> & { children?: React.ReactNode }
+> & { children?: React.ReactNode };
 
 /**
  * A submenu. Put its `MenuSubTrigger` and `MenuSubContent` inside, in a menu's content.
  * @stable
  */
 function MenuSub({ children, ...options }: MenuSubProps) {
-  const parent = useMenu()
-  const menu = usePrimitive(menuPrimitive, { ...options, parent: parent.api })
-  return <HandleScope handle={menu}>{children}</HandleScope>
+  const parent = useMenu();
+  const menu = usePrimitive(menuPrimitive, { ...options, parent: parent.api });
+  return <HandleScope handle={menu}>{children}</HandleScope>;
 }
 
 /**
@@ -513,14 +474,14 @@ function MenuSubTrigger({
   disabled,
   ...props
 }: Omit<PartProps<"div", MenuTriggerState>, Clashing> & MenuSubTriggerProps) {
-  return usePart(useMenu(), "trigger", { disabled }, props)
+  return usePart(useMenu(), "trigger", { disabled }, props);
 }
 
 /**
  * The submenu's popup, positioned beside its trigger.
  * @stable
  */
-const MenuSubContent = MenuContent
+const MenuSubContent = MenuContent;
 
 /**
  * Renders a data menu's items as bare parts. Used by `<Menu items>` when you place no `MenuContent`
@@ -529,8 +490,7 @@ const MenuSubContent = MenuContent
  */
 function MenuItems({ items }: { items: MenuData }) {
   return items.map((entry, index) => {
-    const item: MenuDataItem =
-      typeof entry === "string" ? { value: entry, label: entry } : entry
+    const item: MenuDataItem = typeof entry === "string" ? { value: entry, label: entry } : entry;
     switch (item.type) {
       case undefined:
       case "item":
@@ -545,16 +505,16 @@ function MenuItems({ items }: { items: MenuData }) {
           >
             {item.label}
           </MenuItem>
-        )
+        );
       case "separator":
-        return <MenuSeparator key={`separator-${index}`} />
+        return <MenuSeparator key={`separator-${index}`} />;
       case "group":
         return (
           <MenuGroup key={`group-${index}`}>
             {item.label && <MenuGroupLabel>{item.label}</MenuGroupLabel>}
             <MenuItems items={item.items} />
           </MenuGroup>
-        )
+        );
       case "checkbox":
         return (
           <MenuCheckboxItem
@@ -567,7 +527,7 @@ function MenuItems({ items }: { items: MenuData }) {
           >
             {item.label}
           </MenuCheckboxItem>
-        )
+        );
       case "radio-group":
         return (
           <MenuRadioGroup
@@ -578,32 +538,26 @@ function MenuItems({ items }: { items: MenuData }) {
           >
             {item.label && <MenuGroupLabel>{item.label}</MenuGroupLabel>}
             {item.items.map((radio) => (
-              <MenuRadioItem
-                key={radio.value}
-                value={radio.value}
-                disabled={radio.disabled}
-              >
+              <MenuRadioItem key={radio.value} value={radio.value} disabled={radio.disabled}>
                 {radio.label}
               </MenuRadioItem>
             ))}
           </MenuRadioGroup>
-        )
+        );
       case "submenu":
         return (
           <MenuSub key={`submenu-${index}`}>
-            <MenuSubTrigger disabled={item.disabled}>
-              {item.label}
-            </MenuSubTrigger>
+            <MenuSubTrigger disabled={item.disabled}>{item.label}</MenuSubTrigger>
             <MenuSubContent>
               <MenuItems items={item.items} />
             </MenuSubContent>
           </MenuSub>
-        )
+        );
     }
-  })
+  });
 }
 
-export { createMenuController } from "../core/components/menu/menu"
+export { createMenuController } from "../core/components/menu/menu";
 export type {
   MenuApi,
   MenuCheckboxItemProps,
@@ -640,7 +594,7 @@ export type {
   MenuTriggerState,
   MenuValueChangeDetails,
   MenuValueChangeReason,
-} from "../core/components/menu/menu"
+} from "../core/components/menu/menu";
 
 export {
   Menu,
@@ -663,4 +617,4 @@ export {
   type MenuSubProps,
   MenuSubTrigger,
   MenuTrigger,
-}
+};

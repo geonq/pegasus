@@ -8,7 +8,7 @@
  * Whether options are loading, loaded or failed.
  * @stable
  */
-type AsyncOptionsStatus = "idle" | "loading" | "error"
+type AsyncOptionsStatus = "idle" | "loading" | "error";
 
 /**
  * What async options hold.
@@ -16,16 +16,16 @@ type AsyncOptionsStatus = "idle" | "loading" | "error"
  */
 type AsyncOptionsState<Item> = {
   /** The text the items are for, or are loading for. */
-  query: string
+  query: string;
   /** The loaded items. The previous ones stay while the next load runs. */
-  items: Item[]
+  items: Item[];
   /** Whether a load is waiting for typing to pause or running, or the last one failed. */
-  status: AsyncOptionsStatus
+  status: AsyncOptionsStatus;
   /** Why the last load failed. */
-  error: unknown
+  error: unknown;
   /** Whether `loadMore()` has another page to load. */
-  hasMore: boolean
-}
+  hasMore: boolean;
+};
 
 /**
  * What `load` receives besides the text.
@@ -33,10 +33,10 @@ type AsyncOptionsState<Item> = {
  */
 type AsyncOptionsContext = {
   /** Aborted when a newer load replaces this one. Pass it to `fetch`. */
-  signal: AbortSignal
+  signal: AbortSignal;
   /** Which page to load: 0 first, then 1, 2… from `loadMore()`. */
-  page: number
-}
+  page: number;
+};
 
 /**
  * The options `createAsyncOptions` takes.
@@ -47,18 +47,18 @@ type AsyncOptionsOptions = {
    * Milliseconds typing must pause before a load starts.
    * @defaultValue 200
    */
-  debounce?: number
+  debounce?: number;
   /**
    * The text to load for at first.
    * @defaultValue ""
    */
-  query?: string
+  query?: string;
   /**
    * Whether to load for the first text right away, before anyone types.
    * @defaultValue false
    */
-  immediate?: boolean
-}
+  immediate?: boolean;
+};
 
 /**
  * Loads options for a text, latest first. `load` returns the items, or
@@ -68,9 +68,9 @@ type AsyncOptionsOptions = {
 function createAsyncOptions<Item>(
   load: (
     query: string,
-    context: AsyncOptionsContext
+    context: AsyncOptionsContext,
   ) => Promise<Item[] | { items: Item[]; hasMore?: boolean }>,
-  { debounce = 200, query = "", immediate = false }: AsyncOptionsOptions = {}
+  { debounce = 200, query = "", immediate = false }: AsyncOptionsOptions = {},
 ) {
   let state: AsyncOptionsState<Item> = {
     query,
@@ -78,56 +78,56 @@ function createAsyncOptions<Item>(
     status: "idle",
     error: undefined,
     hasMore: false,
-  }
-  const listeners = new Set<() => void>()
-  let timer: ReturnType<typeof setTimeout> | undefined
-  let controller: AbortController | undefined
-  let page = 0
+  };
+  const listeners = new Set<() => void>();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let controller: AbortController | undefined;
+  let page = 0;
 
   function set(patch: Partial<AsyncOptionsState<Item>>) {
-    state = { ...state, ...patch }
-    listeners.forEach((listener) => listener())
+    state = { ...state, ...patch };
+    listeners.forEach((listener) => listener());
   }
 
   function cancel() {
-    clearTimeout(timer)
-    timer = undefined
-    controller?.abort()
-    controller = undefined
+    clearTimeout(timer);
+    timer = undefined;
+    controller?.abort();
+    controller = undefined;
   }
 
   function run(next: number) {
-    controller?.abort()
-    const current = new AbortController()
-    controller = current
-    page = next
-    set({ status: "loading", error: undefined })
+    controller?.abort();
+    const current = new AbortController();
+    controller = current;
+    page = next;
+    set({ status: "loading", error: undefined });
     load(state.query, { signal: current.signal, page: next }).then(
       (result) => {
         if (current.signal.aborted) {
-          return
+          return;
         }
-        controller = undefined
-        const items = Array.isArray(result) ? result : result.items
-        const hasMore = !Array.isArray(result) && !!result.hasMore
+        controller = undefined;
+        const items = Array.isArray(result) ? result : result.items;
+        const hasMore = !Array.isArray(result) && !!result.hasMore;
         set({
           items: next === 0 ? items : [...state.items, ...items],
           status: "idle",
           hasMore,
-        })
+        });
       },
       (error) => {
         if (current.signal.aborted) {
-          return
+          return;
         }
-        controller = undefined
-        set({ status: "error", error })
-      }
-    )
+        controller = undefined;
+        set({ status: "error", error });
+      },
+    );
   }
 
   if (immediate) {
-    run(0)
+    run(0);
   }
 
   return {
@@ -135,48 +135,45 @@ function createAsyncOptions<Item>(
     getState: () => state,
     /** Runs `listener` after every change. Returns an unsubscribe. */
     subscribe(listener: () => void) {
-      listeners.add(listener)
+      listeners.add(listener);
       return () => {
-        listeners.delete(listener)
-      }
+        listeners.delete(listener);
+      };
     },
     /** Loads for new text once typing pauses, replacing any load still running. */
     setQuery(next: string) {
-      if (
-        next === state.query &&
-        (state.status === "loading" || timer !== undefined)
-      ) {
-        return
+      if (next === state.query && (state.status === "loading" || timer !== undefined)) {
+        return;
       }
-      cancel()
+      cancel();
       // Loading from the first key press: while typing pauses, the last
       // items aren't an answer to the new text, so nothing says "no match".
-      set({ query: next, status: "loading", error: undefined })
+      set({ query: next, status: "loading", error: undefined });
       timer = setTimeout(() => {
-        timer = undefined
-        run(0)
-      }, debounce)
+        timer = undefined;
+        run(0);
+      }, debounce);
     },
     /** Loads the current text again, now. */
     reload() {
-      cancel()
-      run(0)
+      cancel();
+      run(0);
     },
     /** Loads the next page and appends it, when `load` said there's more. */
     loadMore() {
       if (state.status === "loading" || !state.hasMore) {
-        return
+        return;
       }
-      run(page + 1)
+      run(page + 1);
     },
     /** Stops any pending or running load. */
     cancel() {
-      cancel()
+      cancel();
       if (state.status === "loading") {
-        set({ status: "idle" })
+        set({ status: "idle" });
       }
     },
-  }
+  };
 }
 
 /**
@@ -184,7 +181,7 @@ function createAsyncOptions<Item>(
  * methods to load more.
  * @stable
  */
-type AsyncOptions<Item> = ReturnType<typeof createAsyncOptions<Item>>
+type AsyncOptions<Item> = ReturnType<typeof createAsyncOptions<Item>>;
 
 export {
   type AsyncOptions,
@@ -193,4 +190,4 @@ export {
   type AsyncOptionsState,
   type AsyncOptionsStatus,
   createAsyncOptions,
-}
+};

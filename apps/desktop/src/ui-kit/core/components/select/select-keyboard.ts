@@ -2,24 +2,20 @@
 // typeahead that selects like a native select, keys in the open list and in
 // its search field, and a press on the trigger that drags or holds to an item
 // and releases to choose it.
-import { isTypeaheadKey } from "../../foundation/text/typeahead"
-import {
-  composedClosest,
-  composedContains,
-  isApple,
-} from "../../foundation/platform/platform"
-import { type Listbox } from "../../foundation/lists/listbox"
-import { listStep } from "../../foundation/lists/listbox-keyboard"
-import { isDisabled } from "../../foundation/lists/listbox-parts"
-import { isComposing, on } from "../../foundation/kernel/events"
-import type { Store } from "../../foundation/kernel/store"
-import type { SelectOpenChangeReason, SelectValueChangeReason } from "./select"
-import type { SelectState, Show } from "./select-api"
-import { type ValueSelection } from "../../foundation/lists/listbox-value"
+import { isTypeaheadKey } from "../../foundation/text/typeahead";
+import { composedClosest, composedContains, isApple } from "../../foundation/platform/platform";
+import { type Listbox } from "../../foundation/lists/listbox";
+import { listStep } from "../../foundation/lists/listbox-keyboard";
+import { isDisabled } from "../../foundation/lists/listbox-parts";
+import { isComposing, on } from "../../foundation/kernel/events";
+import type { Store } from "../../foundation/kernel/store";
+import type { SelectOpenChangeReason, SelectValueChangeReason } from "./select";
+import type { SelectState, Show } from "./select-api";
+import { type ValueSelection } from "../../foundation/lists/listbox-value";
 
 // How long a press, or how far a drag, before releasing over an item chooses it.
-const HOLD_MS = 200
-const DRAG_PX = 4
+const HOLD_MS = 200;
+const DRAG_PX = 4;
 
 function createSelectKeyboard({
   store,
@@ -33,74 +29,71 @@ function createSelectKeyboard({
   searchElement,
   popupKeyDown,
 }: {
-  store: Store<SelectState>
-  listbox: Listbox
-  selection: ValueSelection
-  show: (options: Show) => unknown
-  hide: (options: { reason: SelectOpenChangeReason; event?: Event }) => void
-  choose: (key: string, event?: Event) => void
+  store: Store<SelectState>;
+  listbox: Listbox;
+  selection: ValueSelection;
+  show: (options: Show) => unknown;
+  hide: (options: { reason: SelectOpenChangeReason; event?: Event }) => void;
+  choose: (key: string, event?: Event) => void;
   setValue: (
     value: unknown,
-    options: { reason: SelectValueChangeReason; event?: Event }
-  ) => unknown
-  prepare: () => void
-  searchElement: () => HTMLElement | undefined
+    options: { reason: SelectValueChangeReason; event?: Event },
+  ) => unknown;
+  prepare: () => void;
+  searchElement: () => HTMLElement | undefined;
   // The popup's own Tab handling.
-  popupKeyDown: (event: KeyboardEvent) => void
+  popupKeyDown: (event: KeyboardEvent) => void;
 }) {
   // A press opened the list, so the click that follows it is ignored.
-  let pressClick = false
+  let pressClick = false;
 
   // Typing on the closed trigger selects the next item that starts with the
   // text, like a native select. Space continues a search that still matches.
   // Returns whether the key was used.
   function triggerTypeahead(event: KeyboardEvent) {
-    const state = store.get()
+    const state = store.get();
     if (state.multiple || state.readOnly || isDisabled(state)) {
-      return false
+      return false;
     }
-    const found = listbox.search(event.key, selection.keys()[0] ?? null)
+    const found = listbox.search(event.key, selection.keys()[0] ?? null);
     if (!found) {
-      return event.key !== " "
+      return event.key !== " ";
     }
-    const entry = listbox.find(found.key) ?? found
-    listbox.remember(entry.key, entry.label, entry.value)
-    setValue(entry.value, { reason: "list-navigation", event })
-    return true
+    const entry = listbox.find(found.key) ?? found;
+    listbox.remember(entry.key, entry.label, entry.value);
+    setValue(entry.value, { reason: "list-navigation", event });
+    return true;
   }
 
   // Keys on the closed trigger. Arrows, Home and End open the list on an
   // item; Enter and Space open it when the trigger isn't a native button,
   // which opens on click by itself.
-  function onTriggerKeyDown(
-    event: KeyboardEvent,
-    trigger: HTMLElement | undefined
-  ) {
+  function onTriggerKeyDown(event: KeyboardEvent, trigger: HTMLElement | undefined) {
     if (store.get().open) {
-      return
+      return;
     }
     if (event.key === " " && listbox.typing()) {
-      event.preventDefault()
+      event.preventDefault();
       if (triggerTypeahead(event)) {
-        return
+        return;
       }
     }
-    const focus = initialHighlightFor(event.key)
+    const focus = initialHighlightFor(event.key);
     if (focus) {
-      event.preventDefault()
-      show({ event, by: "keyboard", focus })
-      return
+      event.preventDefault();
+      show({ event, by: "keyboard", focus });
+      return;
     }
-    const nativeButton = trigger?.tagName === "BUTTON"
+    const nativeButton = trigger?.tagName === "BUTTON";
     if (!nativeButton && (event.key === "Enter" || event.key === " ")) {
-      event.preventDefault()
-      show({ event, by: "keyboard" })
-      return
+      event.preventDefault();
+      show({ event, by: "keyboard" });
+      return;
     }
     if (isTypeaheadKey(event) && event.key !== " ") {
-      prepare()
+      prepare();
       if (triggerTypeahead(event)) {
-        event.preventDefault()
+        event.preventDefault();
       }
     }
   }
@@ -108,28 +101,28 @@ function createSelectKeyboard({
   // Keys in the open list. The search field takes its own.
   function onContentKeyDown(event: KeyboardEvent) {
     if (event.target === searchElement()) {
-      return onSearchKeyDown(event)
+      return onSearchKeyDown(event);
     }
-    const { highlighted } = store.get()
+    const { highlighted } = store.get();
     if (event.altKey && event.key === "ArrowDown") {
-      return
+      return;
     }
     if (event.altKey && event.key === "ArrowUp") {
-      return chooseAndClose(event)
+      return chooseAndClose(event);
     }
-    const step = selectStep(event, { field: false })
+    const step = selectStep(event, { field: false });
     if (step !== undefined) {
-      return moveHighlight(event, step)
+      return moveHighlight(event, step);
     }
     switch (event.key) {
       case "Tab":
-        return popupKeyDown(event)
+        return popupKeyDown(event);
       case "Enter":
       case " ":
-        return activate(event, highlighted)
+        return activate(event, highlighted);
     }
     if (isTypeaheadKey(event)) {
-      highlightTyped(event, highlighted)
+      highlightTyped(event, highlighted);
     }
   }
 
@@ -138,48 +131,45 @@ function createSelectKeyboard({
   // End and Space stay the field's, as the APG's combobox asks.
   function onSearchKeyDown(event: KeyboardEvent) {
     if (isComposing(event)) {
-      return
+      return;
     }
-    const { highlighted } = store.get()
+    const { highlighted } = store.get();
     if (event.altKey && event.key === "ArrowUp") {
-      return chooseAndClose(event)
+      return chooseAndClose(event);
     }
-    const step = selectStep(event, { field: true })
+    const step = selectStep(event, { field: true });
     if (step !== undefined) {
-      return moveHighlight(event, step)
+      return moveHighlight(event, step);
     }
     switch (event.key) {
       case "Tab":
-        return popupKeyDown(event)
+        return popupKeyDown(event);
       case "Enter":
-        event.preventDefault()
+        event.preventDefault();
         if (highlighted === null) {
-          return
+          return;
         }
         if (listbox.element(highlighted)?.matches("a[href]")) {
-          return listbox.element(highlighted)?.click()
+          return listbox.element(highlighted)?.click();
         }
-        return choose(highlighted, event)
+        return choose(highlighted, event);
     }
   }
 
-  function moveHighlight(
-    event: KeyboardEvent,
-    step: number | "first" | "last"
-  ) {
-    event.preventDefault()
-    listbox.move(step, event)
+  function moveHighlight(event: KeyboardEvent, step: number | "first" | "last") {
+    event.preventDefault();
+    listbox.move(step, event);
   }
 
   // Alt+ArrowUp chooses the highlighted item and closes, as the APG asks. With
   // `multiple` it only closes.
   function chooseAndClose(event: KeyboardEvent) {
-    const { highlighted, multiple } = store.get()
-    event.preventDefault()
+    const { highlighted, multiple } = store.get();
+    event.preventDefault();
     if (highlighted !== null && !multiple) {
-      choose(highlighted, event)
+      choose(highlighted, event);
     } else {
-      hide({ reason: "item-press", event })
+      hide({ reason: "item-press", event });
     }
   }
 
@@ -188,74 +178,72 @@ function createSelectKeyboard({
   function activate(event: KeyboardEvent, highlighted: string | null) {
     if (event.key === " " && listbox.typing()) {
       if (highlightTyped(event, highlighted)) {
-        return
+        return;
       }
-      listbox.resetTyping()
+      listbox.resetTyping();
     }
-    event.preventDefault()
+    event.preventDefault();
     if (highlighted === null) {
-      return
+      return;
     }
-    const el = listbox.element(highlighted)
+    const el = listbox.element(highlighted);
     // Links follow themselves, so routers and modifier keys work.
     if (el?.matches("a[href]")) {
-      return el.click()
+      return el.click();
     }
-    choose(highlighted, event)
+    choose(highlighted, event);
   }
 
   // Highlights the next item that starts with what the user typed. Returns whether one did.
   function highlightTyped(event: KeyboardEvent, highlighted: string | null) {
-    const found = listbox.search(event.key, highlighted)
+    const found = listbox.search(event.key, highlighted);
     if (!found) {
-      return false
+      return false;
     }
-    event.preventDefault()
-    listbox.highlight(found.key, { event })
-    return true
+    event.preventDefault();
+    listbox.highlight(found.key, { event });
+    return true;
   }
 
   // Opens on press, like a native select. Releasing over an item after
   // dragging or holding chooses it. A quick click never chooses, even when the
   // list covers the trigger.
   function pointerPress(trigger: HTMLElement, event: PointerEvent) {
-    pressClick = true
-    const opening = !store.get().open
+    pressClick = true;
+    const opening = !store.get().open;
     if (opening) {
-      show({ event, by: "pointer" })
+      show({ event, by: "pointer" });
     } else {
-      hide({ reason: "trigger-press", event })
+      hide({ reason: "trigger-press", event });
     }
     const start = {
       x: event.clientX,
       y: event.clientY,
       time: performance.now(),
-    }
+    };
     const off = on(window, "pointerup", (up) => {
-      off()
+      off();
       // The window sees only the shadow host around a trigger in a shadow root.
-      const target = up.composedPath()[0] as HTMLElement
+      const target = up.composedPath()[0] as HTMLElement;
       // A release off the trigger sends it no click, so the next click, like Enter, is a new press.
       if (!composedContains(trigger, target)) {
-        pressClick = false
+        pressClick = false;
       }
       if (!opening) {
-        return
+        return;
       }
-      const held = performance.now() - start.time >= HOLD_MS
-      const moved =
-        Math.hypot(up.clientX - start.x, up.clientY - start.y) > DRAG_PX
+      const held = performance.now() - start.time >= HOLD_MS;
+      const moved = Math.hypot(up.clientX - start.x, up.clientY - start.y) > DRAG_PX;
       if ((!held && !moved) || composedContains(trigger, target)) {
-        return
+        return;
       }
-      const option = composedClosest<HTMLElement>(target, '[role="option"]')
+      const option = composedClosest<HTMLElement>(target, '[role="option"]');
       const entry =
-        option &&
-        listbox.entries().find((entry) => listbox.element(entry.key) === option)
+        option && listbox.entries().find((entry) => listbox.element(entry.key) === option);
       if (entry) {
-        choose(entry.key, up)
+        choose(entry.key, up);
       }
-    })
+    });
   }
 
   return {
@@ -264,11 +252,11 @@ function createSelectKeyboard({
     pointerPress,
     // Whether the click that just happened follows a press that already opened or closed the list.
     consumePressClick() {
-      const pressed = pressClick
-      pressClick = false
-      return pressed
+      const pressed = pressClick;
+      pressClick = false;
+      return pressed;
     },
-  }
+  };
 }
 
 // The step a key takes through the open list. PageUp and PageDown go to the
@@ -276,25 +264,25 @@ function createSelectKeyboard({
 // End for its caret.
 function selectStep(event: KeyboardEvent, { field }: { field: boolean }) {
   if (event.key === "PageUp" || (!field && event.key === "Home")) {
-    return "first"
+    return "first";
   }
   if (event.key === "PageDown" || (!field && event.key === "End")) {
-    return "last"
+    return "last";
   }
-  return listStep(event, { apple: isApple() })
+  return listStep(event, { apple: isApple() });
 }
 
 // The item an arrow, Home or End key on the closed trigger highlights once the list opens.
 function initialHighlightFor(key: string) {
   if (key === "ArrowDown" || key === "ArrowUp") {
-    return "selected"
+    return "selected";
   }
   if (key === "Home") {
-    return "first"
+    return "first";
   }
   if (key === "End") {
-    return "last"
+    return "last";
   }
 }
 
-export { createSelectKeyboard }
+export { createSelectKeyboard };

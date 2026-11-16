@@ -370,7 +370,6 @@ export default function App() {
 
   const editingQueuedMessageId = snapshot?.editingQueuedMessageId;
 
-
   const selectedSessionKey =
     selectedWorkspace && selectedSession ? `${selectedWorkspace.id}:${selectedSession.id}` : "";
 

@@ -18,7 +18,8 @@ test("startup timeline on a real profile copy", async () => {
   test.setTimeout(600_000);
   const lines: string[] = [];
   const started = Date.now();
-  const stamp = (text: string) => lines.push(`${String(Date.now() - started).padStart(7)} ms  ${text}`);
+  const stamp = (text: string) =>
+    lines.push(`${String(Date.now() - started).padStart(7)} ms  ${text}`);
   const h = await launchDesktop(join(profile!, "pi-gui"), {
     agentDir: join(profile!, "agent"),
     initialWorkspaces: (process.env.PEGASUS_PROFILE_WORKSPACES ?? "").split(";").filter(Boolean),
@@ -31,7 +32,8 @@ test("startup timeline on a real profile copy", async () => {
     },
   });
   const capture = (chunk: unknown) => {
-    for (const line of String(chunk).split(/\r?\n/)) if (line.includes("[startup]")) stamp(line.trim());
+    for (const line of String(chunk).split(/\r?\n/))
+      if (line.includes("[startup]")) stamp(line.trim());
   };
   h.electronApp.process().stdout?.on("data", capture);
   h.electronApp.process().stderr?.on("data", capture);

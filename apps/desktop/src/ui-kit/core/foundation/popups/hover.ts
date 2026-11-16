@@ -1,40 +1,40 @@
 // Opening a popup by resting the pointer on its trigger: a delay before it
 // opens, a delay before it closes, and a bridge spanning the trigger and the
 // popup, so the pointer can cross from one to the other.
-import { on } from "../kernel/events"
-import { bridgeBetween } from "./bridge"
+import { on } from "../kernel/events";
+import { bridgeBetween } from "./bridge";
 
 function createHoverIntent(options: {
   // The two elements the pointer may move between, looked up live.
-  trigger: () => HTMLElement | undefined
-  popup: () => HTMLElement | undefined
+  trigger: () => HTMLElement | undefined;
+  popup: () => HTMLElement | undefined;
   // Whether leaving should close the popup now: it's open, and the pointer opened it.
-  closesOnLeave: () => boolean
+  closesOnLeave: () => boolean;
   // Milliseconds before closing once the pointer has left both. Read on every leave.
-  closeDelay: () => number
+  closeDelay: () => number;
   // Closes the popup, after the delay.
-  close: (event: PointerEvent) => void
+  close: (event: PointerEvent) => void;
 }) {
-  let openTimer: ReturnType<typeof setTimeout> | undefined
-  let closeTimer: ReturnType<typeof setTimeout> | undefined
-  let stopBridge: (() => void) | undefined
+  let openTimer: ReturnType<typeof setTimeout> | undefined;
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
+  let stopBridge: (() => void) | undefined;
 
   function stopWatching() {
-    stopBridge?.()
-    stopBridge = undefined
+    stopBridge?.();
+    stopBridge = undefined;
   }
 
   // Forgets any pending open or close, like after a press.
   function clear() {
-    clearTimeout(openTimer)
-    clearTimeout(closeTimer)
-    stopWatching()
+    clearTimeout(openTimer);
+    clearTimeout(closeTimer);
+    stopWatching();
   }
 
   function scheduleClose(event: PointerEvent) {
-    stopWatching()
-    clearTimeout(closeTimer)
-    closeTimer = setTimeout(() => options.close(event), options.closeDelay())
+    stopWatching();
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => options.close(event), options.closeDelay());
   }
 
   return {
@@ -44,18 +44,18 @@ function createHoverIntent(options: {
     // for 0. Touch has no hover, so a tap never counts.
     enter(event: PointerEvent, open?: () => void, delay = 0) {
       if (event.pointerType === "touch") {
-        return
+        return;
       }
-      clearTimeout(closeTimer)
-      stopWatching()
+      clearTimeout(closeTimer);
+      stopWatching();
       if (!open) {
-        return
+        return;
       }
-      clearTimeout(openTimer)
+      clearTimeout(openTimer);
       if (delay > 0) {
-        openTimer = setTimeout(open, delay)
+        openTimer = setTimeout(open, delay);
       } else {
-        open()
+        open();
       }
     },
     // The pointer left the trigger or the popup. A pending open is dropped.
@@ -63,34 +63,31 @@ function createHoverIntent(options: {
     // leaves the area that spans both.
     leave(event: PointerEvent) {
       if (event.pointerType === "touch") {
-        return
+        return;
       }
-      clearTimeout(openTimer)
+      clearTimeout(openTimer);
       if (!options.closesOnLeave()) {
-        return
+        return;
       }
-      const trigger = options.trigger()
-      const popup = options.popup()
+      const trigger = options.trigger();
+      const popup = options.popup();
       if (!trigger || !popup) {
-        return scheduleClose(event)
+        return scheduleClose(event);
       }
-      const inside = bridgeBetween(
-        trigger.getBoundingClientRect(),
-        popup.getBoundingClientRect()
-      )
+      const inside = bridgeBetween(trigger.getBoundingClientRect(), popup.getBoundingClientRect());
       if (!inside(event.clientX, event.clientY)) {
-        return scheduleClose(event)
+        return scheduleClose(event);
       }
-      stopWatching()
+      stopWatching();
       stopBridge = on(popup.ownerDocument, "pointermove", (move) => {
         if (!inside(move.clientX, move.clientY)) {
-          scheduleClose(move)
+          scheduleClose(move);
         }
-      })
+      });
     },
-  }
+  };
 }
 
-type HoverIntent = ReturnType<typeof createHoverIntent>
+type HoverIntent = ReturnType<typeof createHoverIntent>;
 
-export { createHoverIntent, type HoverIntent }
+export { createHoverIntent, type HoverIntent };

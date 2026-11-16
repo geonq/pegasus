@@ -63,7 +63,10 @@ export class SessionEventRecorder {
       }
       case "toolStarted":
         this.runFor(key, event.runId).tools += 1;
-        this.tools.set(`${key}\u0000${event.callId}`, { name: event.toolName, startedAt: Date.now() });
+        this.tools.set(`${key}\u0000${event.callId}`, {
+          name: event.toolName,
+          startedAt: Date.now(),
+        });
         traceEvent("tool.start", { s, r: event.runId, tool: event.toolName, call: event.callId });
         return;
       case "toolUpdated":
@@ -94,7 +97,8 @@ export class SessionEventRecorder {
         });
         return;
       case "sessionClosed":
-        if (this.runs.has(key)) this.endRun(key, s, "run.closed", event.runId, { reason: event.reason });
+        if (this.runs.has(key))
+          this.endRun(key, s, "run.closed", event.runId, { reason: event.reason });
         logEvent("session.closed", { s, reason: event.reason });
         return;
       case "hostUiRequest":
@@ -144,7 +148,8 @@ export class SessionEventRecorder {
   ): void {
     const run = this.runs.get(key);
     this.runs.delete(key);
-    for (const toolKey of this.tools.keys()) if (toolKey.startsWith(`${key}\u0000`)) this.tools.delete(toolKey);
+    for (const toolKey of this.tools.keys())
+      if (toolKey.startsWith(`${key}\u0000`)) this.tools.delete(toolKey);
     logEvent(kind, {
       s,
       r: runId ?? run?.runId,

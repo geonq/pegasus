@@ -83,7 +83,7 @@ const roles = [
   "tree",
   "treegrid",
   "treeitem",
-] as const
+] as const;
 
 // Not `separator`, which takes focus only as a window splitter.
 const focusableRoles = [
@@ -104,7 +104,7 @@ const focusableRoles = [
   "tab",
   "textbox",
   "treeitem",
-] as const
+] as const;
 
 const pressableRoles = [
   "button",
@@ -118,7 +118,7 @@ const pressableRoles = [
   "switch",
   "tab",
   "treeitem",
-] as const
+] as const;
 
 const keyedRoles = [
   "combobox",
@@ -133,7 +133,7 @@ const keyedRoles = [
   "toolbar",
   "tree",
   "treegrid",
-] as const
+] as const;
 
 // Each role-specific ARIA attribute, with the roles that support it, from
 // WAI-ARIA 1.2 with what subclass roles inherit. Global ones, like
@@ -254,15 +254,7 @@ const ariaSupport = {
   "aria-rowcount": ["grid", "table", "treegrid"],
   "aria-rowindex": ["cell", "columnheader", "gridcell", "row", "rowheader"],
   "aria-rowspan": ["cell", "columnheader", "gridcell", "rowheader"],
-  "aria-selected": [
-    "columnheader",
-    "gridcell",
-    "option",
-    "row",
-    "rowheader",
-    "tab",
-    "treeitem",
-  ],
+  "aria-selected": ["columnheader", "gridcell", "option", "row", "rowheader", "tab", "treeitem"],
   "aria-setsize": [
     "article",
     "listitem",
@@ -276,39 +268,11 @@ const ariaSupport = {
     "treeitem",
   ],
   "aria-sort": ["columnheader", "rowheader"],
-  "aria-valuemax": [
-    "meter",
-    "progressbar",
-    "scrollbar",
-    "separator",
-    "slider",
-    "spinbutton",
-  ],
-  "aria-valuemin": [
-    "meter",
-    "progressbar",
-    "scrollbar",
-    "separator",
-    "slider",
-    "spinbutton",
-  ],
-  "aria-valuenow": [
-    "meter",
-    "progressbar",
-    "scrollbar",
-    "separator",
-    "slider",
-    "spinbutton",
-  ],
-  "aria-valuetext": [
-    "meter",
-    "progressbar",
-    "scrollbar",
-    "separator",
-    "slider",
-    "spinbutton",
-  ],
-} as const satisfies Record<string, readonly (typeof roles)[number][]>
+  "aria-valuemax": ["meter", "progressbar", "scrollbar", "separator", "slider", "spinbutton"],
+  "aria-valuemin": ["meter", "progressbar", "scrollbar", "separator", "slider", "spinbutton"],
+  "aria-valuenow": ["meter", "progressbar", "scrollbar", "separator", "slider", "spinbutton"],
+  "aria-valuetext": ["meter", "progressbar", "scrollbar", "separator", "slider", "spinbutton"],
+} as const satisfies Record<string, readonly (typeof roles)[number][]>;
 
 // Roles that can't be named: an `aria-label` on them is ignored.
 const namelessRoles = [
@@ -324,7 +288,7 @@ const namelessRoles = [
   "strong",
   "subscript",
   "superscript",
-] as const
+] as const;
 
 // The states a role's pattern can't work without, which its slot's `attrs` must always write.
 const requiredStates = {
@@ -338,29 +302,27 @@ const requiredStates = {
   slider: ["aria-valuenow"],
   switch: ["aria-checked"],
   tab: ["aria-selected"],
-} as const satisfies Partial<
-  Record<(typeof roles)[number], readonly (keyof typeof ariaSupport)[]>
->
+} as const satisfies Partial<Record<(typeof roles)[number], readonly (keyof typeof ariaSupport)[]>>;
 
 /**
  * A WAI-ARIA role a part can declare with its slot's `role`.
  */
-type Role = (typeof roles)[number]
+type Role = (typeof roles)[number];
 
-type RoleAria = keyof typeof ariaSupport
+type RoleAria = keyof typeof ariaSupport;
 
 // The role-specific attributes a role takes, and the states it requires.
 type AriaOf<R> = {
-  [K in RoleAria]: R extends (typeof ariaSupport)[K][number] ? K : never
-}[RoleAria]
+  [K in RoleAria]: R extends (typeof ariaSupport)[K][number] ? K : never;
+}[RoleAria];
 type RequiredAria<R> = R extends keyof typeof requiredStates
   ? (typeof requiredStates)[R][number]
-  : never
-type NamelessRole = (typeof namelessRoles)[number]
+  : never;
+type NamelessRole = (typeof namelessRoles)[number];
 
-type FocusableRole = (typeof focusableRoles)[number]
-type PressableRole = (typeof pressableRoles)[number]
-type KeyedRole = (typeof keyedRoles)[number]
+type FocusableRole = (typeof focusableRoles)[number];
+type PressableRole = (typeof pressableRoles)[number];
+type KeyedRole = (typeof keyedRoles)[number];
 
 /**
  * How a part that takes focus gets it. `"roving"`: one of a set holds the tab
@@ -369,7 +331,7 @@ type KeyedRole = (typeof keyedRoles)[number]
  * part with `aria-activedescendant`. `"native"`: the element focuses on its
  * own, like a `<button>` or an `<input>`.
  */
-type Focus = "roving" | "tab-stop" | "active-descendant" | "native"
+type Focus = "roving" | "tab-stop" | "active-descendant" | "native";
 
 /**
  * A key a part handles, by `KeyboardEvent.key`, or `"typeahead"` for typed
@@ -390,17 +352,17 @@ type HandledKey =
   | "Escape"
   | "Tab"
   | "typeahead"
-  | (string & {})
+  | (string & {});
 
 /**
  * A need a slot's role has that another element meets, with the reason, like
  * `keys: { none: "The combobox's input handles them." }`.
  */
-type Unneeded = { none: string }
+type Unneeded = { none: string };
 
-const focusable = new Set<string>(focusableRoles)
-const pressable = new Set<string>(pressableRoles)
-const keyed = new Set<string>(keyedRoles)
+const focusable = new Set<string>(focusableRoles);
+const pressable = new Set<string>(pressableRoles);
+const keyed = new Set<string>(keyedRoles);
 
 /**
  * The needs a role has that a slot doesn't meet: `"keydown"` when it lists
@@ -409,34 +371,31 @@ const keyed = new Set<string>(keyedRoles)
 function unmetNeeds(
   role: string,
   slot: {
-    focus?: unknown
-    press?: unknown
-    keys?: unknown
-    on?: { keydown?: unknown }
-  }
+    focus?: unknown;
+    press?: unknown;
+    keys?: unknown;
+    on?: { keydown?: unknown };
+  },
 ) {
-  const unmet: ("focus" | "press" | "keys" | "keydown")[] = []
+  const unmet: ("focus" | "press" | "keys" | "keydown")[] = [];
   if (focusable.has(role) && !slot.focus) {
-    unmet.push("focus")
+    unmet.push("focus");
   }
   if (pressable.has(role) && !slot.press) {
-    unmet.push("press")
+    unmet.push("press");
   }
   if (keyed.has(role) && !slot.keys) {
-    unmet.push("keys")
+    unmet.push("keys");
   }
-  if (
-    (Array.isArray(slot.keys) || typeof slot.keys === "function") &&
-    !slot.on?.keydown
-  ) {
-    unmet.push("keydown")
+  if ((Array.isArray(slot.keys) || typeof slot.keys === "function") && !slot.on?.keydown) {
+    unmet.push("keydown");
   }
-  return unmet
+  return unmet;
 }
 
-const knownRoles = new Set<string>(roles)
+const knownRoles = new Set<string>(roles);
 
-const naming = ["aria-label", "aria-labelledby"]
+const naming = ["aria-label", "aria-labelledby"];
 
 // States an input exposes on its own, by its `type`, like a range input's value.
 const nativeStates: Record<string, readonly string[]> = {
@@ -444,39 +403,32 @@ const nativeStates: Record<string, readonly string[]> = {
   number: ["aria-valuenow"],
   radio: ["aria-checked"],
   range: ["aria-valuenow"],
-}
+};
 
 /**
  * The ARIA attributes a part renders that its role doesn't take, and the
  * states the role requires that it renders without, like `aria-checked` on a checkbox.
  */
 function ariaProblems(role: string, attrs: Record<string, unknown>) {
-  const notAllowed: string[] = []
+  const notAllowed: string[] = [];
   for (const [name, value] of Object.entries(attrs)) {
     if (value === undefined) {
-      continue
+      continue;
     }
-    const supported = (ariaSupport as Record<string, readonly string[]>)[name]
+    const supported = (ariaSupport as Record<string, readonly string[]>)[name];
     if (supported && !supported.includes(role)) {
-      notAllowed.push(name)
+      notAllowed.push(name);
     }
-    if (
-      naming.includes(name) &&
-      (namelessRoles as readonly string[]).includes(role)
-    ) {
-      notAllowed.push(name)
+    if (naming.includes(name) && (namelessRoles as readonly string[]).includes(role)) {
+      notAllowed.push(name);
     }
   }
-  const required =
-    (requiredStates as Record<string, readonly string[] | undefined>)[role] ??
-    []
-  const native = nativeStates[attrs.type as string] ?? []
+  const required = (requiredStates as Record<string, readonly string[] | undefined>)[role] ?? [];
+  const native = nativeStates[attrs.type as string] ?? [];
   return {
     notAllowed,
-    missing: required.filter(
-      (name) => attrs[name] === undefined && !native.includes(name)
-    ),
-  }
+    missing: required.filter((name) => attrs[name] === undefined && !native.includes(name)),
+  };
 }
 
 export {
@@ -494,4 +446,4 @@ export {
   type Role,
   type Unneeded,
   unmetNeeds,
-}
+};

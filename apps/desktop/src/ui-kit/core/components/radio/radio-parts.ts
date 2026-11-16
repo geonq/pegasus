@@ -5,33 +5,26 @@ import {
   isDisabled,
   nameFromLabels,
   valueMissingMessage,
-} from "../../foundation/forms/form"
-import type { SlotFactory } from "../../foundation/kernel/primitive-types"
-import type { Store } from "../../foundation/kernel/store"
-import { selects } from "../../foundation/kernel/selects"
-import type { RadioProps, RadioState } from "./radio"
+} from "../../foundation/forms/form";
+import type { SlotFactory } from "../../foundation/kernel/primitive-types";
+import type { Store } from "../../foundation/kernel/store";
+import { selects } from "../../foundation/kernel/selects";
+import type { RadioProps, RadioState } from "./radio";
 import {
   isNativeButton,
   itemData,
   itemState,
   type radioGroupApi,
   type RadioGroupStore,
-} from "./radio-api"
+} from "./radio-api";
 
-type ItemProps = RadioProps
+type ItemProps = RadioProps;
 
-type RadioSlotsApi = Pick<
-  ReturnType<typeof radioGroupApi>,
-  "focus" | "internal"
->
+type RadioSlotsApi = Pick<ReturnType<typeof radioGroupApi>, "focus" | "internal">;
 
 // The group's form value, and a label pointing at it, for Radio, Segmented
 // Control and Rating.
-function bindRadioGroup(
-  el: HTMLElement,
-  api: RadioSlotsApi,
-  store: Store<RadioGroupStore>
-) {
+function bindRadioGroup(el: HTMLElement, api: RadioSlotsApi, store: Store<RadioGroupStore>) {
   const unbind = bindInternals(el, {
     value: () => store.get().value,
     state: () => store.get().value ?? "",
@@ -43,40 +36,40 @@ function bindRadioGroup(
     reset: api.internal.reset,
     disabled: api.internal.setFormDisabled,
     subscribe: store.subscribe,
-  })
+  });
   // A label pointing at the group moves focus into it.
   const onClick = (event: MouseEvent) => {
     if (event.target === el) {
-      api.focus()
+      api.focus();
     }
-  }
+  };
   // Like a disabled native radio, one the group disables doesn't take focus
   // from a label press. Browsers send no mouse events into a disabled form
   // element, like a web component group, so this listens for focus.
-  let pressedLabel: HTMLLabelElement | null = null
+  let pressedLabel: HTMLLabelElement | null = null;
   const onPointerDown = (event: PointerEvent) => {
     pressedLabel = isDisabled(store.get())
       ? ((event.target as Element | null)?.closest?.("label") ?? null)
-      : null
-  }
+      : null;
+  };
   const onFocusIn = (event: FocusEvent) => {
-    const label = pressedLabel
-    pressedLabel = null
-    const target = event.target as HTMLElement
+    const label = pressedLabel;
+    pressedLabel = null;
+    const target = event.target as HTMLElement;
     if (label?.control === target && target !== el) {
-      target.blur()
+      target.blur();
     }
-  }
-  const doc = el.ownerDocument
-  el.addEventListener("click", onClick)
-  el.addEventListener("focusin", onFocusIn)
-  doc.addEventListener("pointerdown", onPointerDown, true)
+  };
+  const doc = el.ownerDocument;
+  el.addEventListener("click", onClick);
+  el.addEventListener("focusin", onFocusIn);
+  doc.addEventListener("pointerdown", onPointerDown, true);
   return () => {
-    unbind()
-    el.removeEventListener("click", onClick)
-    el.removeEventListener("focusin", onFocusIn)
-    doc.removeEventListener("pointerdown", onPointerDown, true)
-  }
+    unbind();
+    el.removeEventListener("click", onClick);
+    el.removeEventListener("focusin", onFocusIn);
+    doc.removeEventListener("pointerdown", onPointerDown, true);
+  };
 }
 
 const radioGroupAttrs = (state: RadioGroupStore) => ({
@@ -88,7 +81,7 @@ const radioGroupAttrs = (state: RadioGroupStore) => ({
   "data-disabled": isDisabled(state) ? "" : undefined,
   "data-readonly": state.readOnly ? "" : undefined,
   "data-required": state.required ? "" : undefined,
-})
+});
 
 function radioSlots<Api extends RadioSlotsApi, Public extends object>(
   slot: SlotFactory<RadioGroupStore, Api>,
@@ -97,8 +90,8 @@ function radioSlots<Api extends RadioSlotsApi, Public extends object>(
   radioAttrs: (
     state: RadioGroupStore,
     key: string,
-    api: Api
-  ) => Record<string, string | undefined> = () => ({})
+    api: Api,
+  ) => Record<string, string | undefined> = () => ({}),
 ) {
   return {
     group: slot<{}, Public>({
@@ -124,7 +117,7 @@ function radioSlots<Api extends RadioSlotsApi, Public extends object>(
       }),
       state: (state, { key, props }) => itemState(state, key, props),
       attrs: (state, { key, props, api }) => {
-        const { checked, disabled } = itemState(state, key, props)
+        const { checked, disabled } = itemState(state, key, props);
         return {
           type: "button",
           "aria-checked": String(checked),
@@ -138,39 +131,39 @@ function radioSlots<Api extends RadioSlotsApi, Public extends object>(
             : api.internal.roving.tabIndex(state, { key, props }),
           ...itemData(state, key, props),
           ...radioAttrs(state, key, api),
-        }
+        };
       },
       press({ api, key, props }, event) {
         // A click inside the radio would make a <label> around it click it again
         // in Firefox and Safari.
-        event?.preventDefault()
+        event?.preventDefault();
         if (props.disabled) {
-          return
+          return;
         }
-        api.internal.check(key, { reason: "item-press", event })
+        api.internal.check(key, { reason: "item-press", event });
       },
       on: {
         // A group's disabled leaves the item focusable to scripts, so a press
         // mustn't focus it either, like a disabled native radio.
         mousedown: (event, { store, key, props }) => {
           if (itemState(store.get(), key, props).disabled) {
-            event.preventDefault()
+            event.preventDefault();
           }
         },
         keydown: (event, { api, el }) => api.internal.onKeyDown(event, el!),
         keyup: (event, { api, el, key, props }) => {
           if (event.key === " " && !isNativeButton(el) && !props.disabled) {
-            api.internal.check(key, { reason: "item-press", event })
+            api.internal.check(key, { reason: "item-press", event });
           }
         },
       },
       bind(el, part) {
-        const unregister = part.api.internal.roving.bind(el, part)
-        const unname = nameFromLabels(el)
+        const unregister = part.api.internal.roving.bind(el, part);
+        const unname = nameFromLabels(el);
         return () => {
-          unname()
-          unregister()
-        }
+          unname();
+          unregister();
+        };
       },
     }),
 
@@ -199,14 +192,14 @@ function radioSlots<Api extends RadioSlotsApi, Public extends object>(
           control: () => api.internal.radio(key),
           activate: (event) => {
             if (!api.internal.itemProps(key).disabled) {
-              api.internal.check(key, { reason: "item-press", event })
+              api.internal.check(key, { reason: "item-press", event });
             }
           },
           reset: api.internal.reset,
           disabled: api.internal.setFormDisabled,
         }),
     }),
-  }
+  };
 }
 
-export { bindRadioGroup, radioGroupAttrs, radioSlots, type RadioSlotsApi }
+export { bindRadioGroup, radioGroupAttrs, radioSlots, type RadioSlotsApi };

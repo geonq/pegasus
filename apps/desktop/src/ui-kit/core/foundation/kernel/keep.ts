@@ -13,33 +13,33 @@
 // commits. An instance made while another is being made has a record of its
 // own, which the outer one keeps and releases with its own work. `destroy()`
 // discards the record, then runs the instance's `onDestroy` callbacks, once.
-import { dev, warn } from "./dev-stub"
+import { dev, warn } from "./dev-stub";
 
 // Starts some work and returns what stops it.
-type Start = () => (() => void) | void
+type Start = () => (() => void) | void;
 
 // An instance's work outside itself, and, while it's kept, what stops it.
-type Lifecycle = { starts: Start[]; stops?: (() => void)[] }
+type Lifecycle = { starts: Start[]; stops?: (() => void)[] };
 
-const lifecycles = new WeakMap<object, Lifecycle>()
+const lifecycles = new WeakMap<object, Lifecycle>();
 // The lifecycle of the instance being made, which `whenKept` adds to.
-let making: Lifecycle | undefined
+let making: Lifecycle | undefined;
 // Whether `unwatched` is running, so the instances it makes wait for `keep()`.
-let deferring = false
+let deferring = false;
 // Whether an instance's `onDestroy` callbacks are running. What they cut
 // short, like a drag, wasn't ended by the person, so it commits nothing.
-let destroying = 0
+let destroying = 0;
 
 function whileDestroying(run: () => void) {
-  destroying++
+  destroying++;
   try {
-    run()
+    run();
   } finally {
-    destroying--
+    destroying--;
   }
 }
 
-const isDestroying = () => destroying > 0
+const isDestroying = () => destroying > 0;
 
 /**
  * Makes an instance with a lifecycle of its own, kept at once in a browser,
@@ -47,25 +47,25 @@ const isDestroying = () => destroying > 0
  * then keeps and releases it with its own work.
  */
 function withLifecycle<T extends object>(make: () => T) {
-  const outer = making
-  const lifecycle: Lifecycle = { starts: [] }
-  making = lifecycle
-  let instance: T
+  const outer = making;
+  const lifecycle: Lifecycle = { starts: [] };
+  making = lifecycle;
+  let instance: T;
   try {
-    instance = make()
+    instance = make();
   } finally {
-    making = outer
+    making = outer;
   }
-  lifecycles.set(instance, lifecycle)
+  lifecycles.set(instance, lifecycle);
   if (outer) {
     outer.starts.push(() => {
-      keep(instance)
-      return () => release(instance)
-    })
+      keep(instance);
+      return () => release(instance);
+    });
   } else if (!deferring && typeof document !== "undefined") {
-    keep(instance)
+    keep(instance);
   }
-  return instance
+  return instance;
 }
 
 /**
@@ -74,12 +74,12 @@ function withLifecycle<T extends object>(make: () => T) {
  * like React's state initializer under StrictMode.
  */
 function unwatched<T>(make: () => T) {
-  const outer = deferring
-  deferring = true
+  const outer = deferring;
+  deferring = true;
   try {
-    return make()
+    return make();
   } finally {
-    deferring = outer
+    deferring = outer;
   }
 }
 
@@ -90,11 +90,9 @@ function unwatched<T>(make: () => T) {
  */
 function whenKept(start: Start) {
   if (making) {
-    making.starts.push(start)
+    making.starts.push(start);
   } else if (dev) {
-    warn(
-      "`whenKept` runs only while an instance is made, so this work never starts."
-    )
+    warn("`whenKept` runs only while an instance is made, so this work never starts.");
   }
 }
 
@@ -104,38 +102,38 @@ function whenKept(start: Start) {
  * once while the instance is kept.
  */
 function extendLifecycle(instance: object, run: () => void) {
-  const outer = making
-  const added: Lifecycle = { starts: [] }
-  making = added
+  const outer = making;
+  const added: Lifecycle = { starts: [] };
+  making = added;
   try {
-    run()
+    run();
   } finally {
-    making = outer
+    making = outer;
   }
-  const lifecycle = lifecycles.get(instance)
+  const lifecycle = lifecycles.get(instance);
   if (!lifecycle) {
-    return
+    return;
   }
-  lifecycle.starts.push(...added.starts)
+  lifecycle.starts.push(...added.starts);
   for (const start of lifecycle.stops ? added.starts : []) {
-    const stop = start()
+    const stop = start();
     if (stop) {
-      lifecycle.stops!.push(stop)
+      lifecycle.stops!.push(stop);
     }
   }
 }
 
 /** Starts what waits on the framework keeping an instance. Safe to call again. */
 function keep(instance: object) {
-  const lifecycle = lifecycles.get(instance)
+  const lifecycle = lifecycles.get(instance);
   if (!lifecycle || lifecycle.stops) {
-    return
+    return;
   }
-  const stops: (() => void)[] = (lifecycle.stops = [])
+  const stops: (() => void)[] = (lifecycle.stops = []);
   for (const start of lifecycle.starts) {
-    const stop = start()
+    const stop = start();
     if (stop) {
-      stops.push(stop)
+      stops.push(stop);
     }
   }
 }
@@ -146,19 +144,19 @@ function keep(instance: object) {
  * destroyed. The instance keeps its state, and `keep()` starts it all again.
  */
 function release(instance: object) {
-  const lifecycle = lifecycles.get(instance)
-  const stops = lifecycle?.stops
+  const lifecycle = lifecycles.get(instance);
+  const stops = lifecycle?.stops;
   if (!stops) {
-    return
+    return;
   }
-  lifecycle.stops = undefined
-  stops.forEach((stop) => stop())
+  lifecycle.stops = undefined;
+  stops.forEach((stop) => stop());
 }
 
 /** Stops what `keep()` started for good, as the instance is destroyed. */
 function discard(instance: object) {
-  release(instance)
-  lifecycles.delete(instance)
+  release(instance);
+  lifecycles.delete(instance);
 }
 
 export {
@@ -171,4 +169,4 @@ export {
   whenKept,
   whileDestroying,
   withLifecycle,
-}
+};

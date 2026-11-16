@@ -1,7 +1,7 @@
 // How the shortcut manager decides whether a key press runs a shortcut: where
 // it stands among the open layers, and whether the user is typing. Internal to
 // `shortcuts.ts`, kept apart so tests can check it alone.
-import type { ShortcutOptions } from "./shortcuts"
+import type { ShortcutOptions } from "./shortcuts";
 
 /**
  * Where a shortcut stands among the open layers: the order of the layer it
@@ -13,23 +13,23 @@ function shortcutOrder(
   layer: ShortcutOptions["layer"],
   find: (el: Element) => { order?: number } | undefined,
   persistent: (el: Element) => boolean = () => false,
-  inPopup: (el: Element) => boolean = () => false
+  inPopup: (el: Element) => boolean = () => false,
 ) {
   if (!layer) {
-    return 0
+    return 0;
   }
-  const el = typeof layer === "function" ? layer() : layer
+  const el = typeof layer === "function" ? layer() : layer;
   if (!el || !el.isConnected) {
-    return null
+    return null;
   }
   if (persistent(el)) {
-    return Infinity
+    return Infinity;
   }
-  const open = find(el)
+  const open = find(el);
   if (open) {
-    return open.order ?? 0
+    return open.order ?? 0;
   }
-  return inPopup(el) ? null : 0
+  return inPopup(el) ? null : 0;
 }
 
 /**
@@ -39,30 +39,28 @@ function shortcutOrder(
  */
 function isShortcutAllowed(order: number | null, blocking: number | undefined) {
   if (order === null) {
-    return false
+    return false;
   }
-  return blocking === undefined || order >= blocking
+  return blocking === undefined || order >= blocking;
 }
 
 /** Whether a key press happened while typing text, where letters are text. */
 function isTypingIn(target: EventTarget | null | undefined) {
   if (!target || !(target as Element).tagName) {
-    return false
+    return false;
   }
-  const el = target as HTMLElement
+  const el = target as HTMLElement;
   if (el.isContentEditable) {
-    return true
+    return true;
   }
   if (el.tagName === "TEXTAREA" || el.tagName === "SELECT") {
-    return true
+    return true;
   }
   if (el.tagName !== "INPUT") {
-    return false
+    return false;
   }
-  const type = (el as HTMLInputElement).type
-  return !/^(button|checkbox|radio|submit|reset|range|color|file|image)$/.test(
-    type
-  )
+  const type = (el as HTMLInputElement).type;
+  return !/^(button|checkbox|radio|submit|reset|range|color|file|image)$/.test(type);
 }
 
-export { isShortcutAllowed, isTypingIn, shortcutOrder }
+export { isShortcutAllowed, isTypingIn, shortcutOrder };

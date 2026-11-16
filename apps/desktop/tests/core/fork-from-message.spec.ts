@@ -60,7 +60,9 @@ test("forks a thread from an assistant response into a new sidebar session", asy
     const copyAnswer = secondAnswer.getByTestId("copy-message");
     await copyAnswer.click();
     await expect(copyAnswer).toHaveAttribute("aria-label", "Copied");
-    const question = transcript.locator(".timeline-item--user", { hasText: "Second fork question" });
+    const question = transcript.locator(".timeline-item--user", {
+      hasText: "Second fork question",
+    });
     const questionHeight = (await question.boundingBox())!.height;
     await question.hover();
     await question.getByTestId("copy-message").click();

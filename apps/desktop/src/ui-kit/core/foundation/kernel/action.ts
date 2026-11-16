@@ -2,14 +2,14 @@
 // pending until it settles (API guide §2, G6). Button, a dialog's Close part
 // and a toast's buttons share this. Only `ActionDetails` is public, from
 // `@ui-sdk/core` and under each component's own name for it.
-import { note } from "./dev-stub"
-import { withSource, type ChangeSource } from "./details"
+import { note } from "./dev-stub";
+import { withSource, type ChangeSource } from "./details";
 
 // What a pending part says by default, in English, once it has been pending
 // for a second. A quick action that settles sooner says nothing, so screen
 // readers hear only waits worth mentioning.
-const DEFAULT_PENDING_ANNOUNCEMENT = "Loading"
-const PENDING_ANNOUNCE_DELAY = 1000
+const DEFAULT_PENDING_ANNOUNCEMENT = "Loading";
+const PENDING_ANNOUNCE_DELAY = 1000;
 
 /**
  * What an action receives after its event.
@@ -19,27 +19,22 @@ type ActionDetails = {
   /**
    * How it was pressed, like `"mouse"` or `"keyboard"`.
    */
-  source: ChangeSource
-}
+  source: ChangeSource;
+};
 
 // What a popup controller's `open()` returned. A handler like `() => dialog.open()`
 // opens something; it isn't a wait, so its part doesn't go pending.
-const popupResults = new WeakSet<object>()
-const popupResult = <T extends object>(promise: T) => (
-  popupResults.add(promise),
-  promise
-)
+const popupResults = new WeakSet<object>();
+const popupResult = <T extends object>(promise: T) => (popupResults.add(promise), promise);
 
 // Whether a handler returned a Promise, which marks its part pending.
 const isPromise = (value: unknown): value is PromiseLike<unknown> =>
-  !!value &&
-  typeof (value as PromiseLike<unknown>).then === "function" &&
-  !popupResults.has(value)
+  !!value && typeof (value as PromiseLike<unknown>).then === "function" && !popupResults.has(value);
 
 // What an action handler returns when it was canceled, like a web component's
 // `action` event a listener prevented: nothing more happens, so the dialog a
 // Close part closes stays open.
-const canceledAction = Symbol("canceled action")
+const canceledAction = Symbol("canceled action");
 
 // Runs an action handler with the source of the press that ran it, read
 // during the press. A returned Promise calls `pending(true)` and, once it
@@ -54,43 +49,39 @@ function runAction(
   action: (details: ActionDetails) => unknown,
   source: ChangeSource,
   handlers: {
-    pending: (pending: boolean) => void
-    done: () => void
-    failed: (error: unknown) => void
-  }
+    pending: (pending: boolean) => void;
+    done: () => void;
+    failed: (error: unknown) => void;
+  },
 ) {
   const failed = (error: unknown) => {
-    note(
-      "an action failed. The error is in its part's `error` state.",
-      undefined,
-      error
-    )
-    handlers.failed(error)
-  }
-  const done = () => withSource(source, handlers.done)
-  let result: unknown
+    note("an action failed. The error is in its part's `error` state.", undefined, error);
+    handlers.failed(error);
+  };
+  const done = () => withSource(source, handlers.done);
+  let result: unknown;
   try {
-    result = action({ source })
+    result = action({ source });
   } catch (error) {
-    return failed(error)
+    return failed(error);
   }
   if (result === canceledAction) {
-    return
+    return;
   }
   if (!isPromise(result)) {
-    return done()
+    return done();
   }
-  handlers.pending(true)
+  handlers.pending(true);
   result.then(
     () => {
-      handlers.pending(false)
-      done()
+      handlers.pending(false);
+      done();
     },
     (error) => {
-      handlers.pending(false)
-      failed(error)
-    }
-  )
+      handlers.pending(false);
+      failed(error);
+    },
+  );
 }
 
 // Says the part's `pendingAnnouncement` politely, through the shared
@@ -101,45 +92,37 @@ function runAction(
 // never fetches it, and one that can't fetch it says nothing.
 function announcePending(
   context: {
-    store: { subscribe: (listener: () => void) => () => void }
-    options: () => { pendingAnnouncement?: string }
-    onDestroy: (cleanup: () => void) => void
+    store: { subscribe: (listener: () => void) => () => void };
+    options: () => { pendingAnnouncement?: string };
+    onDestroy: (cleanup: () => void) => void;
   },
-  isPending: () => boolean
+  isPending: () => boolean,
 ) {
   const say = () => {
-    const text =
-      context.options().pendingAnnouncement ?? DEFAULT_PENDING_ANNOUNCEMENT
+    const text = context.options().pendingAnnouncement ?? DEFAULT_PENDING_ANNOUNCEMENT;
     import("../platform/announce").then(
       ({ announce }) => wasPending && announce(text),
-      () => {}
-    )
-  }
-  let timer: ReturnType<typeof setTimeout> | undefined
-  let wasPending = false
+      () => {},
+    );
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let wasPending = false;
   const unsubscribe = context.store.subscribe(() => {
-    const pending = isPending()
+    const pending = isPending();
     if (pending === wasPending) {
-      return
+      return;
     }
-    wasPending = pending
-    clearTimeout(timer)
+    wasPending = pending;
+    clearTimeout(timer);
     if (pending) {
-      timer = setTimeout(say, PENDING_ANNOUNCE_DELAY)
+      timer = setTimeout(say, PENDING_ANNOUNCE_DELAY);
     }
-  })
+  });
   context.onDestroy(() => {
-    wasPending = false
-    clearTimeout(timer)
-    unsubscribe()
-  })
+    wasPending = false;
+    clearTimeout(timer);
+    unsubscribe();
+  });
 }
 
-export {
-  type ActionDetails,
-  announcePending,
-  canceledAction,
-  isPromise,
-  popupResult,
-  runAction,
-}
+export { type ActionDetails, announcePending, canceledAction, isPromise, popupResult, runAction };

@@ -315,7 +315,16 @@ function SourceView({
             key={lineNumber}
             ref={marked && lineNumber === lineMark?.start ? firstMarkedRef : undefined}
           >
-            {highlightActive ? <HighlightedLine content={line} language={language} source={lines} lineIndex={index} /> : line || " "}
+            {highlightActive ? (
+              <HighlightedLine
+                content={line}
+                language={language}
+                source={lines}
+                lineIndex={index}
+              />
+            ) : (
+              line || " "
+            )}
           </div>
         );
       })}

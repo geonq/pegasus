@@ -2,16 +2,12 @@
 // dismissal, modal side effects, Tab handling, and where focus goes on open
 // and close. A component calls `createPopupLayer` once in `api` and `bind` from its
 // content slot's `bind`, then adds only what's specific to it.
-import { openAttrs } from "../kernel/attrs"
-import { createController } from "../kernel/controller"
-import { deriveFromOptions } from "../kernel/derive"
-import type {
-  ChangeOptions,
-  ChangeReason,
-  ChangeSource,
-} from "../kernel/details"
-import { on } from "../kernel/events"
-import type { Store } from "../kernel/store"
+import { openAttrs } from "../kernel/attrs";
+import { createController } from "../kernel/controller";
+import { deriveFromOptions } from "../kernel/derive";
+import type { ChangeOptions, ChangeReason, ChangeSource } from "../kernel/details";
+import { on } from "../kernel/events";
+import type { Store } from "../kernel/store";
 import {
   activeLayers,
   findLayer,
@@ -23,40 +19,21 @@ import {
   openedSince,
   pushLayer,
   type Layer,
-} from "../platform/layers"
-import { inertOutside, lockScroll } from "./modal"
-import {
-  moveFocus,
-  restoreFocus,
-  sourceOf,
-  trackInput,
-} from "../kernel/modality"
-import { isAfter } from "../kernel/order"
-import { isBrowser } from "../platform/env"
-import { afterPaint, ahead, enforceHidden, writeStyle } from "../platform/style"
-import {
-  activeElement,
-  composedContains,
-  supportsTopLayer,
-} from "../platform/platform"
-import {
-  resolveBehavior,
-  type PopupBehavior,
-  type PopupBehaviorName,
-} from "./popup-behavior"
-import { registerPopupElement } from "./popup-elements"
-import type { Anchor, position, PositionOptions } from "../platform/position"
-import { animateIn, animateOut, writeOpen } from "../motion/presence"
-import {
-  nextTabbable,
-  positiveTabStops,
-  radioGroup,
-  tabbables,
-} from "../focus/tabbable"
+} from "../platform/layers";
+import { inertOutside, lockScroll } from "./modal";
+import { moveFocus, restoreFocus, sourceOf, trackInput } from "../kernel/modality";
+import { isAfter } from "../kernel/order";
+import { isBrowser } from "../platform/env";
+import { afterPaint, ahead, enforceHidden, writeStyle } from "../platform/style";
+import { activeElement, composedContains, supportsTopLayer } from "../platform/platform";
+import { resolveBehavior, type PopupBehavior, type PopupBehaviorName } from "./popup-behavior";
+import { registerPopupElement } from "./popup-elements";
+import type { Anchor, position, PositionOptions } from "../platform/position";
+import { animateIn, animateOut, writeOpen } from "../motion/presence";
+import { nextTabbable, positiveTabStops, radioGroup, tabbables } from "../focus/tabbable";
 
 /** How a popup was last opened. Decides where focus goes. */
-type PopupOpener =
-  "pointer" | "touch" | "keyboard" | "hover" | "imperative" | "initial"
+type PopupOpener = "pointer" | "touch" | "keyboard" | "hover" | "imperative" | "initial";
 
 /**
  * Where focus goes. `"trigger"` follows the fallback chain: the trigger, the
@@ -65,11 +42,7 @@ type PopupOpener =
  * selector, an element or a function picks a specific element.
  */
 type PopupFocusTarget =
-  | "trigger"
-  | "none"
-  | (string & {})
-  | HTMLElement
-  | (() => HTMLElement | null | undefined)
+  "trigger" | "none" | (string & {}) | HTMLElement | (() => HTMLElement | null | undefined);
 
 /**
  * What being modal means. `true` makes the rest of the page inert, locks
@@ -79,17 +52,17 @@ type PopupFocusTarget =
  * trap. Each component accepts a documented subset.
  * @stable
  */
-type Modal = boolean | "pointer" | "trap-focus"
+type Modal = boolean | "pointer" | "trap-focus";
 
 /** What being modal means, as three separate effects. Components map their `modal` option onto it. */
 type PopupModal = {
   /** An outside press only closes the popup and reaches nothing else. */
-  consumeOutsidePress: boolean
+  consumeOutsidePress: boolean;
   /** Tab wraps inside the popup. */
-  trapFocus: boolean
+  trapFocus: boolean;
   /** The rest of the page is inert and doesn't scroll. */
-  inertAndLock: boolean
-}
+  inertAndLock: boolean;
+};
 
 /**
  * How a popup closed, which a controller's `open()` resolves with.
@@ -97,20 +70,20 @@ type PopupModal = {
  */
 type PopupResult<Reason extends string = string, Result = string> = {
   /** Why it closed, like `"escape-key"` or `"close-press"`. `"unmount"` when the component left the page while open, and `"imperative"` when the `signal` aborted. */
-  reason: Reason | "unmount"
+  reason: Reason | "unmount";
   /** How the user closed it: `"mouse"`, `"touch"`, `"pen"`, `"keyboard"`, `"virtual"` or `"programmatic"`. */
-  source: ChangeSource
+  source: ChangeSource;
   /** What closed it reported: a Close part's `value`, a form with `method="dialog"` reports its submitter's value, and `close({ returnValue })` passes its own, typed `Result`. */
-  returnValue?: Result
-}
+  returnValue?: Result;
+};
 
 // Why a popup closed: the close its component requested, or "imperative" for
 // one nobody requested, like a controlled `open` prop.
 type PopupClose<Reason extends string = string, Result = unknown> = {
-  reason: Reason
-  source: ChangeSource
-  returnValue?: Result
-}
+  reason: Reason;
+  source: ChangeSource;
+  returnValue?: Result;
+};
 
 /**
  * Why a popup asks its component to close: a dismissal its behavior allows, a
@@ -125,7 +98,7 @@ type PopupCloseReason =
   | "back"
   | "close-press"
   | "imperative"
-  | "swipe"
+  | "swipe";
 
 // Every `modal` value is a point in the triple.
 function modalTriple(modal: Modal) {
@@ -133,7 +106,7 @@ function modalTriple(modal: Modal) {
     consumeOutsidePress: modal === true || modal === "pointer",
     trapFocus: modal === true || modal === "trap-focus",
     inertAndLock: modal === true,
-  }
+  };
 }
 
 // How each input source opens a popup. A screen reader's virtual click moves
@@ -144,48 +117,40 @@ const openerBySource: Record<ChangeSource, PopupOpener> = {
   touch: "touch",
   keyboard: "keyboard",
   virtual: "keyboard",
-  programmatic: "imperative",
-}
+  programmatic: "imperative",
+};
 
-const openerOf = (event?: Event) =>
-  event ? openerBySource[sourceOf(event)] : "imperative"
+const openerOf = (event?: Event) => (event ? openerBySource[sourceOf(event)] : "imperative");
 
 // Where focus goes on open, by opener. Hover and an open from the start move
 // no focus. Touch focuses the popup itself, so no on-screen keyboard appears.
 // Anything else asks the component.
 function initialFocusPlan(opener: PopupOpener) {
   if (opener === "initial" || opener === "hover") {
-    return "none"
+    return "none";
   }
   if (opener === "touch") {
-    return "popup"
+    return "popup";
   }
-  return "auto"
+  return "auto";
 }
 
 // Whether focus returns after an outside press. Focus stays on a focusable
 // element the press reached. A mouse press waits until it's over, because the
 // browser's own focus change on mousedown would undo it. A tap dismisses on
 // click, after that change, so it returns at once.
-function outsidePressFocus(press: {
-  type: string
-  focusable: boolean
-  consumed: boolean
-}) {
+function outsidePressFocus(press: { type: string; focusable: boolean; consumed: boolean }) {
   if (press.focusable && !press.consumed) {
-    return false
+    return false;
   }
-  return press.type === "pointerdown" ? ("later" as const) : true
+  return press.type === "pointerdown" ? ("later" as const) : true;
 }
 
-function firstUsable<T>(
-  candidates: (() => T | null | undefined)[],
-  usable: (value: T) => boolean
-) {
+function firstUsable<T>(candidates: (() => T | null | undefined)[], usable: (value: T) => boolean) {
   for (const candidate of candidates) {
-    const value = candidate()
+    const value = candidate();
     if (value && usable(value)) {
-      return value
+      return value;
     }
   }
 }
@@ -194,8 +159,7 @@ function firstUsable<T>(
  * Options every write method on a popup controller takes.
  * @stable
  */
-type PopupChangeOptions<Reason extends string = ChangeReason> =
-  ChangeOptions<Reason>
+type PopupChangeOptions<Reason extends string = ChangeReason> = ChangeOptions<Reason>;
 
 /**
  * Options for opening a popup from a controller.
@@ -206,12 +170,12 @@ type PopupOpenOptions<
   Reason extends string = ChangeReason,
 > = PopupChangeOptions<Reason> & {
   /** Data for the content to render, like the row a menu acts on. Kept until the next open, so it stays put while the popup animates out. On an open popup it replaces the current payload, like another trigger taking it over, and an `anchor` passed with it moves the popup. */
-  payload?: Payload
+  payload?: Payload;
   /** Positions the popup against this instead of the trigger: an element, a point like `{ x, y }`, or anything with `getBoundingClientRect()`. */
-  anchor?: Anchor
+  anchor?: Anchor;
   /** Closes the popup, with reason `"imperative"`, when it aborts. An already aborted signal never opens it. */
-  signal?: AbortSignal
-}
+  signal?: AbortSignal;
+};
 
 /**
  * Opens, closes and inspects a popup from outside it.
@@ -225,28 +189,26 @@ type PopupController<
   PayloadReason extends Reason = Reason,
 > = {
   /** Whether it's open. False as soon as it starts closing, while it still animates out. */
-  isOpen: () => boolean
+  isOpen: () => boolean;
   /** Opens or closes it. Returns false when the change was canceled or it was already open or closed. */
-  setOpen: (open: boolean, options?: PopupChangeOptions<Reason>) => boolean
+  setOpen: (open: boolean, options?: PopupChangeOptions<Reason>) => boolean;
   /**
    * Opens it, and resolves once it closes, with why, how and any return value. Resolves exactly
    * once and never rejects: on the next close from any source, when `signal` aborts, or with reason
    * `"unmount"` when the component leaves the page.
    */
   open: (
-    options?: PopupOpenOptions<Payload, PayloadReason> & OpenOptions
-  ) => Promise<PopupResult<Reason, Result>>
+    options?: PopupOpenOptions<Payload, PayloadReason> & OpenOptions,
+  ) => Promise<PopupResult<Reason, Result>>;
   /** Closes it. `returnValue` is passed to the promise `open()` returned. Returns false when the close was canceled or it was already closed. */
-  close: (
-    options?: PopupChangeOptions<Reason> & { returnValue?: Result }
-  ) => boolean
+  close: (options?: PopupChangeOptions<Reason> & { returnValue?: Result }) => boolean;
   /** Opens it when it's closed, and closes it when it's open. Returns false when the change was canceled. */
-  toggle: (options?: PopupChangeOptions<Reason>) => boolean
+  toggle: (options?: PopupChangeOptions<Reason>) => boolean;
   /** The payload of the last open, from a controller or the trigger that opened it. */
-  getPayload: () => Payload | undefined
+  getPayload: () => Payload | undefined;
   /** Moves focus to the trigger that opened it last, or the first trigger. */
-  focus: () => void
-}
+  focus: () => void;
+};
 
 /** Creates a popup controller. Components wrap it in their own `create<Name>Controller()`. */
 function createPopupController<
@@ -256,17 +218,12 @@ function createPopupController<
   Result = string,
   PayloadReason extends Reason = Reason,
 >() {
-  return createController<
-    PopupController<Payload, Reason, OpenOptions, Result, PayloadReason>
-  >()
+  return createController<PopupController<Payload, Reason, OpenOptions, Result, PayloadReason>>();
 }
 
 // The state a popup layer reads, writes and hears: its component's store, or
 // a view of one, like the part of a navigation menu's state one item shows.
-type PopupStore<State extends object> = Pick<
-  Store<State>,
-  "get" | "set" | "subscribe"
->
+type PopupStore<State extends object> = Pick<Store<State>, "get" | "set" | "subscribe">;
 
 /**
  * Derives the state that changes with a controlled `open`, in the same pass
@@ -276,13 +233,11 @@ type PopupStore<State extends object> = Pick<
 function deriveOpen<State extends { open: boolean }>(
   context: { store: PopupStore<State> },
   keys: (keyof State & string)[],
-  derive: (open: boolean, state: State) => Partial<State> | void
+  derive: (open: boolean, state: State) => Partial<State> | void,
 ) {
   deriveFromOptions(context, keys, (synced, state) =>
-    "open" in synced && synced.open !== state.open
-      ? derive(!!synced.open, state)
-      : undefined
-  )
+    "open" in synced && synced.open !== state.open ? derive(!!synced.open, state) : undefined,
+  );
 }
 
 // ARIA every popup trigger carries. Only the kind of popup differs. With
@@ -292,136 +247,121 @@ function popupTriggerAttrs(
   state: { open: boolean; mounted: boolean; trigger?: string | null },
   id: string,
   haspopup: string,
-  key = ""
+  key = "",
 ) {
-  const active = state.trigger == null || state.trigger === key
-  const open = state.open && active
+  const active = state.trigger == null || state.trigger === key;
+  const open = state.open && active;
   return {
     id: active ? `${id}-trigger` : undefined,
     "aria-haspopup": haspopup,
     "aria-expanded": String(open),
     "aria-controls": active && state.mounted ? `${id}-content` : undefined,
     ...openAttrs(open),
-  }
+  };
 }
 
-function disabledTriggerAttrs(props: {
-  disabled?: boolean
-  focusableWhenDisabled?: boolean
-}) {
-  const focusable = props.disabled && props.focusableWhenDisabled
+function disabledTriggerAttrs(props: { disabled?: boolean; focusableWhenDisabled?: boolean }) {
+  const focusable = props.disabled && props.focusableWhenDisabled;
   return {
     disabled: props.disabled && !focusable ? "" : undefined,
     "aria-disabled": focusable ? "true" : undefined,
     "data-disabled": props.disabled ? "" : undefined,
-  }
+  };
 }
 
 // Attributes every popup carries. `popover` is set when it shows instead, so
 // content rendered open on the server is visible before it hydrates. Content
 // kept mounted while closed is hidden.
-function popupContentAttrs(
-  state: { open: boolean; mounted: boolean },
-  id: string
-) {
+function popupContentAttrs(state: { open: boolean; mounted: boolean }, id: string) {
   return {
     id: `${id}-content`,
     tabindex: "-1",
     hidden: state.mounted ? undefined : "",
     ...openAttrs(state.open),
-  }
+  };
 }
 
 const focusableSelector =
-  "a[href],button,input,select,textarea,summary,[tabindex],[contenteditable]"
+  "a[href],button,input,select,textarea,summary,[tabindex],[contenteditable]";
 
 function resolveTarget(target: PopupFocusTarget, root: ParentNode) {
   if (typeof target === "function") {
-    return target() ?? undefined
+    return target() ?? undefined;
   }
   if (typeof target === "string") {
-    return root.querySelector<HTMLElement>(target) ?? undefined
+    return root.querySelector<HTMLElement>(target) ?? undefined;
   }
-  return target
+  return target;
 }
 
 function usable(el: HTMLElement) {
-  return el.isConnected && !el.closest("[inert]")
+  return el.isConnected && !el.closest("[inert]");
 }
 
 // Whether focus rests on nothing a person can use: the body, or an element
 // that's gone, inert or no longer rendered, before the browser moves it away.
 function focusIsLost() {
-  const active = activeElement()
+  const active = activeElement();
   return (
     !active ||
     active === active.ownerDocument.body ||
     !usable(active) ||
     active.checkVisibility?.() === false
-  )
+  );
 }
 
 // Where focus goes on the next close. `true` returns it, `false` leaves it,
 // `"later"` waits for the press to end, and `"unless-moved"` waits a microtask
 // and skips the return when another layer opened or took focus meanwhile, like
 // a dialog an item opened.
-type ReturnMode = boolean | "later" | "unless-moved"
+type ReturnMode = boolean | "later" | "unless-moved";
 
 type AttachConfig = {
   // Where the popup goes beside its anchor, read on every check. Needs the
   // popup's `position` option.
-  position?: () => PositionOptions
+  position?: () => PositionOptions;
   // What to position against, read on every check. Defaults to the trigger.
-  anchor?: () => Anchor | null | undefined
+  anchor?: () => Anchor | null | undefined;
   // Hears each render of the popup's part, so a new side or offset applies
   // at once rather than at the next slow check.
-  rendered?: (listener: () => void) => () => void
-  initialFocus?: () => HTMLElement | null | undefined | void
+  rendered?: (listener: () => void) => () => void;
+  initialFocus?: () => HTMLElement | null | undefined | void;
   // An element shown in the top layer just below the popup, like a dialog's
   // backdrop. It animates in and out with the popup, and pressing it is an outside press.
-  backdrop?: () => HTMLElement | undefined
+  backdrop?: () => HTMLElement | undefined;
   // The element that goes into the top layer, when it isn't the popup itself:
   // a full-screen element the popup sits in, like a sheet's viewport.
-  host?: () => HTMLElement | undefined
+  host?: () => HTMLElement | undefined;
   // Stays where it renders instead of going into the top layer, like a
   // submenu shown in place of its parent's items inside a sheet.
-  inline?: boolean
+  inline?: boolean;
   // Runs when the popup shows, with its layer, and returns a cleanup for when
   // it hides. A sheet rises here.
-  onShow?: (layer: Layer) => (() => void) | void
+  onShow?: (layer: Layer) => (() => void) | void;
   // Runs as a close starts, before the exit is awaited, so an animation it
   // starts counts toward it. A sheet settles closed here.
-  onClose?: () => void
-}
+  onClose?: () => void;
+};
 
 // Whether a press on an element landed outside its border box, which is where
 // its ::backdrop is. The browser targets the element itself for those.
 function outsideBox(point: { x: number; y: number }, rect: DOMRect) {
-  return (
-    point.x < rect.left ||
-    point.x > rect.right ||
-    point.y < rect.top ||
-    point.y > rect.bottom
-  )
+  return point.x < rect.left || point.x > rect.right || point.y < rect.top || point.y > rect.bottom;
 }
 
 // What has focus as `el`'s own tree sees it, or null when focus is outside
 // that tree. The document sees only the shadow host around focus, which is
 // outside a popup in the same shadow root. Works in closed shadow roots too.
 function focusedFrom(el: Element) {
-  return (el.getRootNode() as Document | ShadowRoot).activeElement
+  return (el.getRootNode() as Document | ShadowRoot).activeElement;
 }
 
 // The selectors each document's reset covers and its text, shared by every
 // copy of ui-sdk on the page, since they write the same style. Made on first
 // use, so a bundle without popups drops it.
 const resets = () =>
-  ((globalThis as Record<symbol, unknown>)[
-    Symbol.for("ui-sdk.popover-reset@2")
-  ] ??= new WeakMap()) as WeakMap<
-    Document,
-    { selectors: Set<string>; css: string }
-  >
+  ((globalThis as Record<symbol, unknown>)[Symbol.for("ui-sdk.popover-reset@2")] ??=
+    new WeakMap()) as WeakMap<Document, { selectors: Set<string>; css: string }>;
 
 // Undoes the browser's built-in styles for [popover] (centered, fit-content,
 // a border, padding and a canvas background), so a popup that isn't
@@ -431,21 +371,21 @@ const resets = () =>
 // with known selectors too, so a page that replaced its adopted sheets gets
 // it back.
 function resetPopoverStyles(doc: Document, selectors: string[]) {
-  let reset = resets().get(doc)
+  let reset = resets().get(doc);
   if (!reset) {
-    resets().set(doc, (reset = { selectors: new Set(), css: "" }))
+    resets().set(doc, (reset = { selectors: new Set(), css: "" }));
   }
-  const known = reset.selectors
+  const known = reset.selectors;
   if (!selectors.every((selector) => known.has(selector))) {
-    selectors.forEach((selector) => known.add(selector))
-    reset.css = `@layer ui-sdk { :where(${[...known].map((selector) => `${selector}[popover]`).join(", ")}) { inset: auto; width: auto; height: auto; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; overflow: visible; color: inherit; background: none } }`
+    selectors.forEach((selector) => known.add(selector));
+    reset.css = `@layer ui-sdk { :where(${[...known].map((selector) => `${selector}[popover]`).join(", ")}) { inset: auto; width: auto; height: auto; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; overflow: visible; color: inherit; background: none } }`;
   }
   if (reset.css) {
-    writeStyle(doc, "ui-sdk-popover-reset", reset.css)
+    writeStyle(doc, "ui-sdk-popover-reset", reset.css);
   }
 }
 
-const prepared = new WeakSet<string[]>()
+const prepared = new WeakSet<string[]>();
 
 /**
  * Writes `resetPopoverStyles` for `selectors` ahead of the first open, with
@@ -454,13 +394,13 @@ const prepared = new WeakSet<string[]>()
  */
 function prepareReset(selectors: string[]) {
   if (!isBrowser || prepared.has(selectors)) {
-    return
+    return;
   }
-  prepared.add(selectors)
+  prepared.add(selectors);
   ahead(() => {
-    resetPopoverStyles(document, selectors)
-    enforceHidden(document)
-  })
+    resetPopoverStyles(document, selectors);
+    enforceHidden(document);
+  });
 }
 
 // Android's back gesture, through a CloseWatcher. Only on Android: on desktop
@@ -470,29 +410,29 @@ function prepareReset(selectors: string[]) {
 function watchClose(close: (event: Event) => void) {
   const Watcher = (
     globalThis as {
-      CloseWatcher?: new () => EventTarget & { destroy: () => void }
+      CloseWatcher?: new () => EventTarget & { destroy: () => void };
     }
-  ).CloseWatcher
+  ).CloseWatcher;
   if (!Watcher || !/Android/.test(navigator.userAgent)) {
-    return
+    return;
   }
-  let watcher: (EventTarget & { destroy: () => void }) | undefined
+  let watcher: (EventTarget & { destroy: () => void }) | undefined;
   try {
-    watcher = new Watcher()
+    watcher = new Watcher();
   } catch {
-    return
+    return;
   }
   watcher.addEventListener("close", (event) => {
     if (performance.now() - lastEscape() < 100) {
-      return
+      return;
     }
-    close(event)
-  })
-  return () => watcher?.destroy()
+    close(event);
+  });
+  return () => watcher?.destroy();
 }
 
 // Each shown layer's own elements, which a parent that turns modal later keeps out of its inert.
-const layerParts = new WeakMap<Layer, HTMLElement[]>()
+const layerParts = new WeakMap<Layer, HTMLElement[]>();
 
 function createPopupLayer<
   State extends { open: boolean; mounted: boolean },
@@ -500,439 +440,400 @@ function createPopupLayer<
 >(
   options: Partial<PopupBehavior> & {
     // The behavior to start from. Any behavior option passed here overrides it.
-    preset: PopupBehaviorName
-    store: PopupStore<State>
+    preset: PopupBehaviorName;
+    store: PopupStore<State>;
     // The component and instance, for the layer stack the devtools show.
-    owner?: { component: string; id: string }
+    owner?: { component: string; id: string };
     // Looked up live, so a trigger that re-rendered as a new element still works.
-    trigger: () => HTMLElement | undefined
+    trigger: () => HTMLElement | undefined;
     // Where focus returns on close, when that isn't always `trigger`.
-    returnTrigger?: () => HTMLElement | undefined
+    returnTrigger?: () => HTMLElement | undefined;
     // Asks the component to close. `focus` says whether focus should return.
     close: (
       reason: PopupCloseReason,
-      details: { event?: Event; focus: boolean | "later"; returnValue?: string }
-    ) => void
+      details: { event?: Event; focus: boolean | "later"; returnValue?: string },
+    ) => void;
     // Read when the popup shows.
-    modal: () => PopupModal
+    modal: () => PopupModal;
     // The layer this one nests under. Without one, the open popup that contains the trigger.
-    parent?: () => Layer | undefined
+    parent?: () => Layer | undefined;
     // Whether a press on something outside the popup counts as inside, so it
     // doesn't dismiss. By default, presses on the trigger do.
-    contains?: (target: Node, event?: Event) => boolean
+    contains?: (target: Node, event?: Event) => boolean;
     // Where focus goes on close.
-    finalFocus?: () => PopupFocusTarget | undefined
+    finalFocus?: () => PopupFocusTarget | undefined;
     // Runs on open before the popup mounts, and on close before it animates
     // out, with why it closed when the popup's control says.
-    onOpenChange?: (open: boolean, closed?: PopupClose<Reason>) => void
+    onOpenChange?: (open: boolean, closed?: PopupClose<Reason>) => void;
     // Runs once opening or closing has finished, after any animation. Never for
     // a popup open from the start.
-    onOpenChangeComplete?: (open: boolean, closed?: PopupClose<Reason>) => void
+    onOpenChangeComplete?: (open: boolean, closed?: PopupClose<Reason>) => void;
     // Escape when this is the topmost layer. Closes by default.
-    onEscape?: (event: KeyboardEvent) => void
+    onEscape?: (event: KeyboardEvent) => void;
     // Runs when the popup shows, with its layer. Returns a cleanup for when it hides.
-    onShow?: (layer: Layer) => (() => void) | void
+    onShow?: (layer: Layer) => (() => void) | void;
     // Elements that stay usable while the popup makes the page inert, like a
     // chat launcher. Presses on them never dismiss it. Read when it shows.
-    persistent?: () => Element[]
+    persistent?: () => Element[];
     // `position` from `platform/position.ts`, for popups placed beside an anchor.
     // Passed in, so popups that never position, like dialogs, don't carry it.
-    position?: typeof position
-  }
+    position?: typeof position;
+  },
 ) {
-  const behavior = resolveBehavior(options.preset, options)
+  const behavior = resolveBehavior(options.preset, options);
   const tabMode = () =>
-    typeof behavior.tab === "function"
-      ? behavior.tab(options.modal())
-      : behavior.tab
-  const { store } = options
-  let bound: { el: HTMLElement; config: AttachConfig } | undefined
-  let shown:
-    { el: HTMLElement; cleanup: () => void; backdrop?: HTMLElement } | undefined
-  let layer: Layer | undefined
-  let stopExit: (() => void) | undefined
-  let releaseInert: (() => void) | undefined
-  let releaseWatcher: (() => void) | undefined
-  let opener: PopupOpener = store.get().open ? "initial" : "imperative"
-  let focusPending = behavior.focusOnMount && store.get().open
-  let enterPending = false
+    typeof behavior.tab === "function" ? behavior.tab(options.modal()) : behavior.tab;
+  const { store } = options;
+  let bound: { el: HTMLElement; config: AttachConfig } | undefined;
+  let shown: { el: HTMLElement; cleanup: () => void; backdrop?: HTMLElement } | undefined;
+  let layer: Layer | undefined;
+  let stopExit: (() => void) | undefined;
+  let releaseInert: (() => void) | undefined;
+  let releaseWatcher: (() => void) | undefined;
+  let opener: PopupOpener = store.get().open ? "initial" : "imperative";
+  let focusPending = behavior.focusOnMount && store.get().open;
+  let enterPending = false;
   // Opened during a pointerdown: the browser's own focus change follows, so focus waits a frame.
-  let openedOnPress = false
-  let returnMode: ReturnMode = true
-  let before: HTMLElement | undefined
-  let openedWithoutTrigger = store.get().open
+  let openedOnPress = false;
+  let returnMode: ReturnMode = true;
+  let before: HTMLElement | undefined;
+  let openedWithoutTrigger = store.get().open;
   // Where focus goes when what had it is gone: the popup this one opened from
   // returns to its own target, else the focus that the last close left.
   // Kept after a close, so a popup this one opened can still follow it.
-  let upstream: (
-    take?: (target: HTMLElement) => boolean
-  ) => HTMLElement | undefined = () => undefined
-  let path: { node: Node; next: Node | null; previous: Node | null }[] = []
-  const returnTrigger = options.returnTrigger ?? options.trigger
-  let place: (() => void) | undefined
-  let checkPlacement: (() => void) | undefined
-  let remodal: (() => void) | undefined
-  let observer: ((open: boolean) => PopupClose<Reason> | undefined) | undefined
+  let upstream: (take?: (target: HTMLElement) => boolean) => HTMLElement | undefined = () =>
+    undefined;
+  let path: { node: Node; next: Node | null; previous: Node | null }[] = [];
+  const returnTrigger = options.returnTrigger ?? options.trigger;
+  let place: (() => void) | undefined;
+  let checkPlacement: (() => void) | undefined;
+  let remodal: (() => void) | undefined;
+  let observer: ((open: boolean) => PopupClose<Reason> | undefined) | undefined;
 
   const complete = (open: boolean, closed?: PopupClose<Reason>) =>
-    options.onOpenChangeComplete?.(open, closed)
+    options.onOpenChangeComplete?.(open, closed);
 
   // Whether it stays in the page as `open` changes to this: an open mounts it,
   // and a close leaves it while it animates out, unless nothing of it is in the page.
-  const mountedAs = (open: boolean) => open || (!!shown?.el && isBrowser)
+  const mountedAs = (open: boolean) => open || (!!shown?.el && isBrowser);
 
   // A controlled `open` mounts or unmounts the popup in the same pass.
   deriveOpen({ store }, ["mounted"], (open) =>
-    mountedAs(open) === open ? ({ mounted: open } as Partial<State>) : undefined
-  )
+    mountedAs(open) === open ? ({ mounted: open } as Partial<State>) : undefined,
+  );
 
-  let wasOpen = store.get().open
+  let wasOpen = store.get().open;
   store.subscribe(() => {
-    const { open } = store.get()
+    const { open } = store.get();
     if (open === wasOpen) {
-      return
+      return;
     }
-    wasOpen = open
+    wasOpen = open;
     if (open) {
-      observer?.(true)
-      options.onOpenChange?.(true)
-      stopExit?.()
-      stopExit = undefined
+      observer?.(true);
+      options.onOpenChange?.(true);
+      stopExit?.();
+      stopExit = undefined;
       // Reopened while animating out, before the framework rendered the close,
       // its next render sees nothing to change.
       if (shown) {
         for (const part of [shown.el, shown.backdrop]) {
           if (part) {
-            writeOpen(part, true)
+            writeOpen(part, true);
           }
         }
       }
-      focusPending = true
-      enterPending = true
-      returnMode = true
-      const active = isBrowser ? activeElement() : null
-      before =
-        active && active !== active.ownerDocument.body ? active : undefined
-      openedWithoutTrigger = opener === "imperative"
-      const openerLayer = before && findLayer(before)
-      const openerTarget = openerLayer ? undefined : lastClosed()
-      upstream = openerLayer?.returnTarget ?? (() => openerTarget)
-      const exiting = !!shown
-      store.set({ mounted: true } as Partial<State>)
+      focusPending = true;
+      enterPending = true;
+      returnMode = true;
+      const active = isBrowser ? activeElement() : null;
+      before = active && active !== active.ownerDocument.body ? active : undefined;
+      openedWithoutTrigger = opener === "imperative";
+      const openerLayer = before && findLayer(before);
+      const openerTarget = openerLayer ? undefined : lastClosed();
+      upstream = openerLayer?.returnTarget ?? (() => openerTarget);
+      const exiting = !!shown;
+      store.set({ mounted: true } as Partial<State>);
       // Reopened while animating out, it attaches again: the close already let
       // go of the inert page and the close watcher, and focus has to move in.
       // Content that binds as it mounts has attached by now, so only once.
       if (bound) {
         if (exiting) {
-          hide()
+          hide();
         }
-        show()
+        show();
       } else if (!isBrowser) {
-        enterPending = false
-        complete(true)
+        enterPending = false;
+        complete(true);
       }
-      return
+      return;
     }
-    const mode = behavior.movesFocus && returnMode
-    returnMode = true
-    focusPending = false
-    enterPending = false
-    opener = "imperative"
-    const closed = observer?.(false)
-    const el = shown?.el
+    const mode = behavior.movesFocus && returnMode;
+    returnMode = true;
+    focusPending = false;
+    enterPending = false;
+    opener = "imperative";
+    const closed = observer?.(false);
+    const el = shown?.el;
     if (layer) {
-      markClosed(returnTarget())
+      markClosed(returnTarget());
     }
-    const from = upstream
+    const from = upstream;
     if (!el || !isBrowser) {
-      options.onOpenChange?.(false, closed)
-      store.set({ mounted: false } as Partial<State>)
-      complete(false, closed)
-      return
+      options.onOpenChange?.(false, closed);
+      store.set({ mounted: false } as Partial<State>);
+      complete(false, closed);
+      return;
     }
     // Focus on the body belongs to no one, like in Safari, where pressing a
     // button doesn't focus it. Focus in a popup nested under this one counts as
     // inside, and so does focus in a shadow root inside it.
-    const active = activeElement()
-    const trigger = options.trigger()
+    const active = activeElement();
+    const trigger = options.trigger();
     const hadFocus =
       !active ||
       active === el.ownerDocument.body ||
       composedContains(el, active) ||
-      (!!layer &&
-        layerContains(layer, active) &&
-        !(trigger && composedContains(trigger, active)))
-    options.onOpenChange?.(false, closed)
-    bound?.config.onClose?.()
-    const order = layerCount()
-    const exiting = [el, ...(shown?.backdrop ? [shown.backdrop] : [])]
-    let left = exiting.length
+      (!!layer && layerContains(layer, active) && !(trigger && composedContains(trigger, active)));
+    options.onOpenChange?.(false, closed);
+    bound?.config.onClose?.();
+    const order = layerCount();
+    const exiting = [el, ...(shown?.backdrop ? [shown.backdrop] : [])];
+    let left = exiting.length;
     const stops = exiting.map((target) => {
       // The framework renders `data-closed` after this, too late for exit
       // keyframes keyed on it, so it's written here first.
-      writeOpen(target, false)
+      writeOpen(target, false);
       return animateOut(target, () => {
         if (--left > 0) {
-          return
+          return;
         }
-        stopExit = undefined
-        store.set({ mounted: false } as Partial<State>)
-        hide()
-        complete(false, closed)
-      })
-    })
-    stopExit = () => stops.forEach((stop) => stop())
-    releaseInert?.()
-    releaseInert = undefined
-    releaseWatcher?.()
-    releaseWatcher = undefined
+        stopExit = undefined;
+        store.set({ mounted: false } as Partial<State>);
+        hide();
+        complete(false, closed);
+      });
+    });
+    stopExit = () => stops.forEach((stop) => stop());
+    releaseInert?.();
+    releaseInert = undefined;
+    releaseWatcher?.();
+    releaseWatcher = undefined;
     if (!mode || !hadFocus) {
-      return
+      return;
     }
     if (mode === true) {
-      return returnFocus(el, from)
+      return returnFocus(el, from);
     }
     if (mode === "unless-moved") {
       queueMicrotask(() => {
-        const now = activeElement()
-        const moved =
-          !!now && now !== el.ownerDocument.body && !composedContains(el, now)
+        const now = activeElement();
+        const moved = !!now && now !== el.ownerDocument.body && !composedContains(el, now);
         if (!moved && !openedSince(order)) {
-          returnFocus(el, from)
+          returnFocus(el, from);
         }
-      })
-      return
+      });
+      return;
     }
     const settle = () => {
-      off()
-      clearTimeout(fallback)
+      off();
+      clearTimeout(fallback);
       setTimeout(() => {
-        const active = activeElement()
+        const active = activeElement();
         if (!active || active === el.ownerDocument.body) {
-          returnFocus(el, from)
+          returnFocus(el, from);
         }
-      })
-    }
-    const off = on(window, "pointerup", settle, { capture: true })
-    const fallback = setTimeout(settle, 1000)
-  })
+      });
+    };
+    const off = on(window, "pointerup", settle, { capture: true });
+    const fallback = setTimeout(settle, 1000);
+  });
 
   // Where focus goes back to, in order. Opened without its trigger, what had
   // focus comes first, since the trigger was never used.
   function returnChain(
     el: HTMLElement | undefined,
     take?: (target: HTMLElement) => boolean,
-    from = upstream
+    from = upstream,
   ) {
-    const inherited = () => from(take)
+    const inherited = () => from(take);
     return openedWithoutTrigger
-      ? [
-          () => before,
-          inherited,
-          returnTrigger,
-          () => neighbour(el),
-          options.trigger,
-        ]
-      : [
-          returnTrigger,
-          () => before,
-          inherited,
-          () => neighbour(el),
-          options.trigger,
-        ]
+      ? [() => before, inherited, returnTrigger, () => neighbour(el), options.trigger]
+      : [returnTrigger, () => before, inherited, () => neighbour(el), options.trigger];
   }
 
   // A popup opened from this one returns here after this one closed, trying
   // each target in turn with its own `take`. Reopened from that popup, each
   // leads back to the other, so the lookup stops there.
-  let resolving = false
+  let resolving = false;
   function returnTarget(take: (target: HTMLElement) => boolean = usable) {
     if (resolving) {
-      return
+      return;
     }
-    resolving = true
+    resolving = true;
     try {
-      return firstUsable(returnChain(shown?.el, take), take)
+      return firstUsable(returnChain(shown?.el, take), take);
     } finally {
-      resolving = false
+      resolving = false;
     }
   }
 
   function neighbour(el: HTMLElement | undefined) {
-    const trigger = path[0]?.node
+    const trigger = path[0]?.node;
     // A trigger still in the page that can't take focus, like one disabled while
     // it was open, hands focus to what follows it, as one that left does. One
     // inside the popup, like an input a sheet moves into its header, isn't one.
     if (trigger?.isConnected && !el?.contains(trigger)) {
-      for (const node of [
-        ...path.slice(1).map((step) => step.node),
-        trigger.ownerDocument!.body,
-      ]) {
-        const list = tabbables(node as Element).filter(
-          (candidate) => !el?.contains(candidate)
-        )
+      for (const node of [...path.slice(1).map((step) => step.node), trigger.ownerDocument!.body]) {
+        const list = tabbables(node as Element).filter((candidate) => !el?.contains(candidate));
         const found =
-          list.find(
-            (candidate) =>
-              isAfter(trigger, candidate) && !trigger.contains(candidate)
-          ) ?? list.filter((candidate) => isAfter(candidate, trigger)).pop()
+          list.find((candidate) => isAfter(trigger, candidate) && !trigger.contains(candidate)) ??
+          list.filter((candidate) => isAfter(candidate, trigger)).pop();
         if (found) {
-          return found
+          return found;
         }
       }
-      return
+      return;
     }
     const index = path.findIndex(
-      (step, i) => !step.node.isConnected && path[i + 1]?.node.isConnected
-    )
+      (step, i) => !step.node.isConnected && path[i + 1]?.node.isConnected,
+    );
     if (index === -1) {
-      return
+      return;
     }
-    const { next, previous } = path[index]!
-    const parent = path[index + 1]!.node
+    const { next, previous } = path[index]!;
+    const parent = path[index + 1]!.node;
     const inPlace = (sibling: Node | null): sibling is Node =>
-      !!sibling?.isConnected && sibling.parentNode === parent
+      !!sibling?.isConnected && sibling.parentNode === parent;
     const from = (node: Node, candidate: Node) =>
-      node.contains(candidate) || isAfter(node, candidate)
+      node.contains(candidate) || isAfter(node, candidate);
     const after = inPlace(next)
       ? (candidate: Node) => from(next, candidate)
       : inPlace(previous)
-        ? (candidate: Node) =>
-            isAfter(previous, candidate) && !previous.contains(candidate)
-        : (candidate: Node) => from(parent, candidate)
+        ? (candidate: Node) => isAfter(previous, candidate) && !previous.contains(candidate)
+        : (candidate: Node) => from(parent, candidate);
     for (const { node } of path.slice(index + 1)) {
-      const list = tabbables(node as Element).filter(
-        (candidate) => !el?.contains(candidate)
-      )
+      const list = tabbables(node as Element).filter((candidate) => !el?.contains(candidate));
       const prior = inPlace(previous)
         ? list
-            .filter(
-              (candidate) =>
-                !from(previous, candidate) || previous.contains(candidate)
-            )
+            .filter((candidate) => !from(previous, candidate) || previous.contains(candidate))
             .pop()
-        : undefined
-      const found = list.find(after) ?? prior ?? list[0]
+        : undefined;
+      const found = list.find(after) ?? prior ?? list[0];
       if (found) {
-        return found
+        return found;
       }
     }
   }
 
   function returnFocus(el: HTMLElement, from: typeof upstream) {
-    const setting = options.finalFocus?.() ?? "trigger"
+    const setting = options.finalFocus?.() ?? "trigger";
     if (setting === "none") {
-      return
+      return;
     }
     // Focusing can fail, on a hidden or inert element. Then the next one gets a
     // turn, in the popups this one inherits its target from too.
     const take = (target: HTMLElement) => {
       if (!usable(target) || el.contains(target)) {
-        return false
+        return false;
       }
-      restoreFocus(target)
-      return activeElement() === target
-    }
-    const chain = returnChain(el, take, from)
+      restoreFocus(target);
+      return activeElement() === target;
+    };
+    const chain = returnChain(el, take, from);
     if (setting !== "trigger") {
-      chain.unshift(() => resolveTarget(setting, el.ownerDocument))
+      chain.unshift(() => resolveTarget(setting, el.ownerDocument));
     }
-    firstUsable(chain, take)
+    firstUsable(chain, take);
   }
 
   function initialFocus(resolve?: () => HTMLElement | null | undefined | void) {
     if (!focusPending || !shown || !store.get().open || !behavior.movesFocus) {
-      return
+      return;
     }
-    focusPending = false
+    focusPending = false;
     const plan =
-      opener === "initial" && behavior.focusOnMount
-        ? ("auto" as const)
-        : initialFocusPlan(opener)
+      opener === "initial" && behavior.focusOnMount ? ("auto" as const) : initialFocusPlan(opener);
     if (plan === "none") {
-      return
+      return;
     }
     const run = () => {
       if (!shown || !store.get().open) {
-        return
+        return;
       }
-      const target = plan === "popup" ? shown.el : resolve?.()
+      const target = plan === "popup" ? shown.el : resolve?.();
       if (target) {
-        moveFocus(target)
+        moveFocus(target);
       }
-    }
+    };
     if (openedOnPress) {
-      requestAnimationFrame(run)
+      requestAnimationFrame(run);
     } else {
-      run()
+      run();
     }
   }
 
   function attach(el: HTMLElement, config: AttachConfig) {
-    const cleanups: (() => void)[] = []
-    const trigger = options.trigger()
-    const host = config.host?.() ?? el
+    const cleanups: (() => void)[] = [];
+    const trigger = options.trigger();
+    const host = config.host?.() ?? el;
     // Mounted open, like a dialog an overlay manager opens, focus returns to
     // what had it as the popup mounted, since no open recorded it.
     if (opener === "initial" && !before) {
-      const active = activeElement()
-      if (
-        active &&
-        active !== active.ownerDocument.body &&
-        !composedContains(el, active)
-      ) {
-        before = active
+      const active = activeElement();
+      if (active && active !== active.ownerDocument.body && !composedContains(el, active)) {
+        before = active;
       }
     }
-    el.removeAttribute("hidden")
-    host.removeAttribute("hidden")
+    el.removeAttribute("hidden");
+    host.removeAttribute("hidden");
     // The backdrop goes into the top layer first, so it sits just below the popup.
-    const backdrop = shown?.backdrop
+    const backdrop = shown?.backdrop;
     if (backdrop) {
-      const stop = showBackdrop(backdrop)
+      const stop = showBackdrop(backdrop);
       cleanups.push(() => {
-        stop()
-        hideBackdrop(backdrop)
-      })
+        stop();
+        hideBackdrop(backdrop);
+      });
     }
     if (!config.inline) {
-      host.setAttribute("popover", "manual")
+      host.setAttribute("popover", "manual");
       try {
-        host.showPopover()
+        host.showPopover();
       } catch {}
     }
     if (config.position && options.position) {
       const placement = options.position(
         () => config.anchor?.() ?? options.trigger(),
         el,
-        config.position
-      )
-      place = placement.place
-      checkPlacement = placement.follow
-      cleanups.push(placement, () => (place = checkPlacement = undefined))
+        config.position,
+      );
+      place = placement.place;
+      checkPlacement = placement.follow;
+      cleanups.push(placement, () => (place = checkPlacement = undefined));
       if (config.rendered) {
-        cleanups.push(config.rendered(placement.follow))
+        cleanups.push(config.rendered(placement.follow));
       }
     }
     if (!supportsTopLayer() && !host.style.zIndex) {
-      host.style.zIndex = "2147483000"
+      host.style.zIndex = "2147483000";
     }
     cleanups.push(
       animateIn(
         el,
         enterPending
           ? () => {
-              enterPending = false
-              complete(true)
+              enterPending = false;
+              complete(true);
             }
-          : undefined
-      )
-    )
-    trackInput()
+          : undefined,
+      ),
+    );
+    trackInput();
 
-    let modal = options.modal()
-    const blur = behavior.blur
-    const persistent = options.persistent?.() ?? []
+    let modal = options.modal();
+    const blur = behavior.blur;
+    const persistent = options.persistent?.() ?? [];
     // A press on the popup's ::backdrop targets the popup itself, outside its box.
     const pressedBackdrop = (target: Node, event?: Event) =>
       target === el &&
@@ -940,14 +841,14 @@ function createPopupLayer<
       "clientX" in event &&
       outsideBox(
         { x: (event as MouseEvent).clientX, y: (event as MouseEvent).clientY },
-        el.getBoundingClientRect()
-      )
+        el.getBoundingClientRect(),
+      );
     // Element neighbours, since a framework's anchor comments beside the
     // trigger, like Svelte's, leave with it. Content that binds again after
     // that trigger is gone keeps the way to where it was.
-    const returnsTo = returnTrigger()
+    const returnsTo = returnTrigger();
     if (returnsTo || !trigger) {
-      path = []
+      path = [];
     }
     for (
       let node: Element | null = returnsTo ?? null;
@@ -958,7 +859,7 @@ function createPopupLayer<
         node,
         next: node.nextElementSibling,
         previous: node.previousElementSibling,
-      })
+      });
     }
 
     const own: Layer = {
@@ -967,9 +868,7 @@ function createPopupLayer<
       exiting: () => !store.get().open && store.get().mounted,
       modal: modal.consumeOutsidePress,
       blocking:
-        typeof behavior.blocking === "function"
-          ? behavior.blocking(modal)
-          : behavior.blocking,
+        typeof behavior.blocking === "function" ? behavior.blocking(modal) : behavior.blocking,
       outsidePress: behavior.outsidePress,
       shield: behavior.shield,
       component: options.owner?.component,
@@ -987,7 +886,7 @@ function createPopupLayer<
         outsideBox({ x, y }, el.getBoundingClientRect()),
       returnTarget,
       onOutsidePress: (event) => {
-        const target = event.composedPath()[0] as Element | undefined
+        const target = event.composedPath()[0] as Element | undefined;
         options.close("outside-press", {
           event,
           focus: outsidePressFocus({
@@ -995,14 +894,14 @@ function createPopupLayer<
             focusable: !!target?.closest?.(focusableSelector),
             consumed: modal.consumeOutsidePress,
           }),
-        })
+        });
       },
       onEscape: (event) => {
-        event.preventDefault()
+        event.preventDefault();
         if (options.onEscape) {
-          options.onEscape(event)
+          options.onEscape(event);
         } else {
-          options.close("escape-key", { event, focus: true })
+          options.close("escape-key", { event, focus: true });
         }
       },
       onBlur:
@@ -1013,311 +912,287 @@ function createPopupLayer<
             : // A click into an iframe never reaches the page.
               (event) =>
                 setTimeout(() => {
-                  const active =
-                    focusedFrom(el) ?? el.ownerDocument.activeElement
+                  const active = focusedFrom(el) ?? el.ownerDocument.activeElement;
                   if (active?.tagName === "IFRAME" && !el.contains(active)) {
-                    options.close("focus-out", { event, focus: false })
+                    options.close("focus-out", { event, focus: false });
                   }
                 }),
-    }
-    layer = own
-    layerParts.set(own, [el, ...(backdrop ? [backdrop] : [])])
-    cleanups.push(pushLayer(own))
+    };
+    layer = own;
+    layerParts.set(own, [el, ...(backdrop ? [backdrop] : [])]);
+    cleanups.push(pushLayer(own));
     for (const onShow of [options.onShow, config.onShow]) {
-      const cleanup = onShow?.(own)
+      const cleanup = onShow?.(own);
       if (cleanup) {
-        cleanups.push(cleanup)
+        cleanups.push(cleanup);
       }
     }
-    let releaseLock: (() => void) | undefined
-    let releaseOwnInert: (() => void) | undefined
-    let pendingFreeze: (() => void) | undefined
+    let releaseLock: (() => void) | undefined;
+    let releaseOwnInert: (() => void) | undefined;
+    let pendingFreeze: (() => void) | undefined;
     const freezePage = () => {
       const keep = [
         el,
         ...(shown?.backdrop ? [shown.backdrop] : []),
         ...(persistent as HTMLElement[]),
-      ]
+      ];
       if (trigger && behavior.keepTrigger) {
-        keep.push(trigger)
+        keep.push(trigger);
       }
       // A layer opened from this one before it turned modal stays usable too.
       for (const layer of activeLayers()) {
         for (let up = layer.parent; up; up = up.parent) {
           if (up === own) {
-            keep.push(...(layerParts.get(layer) ?? []))
+            keep.push(...(layerParts.get(layer) ?? []));
           }
         }
       }
       // The lock measures the page, so it goes before the page turns inert,
       // while layout is still clean. After it, that read restyles half the page.
-      releaseLock = lockScroll(el.ownerDocument, el)
-      const inert = inertOutside(keep)
-      own.keep = inert.keep
-      releaseInert = releaseOwnInert = inert
-    }
+      releaseLock = lockScroll(el.ownerDocument, el);
+      const inert = inertOutside(keep);
+      own.keep = inert.keep;
+      releaseInert = releaseOwnInert = inert;
+    };
     const thawPage = () => {
-      pendingFreeze?.()
-      releaseOwnInert?.()
-      releaseLock?.()
+      pendingFreeze?.();
+      releaseOwnInert?.();
+      releaseLock?.();
       if (releaseInert === releaseOwnInert) {
-        releaseInert = undefined
+        releaseInert = undefined;
       }
-      releaseOwnInert = releaseLock = own.keep = undefined
-    }
+      releaseOwnInert = releaseLock = own.keep = undefined;
+    };
     if (modal.inertAndLock) {
       // Both restyle the whole page, which on a phone takes longer than drawing
       // the popup. So they wait until the popup has painted.
       pendingFreeze = afterPaint(() => {
-        pendingFreeze = undefined
+        pendingFreeze = undefined;
         if (!store.get().open) {
-          return
+          return;
         }
-        const focused = activeElement()
-        freezePage()
+        const focused = activeElement();
+        freezePage();
         // Focus that rested on the page, inert now, moves in.
-        if (
-          tabMode() === "trap" &&
-          focused &&
-          !usable(focused as HTMLElement)
-        ) {
-          focusPending = true
-          initialFocus(config.initialFocus)
+        if (tabMode() === "trap" && focused && !usable(focused as HTMLElement)) {
+          focusPending = true;
+          initialFocus(config.initialFocus);
         }
-      })
+      });
     }
     remodal = () => {
-      const next = options.modal()
-      own.modal = next.consumeOutsidePress
+      const next = options.modal();
+      own.modal = next.consumeOutsidePress;
       own.blocking =
-        typeof behavior.blocking === "function"
-          ? behavior.blocking(next)
-          : behavior.blocking
+        typeof behavior.blocking === "function" ? behavior.blocking(next) : behavior.blocking;
       if (next.inertAndLock && !modal.inertAndLock && store.get().open) {
-        freezePage()
+        freezePage();
       } else if (!next.inertAndLock && modal.inertAndLock) {
-        thawPage()
+        thawPage();
       }
-      modal = next
-    }
-    cleanups.push(thawPage, () => (remodal = undefined))
+      modal = next;
+    };
+    cleanups.push(thawPage, () => (remodal = undefined));
     for (let up = own.parent; up; up = up.parent) {
       if (up.keep) {
         for (const part of [el, ...(backdrop ? [backdrop] : [])]) {
-          cleanups.push(up.keep(part))
+          cleanups.push(up.keep(part));
         }
       }
     }
     if (tabMode() === "flow" && behavior.dismissOnFocusLoss) {
-      let press: MouseEvent | undefined
+      let press: MouseEvent | undefined;
       cleanups.push(
         on(
           el.ownerDocument,
           "mousedown",
           (event) => {
-            press = event
+            press = event;
             setTimeout(() => {
               if (press === event) {
-                press = undefined
+                press = undefined;
               }
-            })
+            });
           },
-          { capture: true }
+          { capture: true },
         ),
         on(el.ownerDocument, "focusin", (event) => {
-          const target = (focusedFrom(el) ?? event.target) as Node
+          const target = (focusedFrom(el) ?? event.target) as Node;
           if (!store.get().open || layerContains(own, target)) {
-            return
+            return;
           }
           if (press && own.contains(target, press)) {
-            return
+            return;
           }
-          options.close("focus-out", { event, focus: false })
-        })
-      )
+          options.close("focus-out", { event, focus: false });
+        }),
+      );
     }
     if (behavior.closeWatcher) {
-      const stop = watchClose((event) =>
-        options.close("back", { event, focus: true })
-      )
+      const stop = watchClose((event) => options.close("back", { event, focus: true }));
       if (stop) {
-        releaseWatcher = stop
+        releaseWatcher = stop;
         cleanups.push(() => {
-          stop()
+          stop();
           if (releaseWatcher === stop) {
-            releaseWatcher = undefined
+            releaseWatcher = undefined;
           }
-        })
+        });
       }
     }
     const onSubmit = (event: Event) => {
-      const form = event.target as HTMLFormElement
-      const submitter = (event as SubmitEvent)
-        .submitter as HTMLButtonElement | null
-      const method =
-        submitter?.getAttribute("formmethod") ?? form.getAttribute("method")
+      const form = event.target as HTMLFormElement;
+      const submitter = (event as SubmitEvent).submitter as HTMLButtonElement | null;
+      const method = submitter?.getAttribute("formmethod") ?? form.getAttribute("method");
       if (method?.toLowerCase() !== "dialog" || findLayer(form) !== own) {
-        return
+        return;
       }
-      event.preventDefault()
+      event.preventDefault();
       options.close("close-press", {
         event,
         focus: true,
         returnValue: submitter?.value || undefined,
-      })
-    }
-    el.addEventListener("submit", onSubmit)
-    cleanups.push(() => el.removeEventListener("submit", onSubmit))
+      });
+    };
+    el.addEventListener("submit", onSubmit);
+    cleanups.push(() => el.removeEventListener("submit", onSubmit));
 
     // A trapping popup that binds again while open, like when the page a
     // framework kept away comes back, has to hold focus again. Focus left
     // with that page, or rests on what the popup just made inert.
-    if (
-      store.get().open &&
-      !focusPending &&
-      tabMode() === "trap" &&
-      focusIsLost()
-    ) {
-      focusPending = true
+    if (store.get().open && !focusPending && tabMode() === "trap" && focusIsLost()) {
+      focusPending = true;
     }
     // Children bind in the same commit. Focus once they have.
-    queueMicrotask(() => initialFocus(config.initialFocus))
+    queueMicrotask(() => initialFocus(config.initialFocus));
 
     return () => {
-      cleanups.forEach((cleanup) => cleanup())
+      cleanups.forEach((cleanup) => cleanup());
       if (layer === own) {
-        layer = undefined
+        layer = undefined;
       }
       // A framework can detach and reattach a live element, like React's
       // StrictMode. Hiding would send focus back to the trigger.
       if (!store.get().mounted && !config.inline) {
         try {
-          host.hidePopover()
+          host.hidePopover();
         } catch {}
       }
-    }
+    };
   }
 
   function show() {
     if (!bound || shown) {
-      return
+      return;
     }
-    const { el, config } = bound
-    shown = { el, cleanup: () => {}, backdrop: config.backdrop?.() }
-    shown.cleanup = attach(el, config)
+    const { el, config } = bound;
+    shown = { el, cleanup: () => {}, backdrop: config.backdrop?.() };
+    shown.cleanup = attach(el, config);
   }
 
   function showBackdrop(backdrop: HTMLElement) {
-    backdrop.removeAttribute("hidden")
-    backdrop.setAttribute("popover", "manual")
+    backdrop.removeAttribute("hidden");
+    backdrop.setAttribute("popover", "manual");
     try {
-      backdrop.showPopover()
+      backdrop.showPopover();
     } catch {}
     if (!supportsTopLayer() && !backdrop.style.zIndex) {
-      backdrop.style.zIndex = "2147483000"
+      backdrop.style.zIndex = "2147483000";
     }
-    return animateIn(backdrop)
+    return animateIn(backdrop);
   }
 
   function hideBackdrop(backdrop: HTMLElement) {
     if (!store.get().mounted) {
       try {
-        backdrop.hidePopover()
+        backdrop.hidePopover();
       } catch {}
     }
   }
 
   function hide() {
     if (!shown) {
-      return
+      return;
     }
-    const { cleanup } = shown
-    shown = undefined
-    cleanup()
+    const { cleanup } = shown;
+    shown = undefined;
+    cleanup();
   }
 
   // Keeps Tab inside a trapping popup, hands focus back to the page after the
   // trigger from a flowing one, wherever it renders, and closes a menu-like one.
   function keydown(event: KeyboardEvent) {
-    const popup = shown?.el
+    const popup = shown?.el;
     if (event.key !== "Tab" || !popup) {
-      return
+      return;
     }
-    const mode = tabMode()
+    const mode = tabMode();
     if (mode === "native") {
-      return
+      return;
     }
     if (mode === "close") {
-      return options.close("focus-out", { event, focus: false })
+      return options.close("focus-out", { event, focus: false });
     }
-    const list = tabbables(popup)
-    const first = list[0]
-    const last = list.at(-1)
-    const active = activeElement()
-    const atStart = !first || active === first || active === popup
-    const atEnd = !last || active === last
+    const list = tabbables(popup);
+    const first = list[0];
+    const last = list.at(-1);
+    const active = activeElement();
+    const atStart = !first || active === first || active === popup;
+    const atEnd = !last || active === last;
     // The browser visits every positive tabindex in the page before the rest,
     // so the trap steps onto and off them itself. Between the others, and into
     // shadow roots, Tab moves natively.
-    const ahead = mode === "trap" ? positiveTabStops(list, popup) : []
+    const ahead = mode === "trap" ? positiveTabStops(list, popup) : [];
     if (ahead.length) {
-      const order = [...ahead, ...list.filter((el) => !ahead.includes(el))]
-      const index = order.indexOf(active as HTMLElement)
+      const order = [...ahead, ...list.filter((el) => !ahead.includes(el))];
+      const index = order.indexOf(active as HTMLElement);
       const next =
         active === popup
           ? order.at(event.shiftKey ? -1 : 0)
-          : order.at((index + (event.shiftKey ? -1 : 1)) % order.length)
-      const crossing =
-        ahead.includes(active as HTMLElement) ||
-        (!!next && ahead.includes(next))
-      const shadow = active?.shadowRoot
-      const entersShadow =
-        !event.shiftKey && !!shadow && tabbables(shadow).length > 0
+          : order.at((index + (event.shiftKey ? -1 : 1)) % order.length);
+      const crossing = ahead.includes(active as HTMLElement) || (!!next && ahead.includes(next));
+      const shadow = active?.shadowRoot;
+      const entersShadow = !event.shiftKey && !!shadow && tabbables(shadow).length > 0;
       if (active !== popup && (index < 0 || !crossing || entersShadow)) {
-        return
+        return;
       }
-      event.preventDefault()
-      next?.focus({ preventScroll: true })
-      return
+      event.preventDefault();
+      next?.focus({ preventScroll: true });
+      return;
     }
     if (mode === "trap") {
       if (event.shiftKey ? atStart : atEnd) {
-        event.preventDefault()
-        ;((event.shiftKey ? last : first) ?? popup).focus({
+        event.preventDefault();
+        ((event.shiftKey ? last : first) ?? popup).focus({
           preventScroll: true,
-        })
-        return
+        });
+        return;
       }
       // WebKit and Firefox skip a radio group whose checked radio is behind
       // the popup, so the trap steps into such a group itself.
-      const index = list.indexOf(active as HTMLElement)
-      const next =
-        index < 0 ? undefined : list[index + (event.shiftKey ? -1 : 1)]
-      const group =
-        next && !(next as HTMLInputElement).checked ? radioGroup(next) : []
-      if (
-        group.some((radio) => radio.checked) &&
-        !group.includes(active as HTMLInputElement)
-      ) {
-        event.preventDefault()
-        next?.focus({ preventScroll: true })
+      const index = list.indexOf(active as HTMLElement);
+      const next = index < 0 ? undefined : list[index + (event.shiftKey ? -1 : 1)];
+      const group = next && !(next as HTMLInputElement).checked ? radioGroup(next) : [];
+      if (group.some((radio) => radio.checked) && !group.includes(active as HTMLInputElement)) {
+        event.preventDefault();
+        next?.focus({ preventScroll: true });
       }
-      return
+      return;
     }
-    const trigger = options.trigger()
+    const trigger = options.trigger();
     if (!trigger) {
-      return
+      return;
     }
     if (event.shiftKey && atStart) {
-      event.preventDefault()
-      trigger.focus({ preventScroll: true })
+      event.preventDefault();
+      trigger.focus({ preventScroll: true });
     } else if (!event.shiftKey && atEnd) {
-      const next = nextTabbable(trigger, popup)
+      const next = nextTabbable(trigger, popup);
       if (!next) {
-        return
+        return;
       }
-      event.preventDefault()
-      next.focus()
+      event.preventDefault();
+      next.focus();
     }
   }
 
@@ -1327,76 +1202,71 @@ function createPopupLayer<
     // mount before the app is in the document, and a disconnected popup can't
     // be shown, so it waits for that.
     bind(el: HTMLElement, config: AttachConfig = {}) {
-      let cancelled = false
-      const unregister = registerPopupElement(el)
+      let cancelled = false;
+      const unregister = registerPopupElement(el);
       const start = () => {
-        bound = { el, config }
+        bound = { el, config };
         if (store.get().mounted) {
           // Vue mounts a moved part's new element before the old one lets go.
           if (shown && shown.el !== el) {
-            hide()
+            hide();
           }
-          show()
+          show();
         }
-      }
+      };
       if (el.isConnected) {
-        start()
+        start();
       } else {
         queueMicrotask(() => {
           if (!cancelled && el.isConnected) {
-            start()
+            start();
           }
-        })
+        });
       }
       return () => {
-        cancelled = true
-        unregister()
+        cancelled = true;
+        unregister();
         if (bound?.el !== el) {
-          return
+          return;
         }
-        bound = undefined
+        bound = undefined;
         if (shown?.el === el) {
-          hide()
+          hide();
         }
-      }
+      };
     },
     // Call from the content's keydown, for keys from this popup only.
     keydown,
     // Call from the trigger's keydown. Tab from the trigger enters an open
     // flowing popup, even when it renders somewhere else in the document.
     triggerKeydown(event: KeyboardEvent) {
-      const popup = shown?.el
-      if (
-        event.key !== "Tab" ||
-        event.shiftKey ||
-        !popup ||
-        !store.get().open
-      ) {
-        return
+      const popup = shown?.el;
+      if (event.key !== "Tab" || event.shiftKey || !popup || !store.get().open) {
+        return;
       }
       if (tabMode() !== "flow") {
-        return
+        return;
       }
-      event.preventDefault()
-      ;(tabbables(popup)[0] ?? popup).focus({ preventScroll: true })
+      event.preventDefault();
+      (tabbables(popup)[0] ?? popup).focus({ preventScroll: true });
     },
     // Call before opening, with how and from what event.
     opening(by: PopupOpener, event?: Event) {
-      opener = by
-      openedOnPress = event?.type === "pointerdown"
+      opener = by;
+      openedOnPress = event?.type === "pointerdown";
     },
     opener: () => opener,
     // For the popup's control only: hears every open and close first, from any
     // source, and returns why a close happened. A second call replaces the first.
     observe(listener: (open: boolean) => PopupClose<Reason> | undefined) {
-      observer = listener
+      observer = listener;
     },
     // Asks the component to close, returning focus, like a sheet swiped away.
     requestClose: (reason: PopupCloseReason, event?: Event) =>
       options.close(reason, { event, focus: true }),
     // Where focus goes on the next close. Reset after every close, and on open.
     returnFocus(mode: ReturnMode) {
-      returnMode = mode
+      returnMode = mode;
     },
     // Runs the component's initial focus now, like when a controller asks an open popup.
     initialFocus,
@@ -1418,37 +1288,37 @@ function createPopupLayer<
     // Returns a cleanup.
     backdrop(backdrop: HTMLElement) {
       if (!shown || shown.backdrop === backdrop) {
-        return () => {}
+        return () => {};
       }
-      const { el } = shown
-      const host = bound?.config.host?.() ?? el
-      shown.backdrop = backdrop
-      const stop = showBackdrop(backdrop)
-      const active = activeElement()
+      const { el } = shown;
+      const host = bound?.config.host?.() ?? el;
+      shown.backdrop = backdrop;
+      const stop = showBackdrop(backdrop);
+      const active = activeElement();
       try {
-        host.hidePopover()
-        host.showPopover()
+        host.hidePopover();
+        host.showPopover();
       } catch {}
       // Hiding sends focus back to where it was before. Put it back.
       if (active && active !== activeElement()) {
-        active.focus({ preventScroll: true })
+        active.focus({ preventScroll: true });
       }
-      const release = layer?.keep?.(backdrop)
+      const release = layer?.keep?.(backdrop);
       return () => {
-        release?.()
-        stop()
+        release?.();
+        stop();
         if (shown?.backdrop === backdrop) {
-          shown.backdrop = undefined
+          shown.backdrop = undefined;
         }
-        hideBackdrop(backdrop)
-      }
+        hideBackdrop(backdrop);
+      };
     },
-  }
+  };
 }
 
 type Popup<Reason extends string = string> = ReturnType<
   typeof createPopupLayer<{ open: boolean; mounted: boolean }, Reason>
->
+>;
 
 export {
   type AttachConfig,
@@ -1478,4 +1348,4 @@ export {
   prepareReset,
   resetPopoverStyles,
   type ReturnMode,
-}
+};

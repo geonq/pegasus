@@ -1,9 +1,6 @@
-import { watchFieldsets } from "../../foundation/forms/form"
-import { definePrimitive } from "../../foundation/kernel/primitive"
-import type {
-  Named,
-  PrimitiveOptions,
-} from "../../foundation/kernel/primitive-types"
+import { watchFieldsets } from "../../foundation/forms/form";
+import { definePrimitive } from "../../foundation/kernel/primitive";
+import type { Named, PrimitiveOptions } from "../../foundation/kernel/primitive-types";
 
 // A field set groups related fields under a legend. It renders a native
 // <fieldset>, so `disabled` disables every control inside it the way the
@@ -19,8 +16,8 @@ type FieldSetOptions = {
    * Disables every control inside it, except those in its legend, and leaves
    * them out of the form.
    */
-  disabled?: boolean
-} & PrimitiveOptions
+  disabled?: boolean;
+} & PrimitiveOptions;
 
 /**
  * What `render` functions and state-based class names receive.
@@ -28,48 +25,48 @@ type FieldSetOptions = {
  */
 type FieldSetState = {
   /** Whether the field set is disabled, by itself or by a field set around it. */
-  disabled: boolean
-}
+  disabled: boolean;
+};
 
 type State = {
-  disabled: boolean
+  disabled: boolean;
   // A disabled field set around this one.
-  inherited: boolean
+  inherited: boolean;
   // Parts in the page, by id. The field set points at these.
-  legends: string[]
-  descriptions: string[]
-}
+  legends: string[];
+  descriptions: string[];
+};
 
 // A part takes its element's id as it changes, like one its author sets later,
 // so the parts pointing at it point at the id in the page.
 function registerById(el: HTMLElement, register: (id: string) => () => void) {
-  let id = el.id
-  let unregister = register(id)
+  let id = el.id;
+  let unregister = register(id);
   if (typeof MutationObserver === "undefined") {
-    return () => unregister()
+    return () => unregister();
   }
   const observer = new MutationObserver(() => {
     if (el.id === id) {
-      return
+      return;
     }
-    id = el.id
-    unregister()
-    unregister = register(id)
-  })
-  observer.observe(el, { attributeFilter: ["id"] })
+    id = el.id;
+    unregister();
+    unregister = register(id);
+  });
+  observer.observe(el, { attributeFilter: ["id"] });
   return () => {
-    observer.disconnect()
-    unregister()
-  }
+    observer.disconnect();
+    unregister();
+  };
 }
 
 const fieldSetState = (state: State) => ({
   disabled: state.disabled || state.inherited,
-})
+});
 
 const disabledAttrs = (state: State) => ({
   "data-disabled": state.disabled || state.inherited ? "" : undefined,
-})
+});
 
 const fieldSetPrimitive = /* @__PURE__ */ definePrimitive({
   name: "field",
@@ -84,25 +81,22 @@ const fieldSetPrimitive = /* @__PURE__ */ definePrimitive({
   api: ({ store }) => ({
     // Parts register a microtask after they bind, since Vue binds them while hydrating.
     register(list: "legends" | "descriptions", partId: string) {
-      let active = true
+      let active = true;
       queueMicrotask(() => {
         if (active) {
           store.set({
-            [list]: [
-              ...store.get()[list].filter((item) => item !== partId),
-              partId,
-            ],
-          })
+            [list]: [...store.get()[list].filter((item) => item !== partId), partId],
+          });
         }
-      })
+      });
       return () => {
-        active = false
+        active = false;
         queueMicrotask(() =>
           store.set({
             [list]: store.get()[list].filter((item) => item !== partId),
-          })
-        )
-      }
+          }),
+        );
+      };
     },
   }),
   slots: (slot) => ({
@@ -112,16 +106,11 @@ const fieldSetPrimitive = /* @__PURE__ */ definePrimitive({
         disabled: state.disabled ? "" : undefined,
         // A <legend> that's the first child names it natively, before scripts
         // run. This also covers a legend rendered as another element.
-        "aria-labelledby": state.legends.length
-          ? state.legends.join(" ")
-          : undefined,
-        "aria-describedby": state.descriptions.length
-          ? state.descriptions.join(" ")
-          : undefined,
+        "aria-labelledby": state.legends.length ? state.legends.join(" ") : undefined,
+        "aria-describedby": state.descriptions.length ? state.descriptions.join(" ") : undefined,
         ...disabledAttrs(state),
       }),
-      bind: (el, { store }) =>
-        watchFieldsets(el, (inherited) => store.set({ inherited })),
+      bind: (el, { store }) => watchFieldsets(el, (inherited) => store.set({ inherited })),
     }),
     legend: slot<{}, FieldSetState>({
       props: { id: "string" },
@@ -130,8 +119,7 @@ const fieldSetPrimitive = /* @__PURE__ */ definePrimitive({
         id: props.id ?? `${id}-legend`,
         ...disabledAttrs(state),
       }),
-      bind: (el, { api }) =>
-        registerById(el, (id) => api.register("legends", id)),
+      bind: (el, { api }) => registerById(el, (id) => api.register("legends", id)),
     }),
     // A FieldDescription right inside a FieldSet, outside any Field, describes the group.
     description: slot<{}, FieldSetState>({
@@ -141,11 +129,10 @@ const fieldSetPrimitive = /* @__PURE__ */ definePrimitive({
         id: props.id ?? `${id}-description`,
         ...disabledAttrs(state),
       }),
-      bind: (el, { api }) =>
-        registerById(el, (id) => api.register("descriptions", id)),
+      bind: (el, { api }) => registerById(el, (id) => api.register("descriptions", id)),
     }),
   }),
-})
+});
 
 /**
  * The type of `fieldSet`.
@@ -159,7 +146,7 @@ interface FieldSetPrimitive extends Named<typeof fieldSetPrimitive> {}
  * and `field-description` for a description of the whole group.
  * @stable
  */
-const fieldSet: FieldSetPrimitive = fieldSetPrimitive
+const fieldSet: FieldSetPrimitive = fieldSetPrimitive;
 
 const fieldGroupPrimitive = /* @__PURE__ */ definePrimitive({
   name: "field",
@@ -169,7 +156,7 @@ const fieldGroupPrimitive = /* @__PURE__ */ definePrimitive({
   slots: (slot) => ({
     group: slot({ attrs: () => ({}) }),
   }),
-})
+});
 
 /**
  * The type of `fieldGroup`.
@@ -183,7 +170,7 @@ interface FieldGroupPrimitive extends Named<typeof fieldGroupPrimitive> {}
  * FieldSet is what names a group of controls and disables it.
  * @stable
  */
-const fieldGroup: FieldGroupPrimitive = fieldGroupPrimitive
+const fieldGroup: FieldGroupPrimitive = fieldGroupPrimitive;
 
 export {
   fieldGroup,
@@ -193,4 +180,4 @@ export {
   type FieldSetPrimitive,
   type FieldSetState,
   registerById,
-}
+};

@@ -1,6 +1,6 @@
 // Listbox's parts and the attributes they carry.
-import { dev } from "../../foundation/kernel/dev-stub"
-import { itemIconPart, optionIcon } from "../../foundation/lists/item-icon"
+import { dev } from "../../foundation/kernel/dev-stub";
+import { itemIconPart, optionIcon } from "../../foundation/lists/item-icon";
 import {
   bindFormRoot,
   formAttrs,
@@ -14,29 +14,29 @@ import {
   registerItem,
   valueInputPart,
   warnIfUnnamed,
-} from "../../foundation/lists/listbox-parts"
+} from "../../foundation/lists/listbox-parts";
 import type {
   ListboxItemIndicatorProps,
   ListboxItemIndicatorState,
   ListboxItemProps,
   ListboxItemState,
   ListboxState,
-} from "./listbox-root"
-import type { ListboxApi, ListboxStore } from "./listbox-root-api"
-import { idPart } from "../../foundation/kernel/attrs"
-import type { SlotFactory } from "../../foundation/kernel/primitive-types"
-import { selects } from "../../foundation/kernel/selects"
-import { live } from "../../foundation/kernel/live"
+} from "./listbox-root";
+import type { ListboxApi, ListboxStore } from "./listbox-root-api";
+import { idPart } from "../../foundation/kernel/attrs";
+import type { SlotFactory } from "../../foundation/kernel/primitive-types";
+import { selects } from "../../foundation/kernel/selects";
+import { live } from "../../foundation/kernel/live";
 
 type ItemProps = ListboxItemProps<unknown> & {
   /** @internal The group the item is in. */
-  group?: string
-}
+  group?: string;
+};
 
 type IndicatorProps = ListboxItemIndicatorProps & {
   /** @internal The key of the item the indicator is in. */
-  item?: string
-}
+  item?: string;
+};
 
 function rootState(state: ListboxStore, api: ListboxApi) {
   return {
@@ -46,50 +46,35 @@ function rootState(state: ListboxStore, api: ListboxApi) {
     readOnly: state.readOnly,
     required: state.required,
     items: api.internal.listbox.visibleData()?.list ?? noItems,
-  }
+  };
 }
 
 // An item's value. A web component's item holds only its key, a string, so a
 // data item's value comes from the data, where `isItemEqualToValue` expects it.
 function valueOfItem(key: string, props: ItemProps, api: ListboxApi) {
-  const { listbox } = api.internal
-  return listbox.dataItems()
-    ? (listbox.valueOf(key) ?? props.value)
-    : props.value
+  const { listbox } = api.internal;
+  return listbox.dataItems() ? (listbox.valueOf(key) ?? props.value) : props.value;
 }
 
-function itemState(
-  state: ListboxStore,
-  key: string,
-  props: ItemProps,
-  api: ListboxApi
-) {
+function itemState(state: ListboxStore, key: string, props: ItemProps, api: ListboxApi) {
   return {
     highlighted: state.highlighted === key,
-    selected: api.internal.selection.isSelected(
-      key,
-      valueOfItem(key, props, api)
-    ),
+    selected: api.internal.selection.isSelected(key, valueOfItem(key, props, api)),
     disabled: !!props.disabled || isDisabled(state),
-  }
+  };
 }
 
 // Whether an item holds the list's one tab stop. Before items bind, like on
 // the server, the first selected item claims it, or with nothing selected,
 // the first enabled one.
-function isStop(
-  state: ListboxStore,
-  key: string,
-  props: ItemProps,
-  api: ListboxApi
-) {
+function isStop(state: ListboxStore, key: string, props: ItemProps, api: ListboxApi) {
   if (state.stop !== null) {
-    return state.stop === key
+    return state.stop === key;
   }
   const eligible = api.internal.selection.keys().length
     ? api.internal.selection.isSelected(key, valueOfItem(key, props, api))
-    : !props.disabled
-  return api.internal.claim(key, eligible)
+    : !props.disabled;
+  return api.internal.claim(key, eligible);
 }
 
 const listboxSlots = (slot: SlotFactory<ListboxStore, ListboxApi>) => ({
@@ -109,7 +94,7 @@ const listboxSlots = (slot: SlotFactory<ListboxStore, ListboxApi>) => ({
     ],
     state: (state, { api }) => rootState(state, api),
     attrs: (state, { id }) => {
-      const disabled = isDisabled(state)
+      const disabled = isDisabled(state);
       return {
         id: `${id}-listbox`,
         // Never a tab stop of its own, even disabled, when browsers make scrolling containers one.
@@ -121,24 +106,24 @@ const listboxSlots = (slot: SlotFactory<ListboxStore, ListboxApi>) => ({
         "aria-required": state.required ? "true" : undefined,
         "data-orientation": state.orientation,
         ...formAttrs(state),
-      }
+      };
     },
     on: {
       keydown: (event, { api, el }) => el && api.internal.onKeyDown(event, el),
       focusin(event, { api, el }) {
         if (event.target === el) {
-          api.internal.focusStop()
+          api.internal.focusStop();
         }
       },
       focusout(event, { api, el }) {
         if (!el?.contains(event.relatedTarget as Node | null)) {
-          api.internal.blurred(event)
+          api.internal.blurred(event);
         }
       },
     },
     bind(el, context) {
-      const { id } = context
-      const unbind = bindFormRoot(el, context, { focusOnSelfClick: false })
+      const { id } = context;
+      const unbind = bindFormRoot(el, context, { focusOnSelfClick: false });
       if (dev) {
         warnIfUnnamed(
           el,
@@ -146,10 +131,10 @@ const listboxSlots = (slot: SlotFactory<ListboxStore, ListboxApi>) => ({
           {
             component: "listbox",
             id,
-          }
-        )
+          },
+        );
       }
-      return unbind
+      return unbind;
     },
   }),
 
@@ -171,20 +156,16 @@ const listboxSlots = (slot: SlotFactory<ListboxStore, ListboxApi>) => ({
     }),
     state: (state, { key, props, api }) => itemState(state, key, props, api),
     attrs: (state, { id, key, props, api }) => {
-      const { selected, disabled } = itemState(state, key, props, api)
+      const { selected, disabled } = itemState(state, key, props, api);
       return {
         id: `${id}-option-${idPart(key)}`,
-        tabindex: isDisabled(state)
-          ? undefined
-          : isStop(state, key, props, api)
-            ? "0"
-            : "-1",
+        tabindex: isDisabled(state) ? undefined : isStop(state, key, props, api) ? "0" : "-1",
         "aria-selected": String(selected),
         "aria-disabled": disabled ? "true" : undefined,
         ...positionAttrs(props.index, api.internal.listbox),
         "data-selected": selected ? "" : undefined,
         "data-disabled": disabled ? "" : undefined,
-      }
+      };
     },
     live: live((state, { key }) => ({
       "data-highlighted": state.highlighted === key ? "" : undefined,
@@ -194,7 +175,7 @@ const listboxSlots = (slot: SlotFactory<ListboxStore, ListboxApi>) => ({
       // Shift with a press selects a range, not the page's text.
       mousedown(event, { store }) {
         if (event.shiftKey && store.get().multiple) {
-          event.preventDefault()
+          event.preventDefault();
         }
       },
     },
@@ -203,7 +184,7 @@ const listboxSlots = (slot: SlotFactory<ListboxStore, ListboxApi>) => ({
   }),
 
   "item-indicator": slot<IndicatorProps, ListboxItemIndicatorState>(
-    itemIndicatorPart<ListboxStore, ListboxApi>()
+    itemIndicatorPart<ListboxStore, ListboxApi>(),
   ),
 
   // An icon inside an item. Screen readers and typeahead skip it.
@@ -211,7 +192,7 @@ const listboxSlots = (slot: SlotFactory<ListboxStore, ListboxApi>) => ({
     itemIconPart<ListboxStore, ListboxApi>({
       component: "listbox",
       ...optionIcon,
-    })
+    }),
   ),
 
   // A group of items, named by its label. Nothing filters a listbox, so it never hides.
@@ -235,6 +216,6 @@ const listboxSlots = (slot: SlotFactory<ListboxStore, ListboxApi>) => ({
   "form-input": slot(hiddenInputPart<ListboxStore, ListboxApi>("form-input")),
 
   "value-input": slot(valueInputPart<ListboxStore, ListboxApi>()),
-})
+});
 
-export { listboxSlots }
+export { listboxSlots };

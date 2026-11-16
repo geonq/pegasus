@@ -1,5 +1,5 @@
 // Combobox's parts and the attributes they carry.
-import { dev } from "../../foundation/kernel/dev-stub"
+import { dev } from "../../foundation/kernel/dev-stub";
 import type {
   ComboboxArrowState,
   ComboboxChipProps,
@@ -20,11 +20,11 @@ import type {
   ComboboxTriggerState,
   ComboboxValueProps,
   ComboboxValueState,
-} from "./combobox"
-import { bindChipsOverflow } from "./combobox-chips"
-import { CREATE, type ComboboxApi, type ComboboxState } from "./combobox-api"
-import { openerOf } from "../../foundation/popups/popup"
-import { bindSheetInput } from "../../foundation/popups/presentation"
+} from "./combobox";
+import { bindChipsOverflow } from "./combobox-chips";
+import { CREATE, type ComboboxApi, type ComboboxState } from "./combobox-api";
+import { openerOf } from "../../foundation/popups/popup";
+import { bindSheetInput } from "../../foundation/popups/presentation";
 import {
   arrowPart,
   bindItem,
@@ -44,67 +44,55 @@ import {
   statusPart,
   valueInputPart,
   warnIfUnnamed,
-} from "../../foundation/lists/listbox-parts"
-import { flagWhileBound } from "../../foundation/kernel/bound-keys"
+} from "../../foundation/lists/listbox-parts";
+import { flagWhileBound } from "../../foundation/kernel/bound-keys";
 import {
   inputState,
   listContentPart,
   listId,
   listPart,
-} from "../../foundation/lists/listbox-popup"
-import {
-  itemIconsFeature,
-  optionIcon,
-  rememberIcon,
-} from "../../foundation/lists/item-icon"
-import {
-  itemTextPart,
-  type ListItemTextProps,
-} from "../../foundation/lists/listbox-search"
-import { selectAllFeature } from "../../foundation/lists/listbox-select-all"
-import { idPart, openAttrs } from "../../foundation/kernel/attrs"
-import type { SlotFactory } from "../../foundation/kernel/primitive-types"
-import { formatLabels, listOf } from "../../foundation/lists/listbox-value"
-import { selects } from "../../foundation/kernel/selects"
-import { direct, live } from "../../foundation/kernel/live"
-import { pressKeepsFocus } from "../../foundation/focus/press-keeps-focus"
+} from "../../foundation/lists/listbox-popup";
+import { itemIconsFeature, optionIcon, rememberIcon } from "../../foundation/lists/item-icon";
+import { itemTextPart, type ListItemTextProps } from "../../foundation/lists/listbox-search";
+import { selectAllFeature } from "../../foundation/lists/listbox-select-all";
+import { idPart, openAttrs } from "../../foundation/kernel/attrs";
+import type { SlotFactory } from "../../foundation/kernel/primitive-types";
+import { formatLabels, listOf } from "../../foundation/lists/listbox-value";
+import { selects } from "../../foundation/kernel/selects";
+import { direct, live } from "../../foundation/kernel/live";
+import { pressKeepsFocus } from "../../foundation/focus/press-keeps-focus";
 
 type ItemProps = ComboboxItemProps<unknown> & {
   /** @internal The group the item is in. */
-  group?: string
-}
+  group?: string;
+};
 
 type CreateProps = ComboboxCreateProps & {
   /** @internal Writes `Create “…”` as text, for web components without their own content. */
-  text?: boolean
-}
+  text?: boolean;
+};
 
 type IndicatorProps = ComboboxItemIndicatorProps & {
   /** @internal The key of the item the indicator is in. */
-  item?: string
-}
+  item?: string;
+};
 
-type ChipProps = ComboboxChipProps<unknown>
+type ChipProps = ComboboxChipProps<unknown>;
 
 type OverflowProps = {
   /** @internal Writes "+N more" as text, for web components without their own content. */
-  text?: boolean
-}
+  text?: boolean;
+};
 
-function itemState(
-  state: ComboboxState,
-  key: string,
-  props: ItemProps,
-  api: ComboboxApi
-) {
-  const selected = api.internal.selection.isSelected(key, props.value)
-  const maxReached = !selected && api.internal.maxReached()
+function itemState(state: ComboboxState, key: string, props: ItemProps, api: ComboboxApi) {
+  const selected = api.internal.selection.isSelected(key, props.value);
+  const maxReached = !selected && api.internal.maxReached();
   return {
     highlighted: state.highlighted === key,
     selected,
     disabled: !!props.disabled || maxReached,
     maxReached,
-  }
+  };
 }
 
 // An option shows the highlight, whether real focus is in the list, and its
@@ -149,7 +137,7 @@ const unreadByItems = {
 } satisfies Record<
   Exclude<keyof ComboboxState, "highlighted" | "focusInList" | "listing">,
   readonly never[]
->
+>;
 
 function contentState(state: ComboboxState, { api }: { api: ComboboxApi }) {
   return {
@@ -158,36 +146,32 @@ function contentState(state: ComboboxState, { api }: { api: ComboboxApi }) {
     multiple: state.multiple,
     status: state.status,
     items: api.internal.listbox.visibleData()?.list ?? noItems,
-  }
+  };
 }
 
 // Whether a chip collapsed into the overflow part: it's past the ones that fit.
 function collapsed(state: ComboboxState, api: ComboboxApi, value: unknown) {
   if (state.visibleChips === null) {
-    return false
+    return false;
   }
-  return (
-    api.internal.selection.keys().indexOf(api.internal.keyOf(value)) >=
-    state.visibleChips
-  )
+  return api.internal.selection.keys().indexOf(api.internal.keyOf(value)) >= state.visibleChips;
 }
 
 // The chips that don't fit, the same object until that changes.
-const overflowMemo = new WeakMap<object, ComboboxChipsOverflowState>()
+const overflowMemo = new WeakMap<object, ComboboxChipsOverflowState>();
 function overflowState(state: ComboboxState, api: ComboboxApi) {
-  const all = api.internal.selection.labels()
-  const labels =
-    state.visibleChips === null ? [] : all.slice(state.visibleChips)
-  const last = overflowMemo.get(api)
+  const all = api.internal.selection.labels();
+  const labels = state.visibleChips === null ? [] : all.slice(state.visibleChips);
+  const last = overflowMemo.get(api);
   if (
     last?.labels.length === labels.length &&
     last.labels.every((label, index) => label === labels[index])
   ) {
-    return last
+    return last;
   }
-  const next = { count: labels.length, labels }
-  overflowMemo.set(api, next)
-  return next
+  const next = { count: labels.length, labels };
+  overflowMemo.set(api, next);
+  return next;
 }
 
 const comboboxSlots = (slot: SlotFactory<ComboboxState, ComboboxApi>) => ({
@@ -202,9 +186,9 @@ const comboboxSlots = (slot: SlotFactory<ComboboxState, ComboboxApi>) => ({
     // A label that isn't a native one for the input, like a custom element, focuses it all the same.
     press({ api, el }) {
       if (el instanceof HTMLLabelElement && el.control) {
-        return
+        return;
       }
-      api.focus()
+      api.focus();
     },
     bind: (el, { store }) => flagWhileBound(store, "labeled"),
   }),
@@ -244,76 +228,74 @@ const comboboxSlots = (slot: SlotFactory<ComboboxState, ComboboxApi>) => ({
       input: (event, { api }) => api.internal.onInput(event),
       keydown: (event, { api }) => api.internal.onInputKeyDown(event),
       focusout(event, { api, store }) {
-        const next = event.relatedTarget as Node | null
+        const next = event.relatedTarget as Node | null;
         if (!store.get().open) {
-          return
+          return;
         }
         // A sheet stays open when the keyboard goes away, with what was typed.
         if (!next && store.get().presentation === "sheet") {
-          return
+          return;
         }
         if (
           next &&
-          (api.internal.ownsElement(next) ||
-            api.internal.popup.element()?.contains(next))
+          (api.internal.ownsElement(next) || api.internal.popup.element()?.contains(next))
         ) {
-          return
+          return;
         }
         // Focus leaving the page, like to another window, is the layer's to decide.
         if (!next && !document.hasFocus()) {
-          return
+          return;
         }
-        api.internal.hide({ reason: "focus-out", event })
+        api.internal.hide({ reason: "focus-out", event });
       },
     },
     press({ api, store }, event) {
       if (store.get().open) {
-        return
+        return;
       }
-      api.internal.show({ event, by: openerOf(event), reason: "trigger-press" })
+      api.internal.show({ event, by: openerOf(event), reason: "trigger-press" });
     },
     bind(el, { api, id, store }) {
       // A value whose label or icon only its item knows: render the list
       // hidden so the item says it, once the parts that render now have.
-      const { items, itemToLabel } = api.internal.options()
+      const { items, itemToLabel } = api.internal.options();
       if (!items && !itemToLabel) {
         queueMicrotask(
           () =>
             api.internal.selection.needsItems(api.internal.hasValueIcon()) &&
-            api.internal.prepare()
-        )
+            api.internal.prepare(),
+        );
       }
       // The DOM property, since an input's value attribute stops applying once someone types.
-      const input = el as HTMLInputElement
+      const input = el as HTMLInputElement;
       const write = () => {
         if (input.value !== store.get().query) {
-          input.value = store.get().query
+          input.value = store.get().query;
         }
-      }
-      write()
+      };
+      write();
       if (dev) {
         warnIfUnnamed(
           el,
           "The input has no accessible name. Add a ComboboxLabel, a Field label or an aria-label.",
-          { component: "combobox", id }
-        )
+          { component: "combobox", id },
+        );
       }
-      const off = store.subscribe(write)
+      const off = store.subscribe(write);
       // Inside the content, like in a popup a button opens, the input can't open the list itself.
       const offInline = el.closest('[data-slot="combobox-content"]')
         ? () => {}
-        : flagWhileBound(store, "inlineInput")
+        : flagWhileBound(store, "inlineInput");
       const offSheet = bindSheetInput(el, {
         store,
         presentation: api.internal.presentation,
-        open: (event) =>
-          api.internal.show({ event, by: "touch", reason: "trigger-press" }),
-      })
+        open: (event) => api.internal.show({ event, by: "touch", reason: "trigger-press" }),
+      });
       return () => {
-        off()
-        offInline()
-        offSheet()
-      }
+        off();
+        offInline();
+        offSheet();
+      };
     },
   }),
 
@@ -335,13 +317,13 @@ const comboboxSlots = (slot: SlotFactory<ComboboxState, ComboboxApi>) => ({
       keydown: (event, { api }) => api.internal.onTriggerKeyDown(event),
     },
     press({ api, store }, event) {
-      api.internal.inputElement()?.focus({ preventScroll: true })
+      api.internal.inputElement()?.focus({ preventScroll: true });
       if (store.get().open) {
-        return api.internal.hide({ reason: "trigger-press", event })
+        return api.internal.hide({ reason: "trigger-press", event });
       }
       // Enter and Space press it too, as a click with no pointer behind it.
-      const by = openerOf(event)
-      api.internal.show({ event, by, reason: "trigger-press" })
+      const by = openerOf(event);
+      api.internal.show({ event, by, reason: "trigger-press" });
     },
   }),
 
@@ -382,8 +364,8 @@ const comboboxSlots = (slot: SlotFactory<ComboboxState, ComboboxApi>) => ({
     }),
     state: (state, { key, props, api }) => itemState(state, key, props, api),
     attrs: (state, { id, key, props, api }) => {
-      const { selected, disabled } = itemState(state, key, props, api)
-      const shown = api.internal.listbox.matches(key, props)
+      const { selected, disabled } = itemState(state, key, props, api);
+      const shown = api.internal.listbox.matches(key, props);
       return {
         id: `${id}-option-${idPart(key)}`,
         // Real focus reaches items only after a screen reader's tap moved it into the list.
@@ -394,7 +376,7 @@ const comboboxSlots = (slot: SlotFactory<ComboboxState, ComboboxApi>) => ({
         hidden: shown ? undefined : "",
         "data-selected": selected ? "" : undefined,
         "data-disabled": disabled ? "" : undefined,
-      }
+      };
     },
     // Typing hides options without rendering them.
     direct: direct(["hidden"]),
@@ -407,17 +389,17 @@ const comboboxSlots = (slot: SlotFactory<ComboboxState, ComboboxApi>) => ({
     },
     press: ({ api, key }, event) => api.internal.choose(key, event),
     bind(el, context) {
-      return bindItem(el, context)
+      return bindItem(el, context);
     },
   }),
 
   // The item's text, with what the input's text matched in `<mark>`.
   "item-text": slot<ListItemTextProps, ComboboxItemTextState>(
-    itemTextPart<ComboboxState, ComboboxApi>()
+    itemTextPart<ComboboxState, ComboboxApi>(),
   ),
 
   "item-indicator": slot<IndicatorProps, ComboboxItemIndicatorState>(
-    itemIndicatorPart<ComboboxState, ComboboxApi>()
+    itemIndicatorPart<ComboboxState, ComboboxApi>(),
   ),
 
   group: slot(optionGroupPart<ComboboxState, ComboboxApi>()),
@@ -434,8 +416,7 @@ const comboboxSlots = (slot: SlotFactory<ComboboxState, ComboboxApi>) => ({
     props: { keepMounted: "boolean" },
     present: (state, { props }) =>
       !!props.keepMounted ||
-      ((listOf(state.value).length > 0 || state.query !== "") &&
-        !isLocked(state)),
+      ((listOf(state.value).length > 0 || state.query !== "") && !isLocked(state)),
     state: (state) => ({ disabled: isLocked(state) }),
     attrs: (state) => ({
       type: "button",
@@ -444,8 +425,8 @@ const comboboxSlots = (slot: SlotFactory<ComboboxState, ComboboxApi>) => ({
     }),
     on: pressKeepsFocus,
     press({ api }) {
-      api.clear({ reason: "clear-press" })
-      api.internal.inputElement()?.focus({ preventScroll: true })
+      api.clear({ reason: "clear-press" });
+      api.internal.inputElement()?.focus({ preventScroll: true });
     },
   }),
 
@@ -453,8 +434,8 @@ const comboboxSlots = (slot: SlotFactory<ComboboxState, ComboboxApi>) => ({
   value: slot<ComboboxValueProps, ComboboxValueState>({
     props: { maxLabels: "number", getMoreLabel: "value" },
     state: (state, { api, props }) => {
-      const labels = api.internal.selection.labels()
-      return { value: state.value, labels, label: formatLabels(labels, props) }
+      const labels = api.internal.selection.labels();
+      return { value: state.value, labels, label: formatLabels(labels, props) };
     },
   }),
 
@@ -463,18 +444,14 @@ const comboboxSlots = (slot: SlotFactory<ComboboxState, ComboboxApi>) => ({
   "form-input": slot(hiddenInputPart<ComboboxState, ComboboxApi>("form-input")),
 
   "value-input": slot(valueInputPart<ComboboxState, ComboboxApi>()),
-})
+});
 
-const comboboxSlot: SlotFactory<ComboboxState, ComboboxApi> = (definition) =>
-  definition
+const comboboxSlot: SlotFactory<ComboboxState, ComboboxApi> = (definition) => definition;
 
 /** An option that selects every item that matches, in its group or in the whole list, with `multiple`. */
-const comboboxSelectAll = /* @__PURE__ */ selectAllFeature<
-  ComboboxState,
-  ComboboxApi
->({
+const comboboxSelectAll = /* @__PURE__ */ selectAllFeature<ComboboxState, ComboboxApi>({
   focus: "active-descendant",
-})
+});
 
 /** An icon inside an item, and the selected item's icon next to the input. */
 const comboboxItemIcons = /* @__PURE__ */ (() =>
@@ -482,7 +459,7 @@ const comboboxItemIcons = /* @__PURE__ */ (() =>
     component: "combobox",
     ...optionIcon,
     register: rememberIcon,
-  }))()
+  }))();
 
 /**
  * The `create` slot: an option that creates an item from the input's text. A
@@ -516,13 +493,10 @@ const comboboxCreate = /* @__PURE__ */ (() => ({
       on: {
         ...pressKeepsFocus,
         pointermove(event, { api, store }) {
-          if (
-            event.pointerType === "touch" ||
-            store.get().highlighted === CREATE
-          ) {
-            return
+          if (event.pointerType === "touch" || store.get().highlighted === CREATE) {
+            return;
           }
-          api.internal.listbox.highlight(CREATE, { event })
+          api.internal.listbox.highlight(CREATE, { event });
         },
       },
       press: ({ api }, event) => api.internal.create(event),
@@ -531,27 +505,27 @@ const comboboxCreate = /* @__PURE__ */ (() => ({
           value: CREATE,
           label: el.textContent ?? "",
           pinned: true,
-        }))
+        }));
         if (!props.text) {
-          return unregister
+          return unregister;
         }
         // Web components without their own content offer the text.
         const write = () => {
-          const text = `Create “${store.get().query.trim()}”`
+          const text = `Create “${store.get().query.trim()}”`;
           if (el.textContent !== text) {
-            el.textContent = text
+            el.textContent = text;
           }
-        }
-        write()
-        const unsubscribe = store.subscribe(write)
+        };
+        write();
+        const unsubscribe = store.subscribe(write);
         return () => {
-          unsubscribe()
-          unregister()
-        }
+          unsubscribe();
+          unregister();
+        };
       },
     }),
   },
-}))()
+}))();
 
 /**
  * The `chips` slots: the selected values as chips around the input. A feature,
@@ -572,10 +546,10 @@ const comboboxChips = /* @__PURE__ */ (() => ({
       on: {
         pointerdown(event, { api, el }) {
           if (event.target !== el) {
-            return
+            return;
           }
-          event.preventDefault()
-          api.internal.inputElement()?.focus()
+          event.preventDefault();
+          api.internal.inputElement()?.focus();
         },
       },
     }),
@@ -600,8 +574,7 @@ const comboboxChips = /* @__PURE__ */ (() => ({
         "data-value": api.internal.keyOf(props.value),
       }),
       on: {
-        keydown: (event, { api, el, props }) =>
-          api.internal.onChipKeyDown(event, el!, props.value),
+        keydown: (event, { api, el, props }) => api.internal.onChipKeyDown(event, el!, props.value),
       },
     }),
 
@@ -617,8 +590,8 @@ const comboboxChips = /* @__PURE__ */ (() => ({
       }),
       on: pressKeepsFocus,
       press({ api, props }, event) {
-        api.internal.remove(props.value, event)
-        api.internal.inputElement()?.focus({ preventScroll: true })
+        api.internal.remove(props.value, event);
+        api.internal.inputElement()?.focus({ preventScroll: true });
       },
     }),
 
@@ -633,12 +606,12 @@ const comboboxChips = /* @__PURE__ */ (() => ({
       }),
       bind(el, { api, store, props }) {
         // The chips around it bind after it in some frameworks, so measuring starts a microtask later.
-        let unbind = () => {}
-        let active = true
+        let unbind = () => {};
+        let active = true;
         queueMicrotask(() => {
-          const container = api.internal.chipsElement()
+          const container = api.internal.chipsElement();
           if (!active || !container) {
-            return
+            return;
           }
           unbind = bindChipsOverflow(container, {
             chips: () => api.internal.chipElements(),
@@ -646,34 +619,28 @@ const comboboxChips = /* @__PURE__ */ (() => ({
             input: api.internal.inputElement,
             report: api.internal.setVisibleChips,
             subscribe: store.subscribe,
-          })
-        })
+          });
+        });
         // Web components without their own content show the count.
         const write = () => {
-          const text = `+${overflowState(store.get(), api).count} more`
+          const text = `+${overflowState(store.get(), api).count} more`;
           if (el.textContent !== text) {
-            el.textContent = text
+            el.textContent = text;
           }
-        }
+        };
         if (props.text) {
-          write()
+          write();
         }
-        const unsubscribe = props.text ? store.subscribe(write) : undefined
+        const unsubscribe = props.text ? store.subscribe(write) : undefined;
         return () => {
-          active = false
-          unsubscribe?.()
-          unbind()
-          api.internal.setVisibleChips(null)
-        }
+          active = false;
+          unsubscribe?.();
+          unbind();
+          api.internal.setVisibleChips(null);
+        };
       },
     }),
   },
-}))()
+}))();
 
-export {
-  comboboxChips,
-  comboboxCreate,
-  comboboxItemIcons,
-  comboboxSelectAll,
-  comboboxSlots,
-}
+export { comboboxChips, comboboxCreate, comboboxItemIcons, comboboxSelectAll, comboboxSlots };

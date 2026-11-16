@@ -10,15 +10,15 @@
  */
 function modalAttribute(attribute: string | null) {
   if (attribute === null) {
-    return undefined
+    return undefined;
   }
   if (attribute === "false") {
-    return false
+    return false;
   }
   if (attribute === "pointer" || attribute === "trap-focus") {
-    return attribute
+    return attribute;
   }
-  return true
+  return true;
 }
 
 /**
@@ -27,15 +27,15 @@ function modalAttribute(attribute: string | null) {
  */
 function pointerModalAttribute(attribute: string | null) {
   if (attribute === null) {
-    return undefined
+    return undefined;
   }
   if (attribute === "false") {
-    return false
+    return false;
   }
   if (attribute === "pointer") {
-    return "pointer"
+    return "pointer";
   }
-  return true
+  return true;
 }
 
-export { modalAttribute, pointerModalAttribute }
+export { modalAttribute, pointerModalAttribute };

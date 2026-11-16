@@ -32,10 +32,7 @@ const workspace = (id: string, sessions: SessionRecord[]): WorkspaceRecord => ({
 const base = (): DesktopAppState => ({
   ...createEmptyDesktopAppState(),
   revision: 1,
-  workspaces: [
-    workspace("a", [session("a1"), session("a2")]),
-    workspace("b", [session("b1")]),
-  ],
+  workspaces: [workspace("a", [session("a1"), session("a2")]), workspace("b", [session("b1")])],
 });
 const next = (state: DesktopAppState, change: Partial<DesktopAppState>): DesktopAppState => ({
   ...state,
@@ -103,7 +100,9 @@ test("added, removed and reordered workspaces and sessions round-trip", () => {
   const steps: DesktopAppState[] = [];
   state = next(state, { workspaces: [...state.workspaces, workspace("c", [session("c1")])] });
   steps.push(state);
-  state = next(state, { workspaces: [state.workspaces[2]!, state.workspaces[0]!, state.workspaces[1]!] });
+  state = next(state, {
+    workspaces: [state.workspaces[2]!, state.workspaces[0]!, state.workspaces[1]!],
+  });
   steps.push(state);
   state = next(state, {
     workspaces: state.workspaces.map((w) =>
@@ -142,10 +141,14 @@ test("random edits: the replica equals main after every patch", () => {
     const s = w.sessions[random(w.sessions.length)];
     const kind = random(6);
     let after: DesktopAppState;
-    if (kind === 0 && s) after = withSession(main, w.id, s.id, { preview: `p${i}`, status: "running" });
-    else if (kind === 1 && s) after = withSession(main, w.id, s.id, { status: "idle", hasUnseenUpdate: true });
+    if (kind === 0 && s)
+      after = withSession(main, w.id, s.id, { preview: `p${i}`, status: "running" });
+    else if (kind === 1 && s)
+      after = withSession(main, w.id, s.id, { status: "idle", hasUnseenUpdate: true });
     else if (kind === 2)
-      after = next(main, { lastViewedAtBySession: { ...main.lastViewedAtBySession, [`k${random(5)}`]: `${i}` } });
+      after = next(main, {
+        lastViewedAtBySession: { ...main.lastViewedAtBySession, [`k${random(5)}`]: `${i}` },
+      });
     else if (kind === 3)
       after = next(main, {
         workspaces: main.workspaces.map((x) =>
@@ -223,7 +226,9 @@ test("a full state restarts the stream", () => {
 test("a full state keeps the identity of every session and workspace that did not change", () => {
   const s1 = base();
   // A deep copy with one session changed: what a pull or an action reply looks like after IPC.
-  const copy = JSON.parse(JSON.stringify(withSession(s1, "a", "a1", { preview: "x" }))) as DesktopAppState;
+  const copy = JSON.parse(
+    JSON.stringify(withSession(s1, "a", "a1", { preview: "x" })),
+  ) as DesktopAppState;
   const replica = new DesktopStateReplica();
   replica.push(s1);
   replica.pulled(copy);
@@ -232,4 +237,3 @@ test("a full state keeps the identity of every session and workspace that did no
   expect(replica.state!.workspaces[0]!.sessions[1]).toBe(s1.workspaces[0]!.sessions[1]);
   expect(replica.state!.workspaces[0]!.sessions[0]).not.toBe(s1.workspaces[0]!.sessions[0]);
 });
-

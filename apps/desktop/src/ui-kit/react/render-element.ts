@@ -1,14 +1,13 @@
 // Renders an element with no primitive behind it, and merges props and refs.
 // Nothing here uses hooks or context, so the build ships this module without
 // "use client" and a Server Component can call `renderElement` itself.
-import * as React from "react"
+import * as React from "react";
 
 // Whether a handler marked its event handled, on React's events and the DOM's.
 function prevented(event: unknown) {
   const handled = event as
-    | { isDefaultPrevented?: () => boolean; defaultPrevented?: boolean }
-    | undefined
-  return !!(handled?.isDefaultPrevented?.() ?? handled?.defaultPrevented)
+    { isDefaultPrevented?: () => boolean; defaultPrevented?: boolean } | undefined;
+  return !!(handled?.isDefaultPrevented?.() ?? handled?.defaultPrevented);
 }
 
 /**
@@ -18,66 +17,63 @@ function prevented(event: unknown) {
  * @stable
  */
 function mergeProps(...sources: Record<string, any>[]) {
-  const result: Record<string, any> = {}
+  const result: Record<string, any> = {};
   for (const source of sources) {
     for (const key in source) {
-      const value = source[key]
+      const value = source[key];
       if (value === undefined) {
-        continue
+        continue;
       }
-      const earlier = result[key]
+      const earlier = result[key];
       if (earlier === undefined) {
-        result[key] = value
+        result[key] = value;
       } else if (key === "className" && earlier) {
-        result.className = `${earlier} ${value}`
+        result.className = `${earlier} ${value}`;
       } else if (key === "style" && earlier) {
-        result.style = mergeStyles(earlier, value)
+        result.style = mergeStyles(earlier, value);
       } else if (key === "ref" && earlier) {
-        result.ref = mergeRefs(earlier, value)
+        result.ref = mergeRefs(earlier, value);
       } else if (
         /^on[A-Z]/.test(key) &&
         typeof earlier === "function" &&
         typeof value === "function"
       ) {
         result[key] = (...args: unknown[]) => {
-          value(...args)
+          value(...args);
           if (!prevented(args[0])) {
-            earlier(...args)
+            earlier(...args);
           }
-        }
+        };
       } else {
-        result[key] = value
+        result[key] = value;
       }
     }
   }
-  return result
+  return result;
 }
 
 // Styles merge, and a function of the part's state stays a function, so a
 // part's own inline styles never drop a user's style function.
 function mergeStyles(earlier: unknown, later: unknown) {
   if (typeof earlier !== "function" && typeof later !== "function") {
-    return { ...(earlier as object), ...(later as object) }
+    return { ...(earlier as object), ...(later as object) };
   }
   const resolve = (style: unknown, state: unknown) =>
-    typeof style === "function" ? style(state) : style
+    typeof style === "function" ? style(state) : style;
   return (state: unknown) => ({
     ...resolve(earlier, state),
     ...resolve(later, state),
-  })
+  });
 }
 
-const mergedRefs = new WeakMap<
-  object,
-  WeakMap<object, (el: unknown) => () => void>
->()
+const mergedRefs = new WeakMap<object, WeakMap<object, (el: unknown) => () => void>>();
 
 function setRef(ref: React.Ref<unknown>, el: unknown) {
   if (typeof ref === "function") {
-    return ref(el)
+    return ref(el);
   }
   if (ref) {
-    ;(ref as React.RefObject<unknown>).current = el
+    (ref as React.RefObject<unknown>).current = el;
   }
 }
 
@@ -88,26 +84,24 @@ function setRef(ref: React.Ref<unknown>, el: unknown) {
  */
 function mergeRefs(a: React.Ref<unknown>, b: React.Ref<unknown>) {
   if (!a || !b) {
-    return a ?? b
+    return a ?? b;
   }
-  let inner = mergedRefs.get(a)
+  let inner = mergedRefs.get(a);
   if (!inner) {
-    mergedRefs.set(a, (inner = new WeakMap()))
+    mergedRefs.set(a, (inner = new WeakMap()));
   }
-  let merged = inner.get(b)
+  let merged = inner.get(b);
   if (!merged) {
     merged = (el: unknown) => {
-      const cleanups = [setRef(a, el), setRef(b, el)]
+      const cleanups = [setRef(a, el), setRef(b, el)];
       return () =>
         cleanups.forEach((cleanup, index) =>
-          typeof cleanup === "function"
-            ? cleanup()
-            : setRef(index ? b : a, null)
-        )
-    }
-    inner.set(b, merged)
+          typeof cleanup === "function" ? cleanup() : setRef(index ? b : a, null),
+        );
+    };
+    inner.set(b, merged);
   }
-  return merged
+  return merged;
 }
 
 /**
@@ -117,7 +111,7 @@ function mergeRefs(a: React.Ref<unknown>, b: React.Ref<unknown>) {
  */
 type RenderProp<State = {}> =
   | React.ReactElement<Record<string, any>>
-  | ((props: Record<string, any>, state: State) => React.ReactElement)
+  | ((props: Record<string, any>, state: State) => React.ReactElement);
 
 /**
  * Renders an element with no primitive behind it that takes a `render` prop,
@@ -136,28 +130,25 @@ function renderElement<State>(
   tag: string,
   props: Record<string, any>,
   render?: RenderProp<State>,
-  state: State = {} as State
+  state: State = {} as State,
 ) {
   if (typeof props.className === "function") {
-    props = { ...props, className: props.className(state) }
+    props = { ...props, className: props.className(state) };
   }
   if (typeof props.style === "function") {
-    props = { ...props, style: props.style(state) }
+    props = { ...props, style: props.style(state) };
   }
   if (typeof props.children === "function") {
-    props = { ...props, children: props.children(state) }
+    props = { ...props, children: props.children(state) };
   }
   if (typeof render === "function") {
-    return render(props, state)
+    return render(props, state);
   }
   if (render) {
     // The element's own props merge in: its handlers run before the part's.
-    return React.cloneElement(
-      render,
-      mergeProps(props, render.props as Record<string, any>)
-    )
+    return React.cloneElement(render, mergeProps(props, render.props as Record<string, any>));
   }
-  return React.createElement(tag, props)
+  return React.createElement(tag, props);
 }
 
-export { mergeProps, mergeRefs, renderElement, type RenderProp }
+export { mergeProps, mergeRefs, renderElement, type RenderProp };

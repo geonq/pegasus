@@ -2251,8 +2251,7 @@ export function idleChildStatus(
   if (
     evidence.some(
       (record) =>
-        record.source === "blocker" &&
-        (record.status === "failed" || record.status === "blocked"),
+        record.source === "blocker" && (record.status === "failed" || record.status === "blocked"),
     )
   ) {
     return "failed";

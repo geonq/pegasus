@@ -48,7 +48,8 @@ function watchWebContents(contents: WebContents): void {
   contents.on("unresponsive", () => logEvent("renderer.unresponsive", { l: "w", wc: id }));
   contents.on("responsive", () => logEvent("renderer.responsive", { wc: id }));
   contents.on("did-fail-load", (_event, code, description, url, isMainFrame) => {
-    if (isMainFrame) logEvent("renderer.loadFailed", { l: "e", wc: id, code, msg: description, url });
+    if (isMainFrame)
+      logEvent("renderer.loadFailed", { l: "e", wc: id, code, msg: description, url });
   });
   // Renderer errors and warnings: React's error boundary, failed IPC calls, uncaught errors and
   // the state replica's resync all print here.
@@ -69,7 +70,9 @@ function watchWebContents(contents: WebContents): void {
         l: isError ? "e" : "w",
         wc: id,
         msg: details.message ?? "",
-        at: details.sourceId ? `${details.sourceId.split(/[\\/]/).at(-1)}:${details.lineNumber}` : undefined,
+        at: details.sourceId
+          ? `${details.sourceId.split(/[\\/]/).at(-1)}:${details.lineNumber}`
+          : undefined,
       },
       "renderer",
     );

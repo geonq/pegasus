@@ -2,27 +2,23 @@ import {
   createPopupController,
   type Modal,
   type PopupFocusTarget,
-} from "../../foundation/popups/popup"
-import { modalAttribute } from "../../foundation/popups/modal-attribute"
-import type { PortalProps } from "../../foundation/platform/position"
-import { dialogPreset } from "../../foundation/popups/popup-presets"
-import { popupViewport } from "../../foundation/popups/popup-slots"
-import type { PresentationSetting } from "../../foundation/popups/presentation"
-import type { Sheet } from "../../foundation/popups/sheet"
+} from "../../foundation/popups/popup";
+import { modalAttribute } from "../../foundation/popups/modal-attribute";
+import type { PortalProps } from "../../foundation/platform/position";
+import { dialogPreset } from "../../foundation/popups/popup-presets";
+import { popupViewport } from "../../foundation/popups/popup-slots";
+import type { PresentationSetting } from "../../foundation/popups/presentation";
+import type { Sheet } from "../../foundation/popups/sheet";
 import type {
   ChangeDetails,
   DismissAttemptDetails,
   DismissReason,
-} from "../../foundation/kernel/details"
-import type {
-  Named,
-  PrimitiveOptions,
-  SlotFactory,
-} from "../../foundation/kernel/primitive-types"
-import type { ActionDetails } from "../../foundation/kernel/action"
-import type { DialogApi, DialogRules, DialogState } from "./dialog-api"
-import { defineDialog } from "./dialog-primitive"
-import type { createAlertDialogController } from "./alert-dialog"
+} from "../../foundation/kernel/details";
+import type { Named, PrimitiveOptions, SlotFactory } from "../../foundation/kernel/primitive-types";
+import type { ActionDetails } from "../../foundation/kernel/action";
+import type { DialogApi, DialogRules, DialogState } from "./dialog-api";
+import { defineDialog } from "./dialog-primitive";
+import type { createAlertDialogController } from "./alert-dialog";
 
 /**
  * Why a dialog opened or closed.
@@ -38,13 +34,13 @@ type DialogOpenChangeReason =
   | "action"
   | "shortcut"
   | "swipe"
-  | "imperative"
+  | "imperative";
 
 /**
  * Why the dialog's payload changed: a trigger opened it, another trigger took a non-modal one over while open, or a controller opened it or gave the open one another payload.
  * @stable
  */
-type DialogPayloadChangeReason = "trigger-press" | "shortcut" | "imperative"
+type DialogPayloadChangeReason = "trigger-press" | "shortcut" | "imperative";
 
 /**
  * The ways a user can dismiss a dialog, which `dismissible` and `closeOnOutsidePress` can refuse. A swipe dismisses one presented as a sheet.
@@ -53,28 +49,25 @@ type DialogPayloadChangeReason = "trigger-press" | "shortcut" | "imperative"
 type DialogDismissReason = Extract<
   DismissReason,
   "escape-key" | "outside-press" | "back" | "swipe"
->
+>;
 
 /**
  * What `onDismissAttempt` receives when a dismissal was refused.
  * @stable
  */
-type DialogDismissAttemptDetails = DismissAttemptDetails<DialogDismissReason>
+type DialogDismissAttemptDetails = DismissAttemptDetails<DialogDismissReason>;
 
 /**
  * Why an alert dialog opened or closed. An outside press never closes one, and it's never a sheet to swipe.
  * @stable
  */
-type AlertDialogOpenChangeReason = Exclude<
-  DialogOpenChangeReason,
-  "outside-press" | "swipe"
->
+type AlertDialogOpenChangeReason = Exclude<DialogOpenChangeReason, "outside-press" | "swipe">;
 
 /**
  * Why the alert dialog's payload changed: a trigger or a controller opened it, or a controller gave the open one another payload.
  * @stable
  */
-type AlertDialogPayloadChangeReason = DialogPayloadChangeReason
+type AlertDialogPayloadChangeReason = DialogPayloadChangeReason;
 
 /**
  * What `onOpenChange` receives after the new open state.
@@ -83,8 +76,8 @@ type AlertDialogPayloadChangeReason = DialogPayloadChangeReason
 type DialogOpenChangeDetails<Reason extends string = DialogOpenChangeReason> =
   ChangeDetails<Reason> & {
     /** What closed it reported: a Close part's `value`, the button that submitted a form with `method="dialog"`, or `close({ returnValue })`. */
-    returnValue?: string
-  }
+    returnValue?: string;
+  };
 
 /**
  * Opens, closes and inspects a dialog from outside it: a menu item, a hotkey,
@@ -100,7 +93,7 @@ function createDialogController<Payload = unknown, Result = string>() {
     {},
     Result,
     DialogPayloadChangeReason
-  >()
+  >();
 }
 
 /**
@@ -110,7 +103,7 @@ function createDialogController<Payload = unknown, Result = string>() {
  */
 type DialogController<Payload = unknown, Result = string> = ReturnType<
   typeof createDialogController<Payload, Result>
->
+>;
 
 /**
  * A controller from `createAlertDialogController()`. Pass it as the
@@ -119,7 +112,7 @@ type DialogController<Payload = unknown, Result = string> = ReturnType<
  */
 type AlertDialogController<Payload = unknown, Result = string> = ReturnType<
   typeof createAlertDialogController<Payload, Result>
->
+>;
 
 /**
  * What the overlay host's alert dialog shows when `confirm()` asks without one of yours.
@@ -127,20 +120,20 @@ type AlertDialogController<Payload = unknown, Result = string> = ReturnType<
  */
 type ConfirmOptions = {
   /** The question, like "Delete this project?". */
-  title: string
+  title: string;
   /** What agreeing does. */
-  description?: string
+  description?: string;
   /**
    * The agreeing button's text.
    * @defaultValue "Continue"
    */
-  confirmLabel?: string
+  confirmLabel?: string;
   /**
    * The other button's text.
    * @defaultValue "Cancel"
    */
-  cancelLabel?: string
-}
+  cancelLabel?: string;
+};
 
 /**
  * The `data` of a `"confirm"` overlay entry: what an overlay host gets for
@@ -149,14 +142,14 @@ type ConfirmOptions = {
  */
 type ConfirmEntry<Payload = ConfirmOptions> = {
   /** Pass to the alert dialog the host renders. */
-  controller: AlertDialogController<Payload>
+  controller: AlertDialogController<Payload>;
   /** The question. */
-  payload: Payload | undefined
+  payload: Payload | undefined;
   /** Call once the alert dialog is rendered with the controller. It opens it and answers. */
-  open: () => void
+  open: () => void;
   /** Call once the dialog has finished closing, so the host stops rendering it. */
-  done: () => void
-}
+  done: () => void;
+};
 
 /**
  * Where focus goes when the dialog opens. `"auto"` picks an element with
@@ -172,7 +165,7 @@ type DialogInitialFocus =
   | "none"
   | (string & {})
   | HTMLElement
-  | (() => HTMLElement | null | undefined)
+  | (() => HTMLElement | null | undefined);
 
 /**
  * Where focus goes when the dialog closes. `"trigger"` returns it to the
@@ -180,7 +173,7 @@ type DialogInitialFocus =
  * `"none"` leaves it. A CSS selector, an element or a function picks a specific element.
  * @stable
  */
-type DialogFinalFocus = PopupFocusTarget
+type DialogFinalFocus = PopupFocusTarget;
 
 /**
  * The options dialogs and alert dialogs share.
@@ -188,36 +181,36 @@ type DialogFinalFocus = PopupFocusTarget
  */
 type DialogSharedOptions = PortalProps & {
   /** Whether the dialog is open. Pass it to control the dialog. */
-  open?: boolean
+  open?: boolean;
   /**
    * Whether the dialog starts open, when uncontrolled. Focus moves into it once it's on the page.
    * @defaultValue false
    */
-  defaultOpen?: boolean
+  defaultOpen?: boolean;
   /** Runs once the dialog has finished opening or closing, after any animation. */
-  onOpenChangeComplete?: (open: boolean) => void
+  onOpenChangeComplete?: (open: boolean) => void;
   /**
    * Whether Escape, an outside press and Android's back gesture can close the dialog. Close parts,
    * triggers and the controller always can. Pass `false` while a form has unsaved changes, and ask
    * in `onDismissAttempt`.
    * @defaultValue true
    */
-  dismissible?: boolean
+  dismissible?: boolean;
   /** Runs when a dismissal was refused, because `dismissible` is false, an outside press doesn't close it, or a Close part's action is running. Ask "Discard changes?" here. */
-  onDismissAttempt?: (details: DialogDismissAttemptDetails) => void
+  onDismissAttempt?: (details: DialogDismissAttemptDetails) => void;
   /**
    * Elements that stay usable while the dialog makes the page inert, like a chat launcher or a
    * password manager's button. Elements, CSS selectors, or a function that returns elements, read
    * when the dialog opens. Presses on them never close it.
    */
-  persistentElements?: (Element | string)[] | (() => Element[])
+  persistentElements?: (Element | string)[] | (() => Element[]);
   /**
    * What screen readers hear once a Close part's action has been running for a second, so a slow
    * action doesn't pass in silence. Set it in the page's language. An empty string says nothing.
    * @defaultValue "Loading"
    */
-  pendingAnnouncement?: string
-} & PrimitiveOptions
+  pendingAnnouncement?: string;
+} & PrimitiveOptions;
 
 /**
  * The options `dialog` takes. A component takes them as props on its root.
@@ -225,34 +218,31 @@ type DialogSharedOptions = PortalProps & {
  */
 type DialogOptions = DialogSharedOptions & {
   /** Runs when the dialog wants to open or close. `details.reason` says why, `details.cancel()` stops it, and `details.returnValue` carries what closed it. */
-  onOpenChange?: (open: boolean, details: DialogOpenChangeDetails) => void
+  onOpenChange?: (open: boolean, details: DialogOpenChangeDetails) => void;
   /**
    * Runs when the payload the content shows changes: a trigger with another payload opens the
    * dialog, or takes a non-modal dialog over while it's open, which fires no `onOpenChange`, and so
    * does a controller's `open({ payload })` on the open dialog. `details.cancel()` keeps the previous payload.
    */
-  onPayloadChange?: (
-    payload: unknown,
-    details: ChangeDetails<DialogPayloadChangeReason>
-  ) => void
+  onPayloadChange?: (payload: unknown, details: ChangeDetails<DialogPayloadChangeReason>) => void;
   /**
    * `true`: the rest of the page is inert and doesn't scroll, focus is trapped, and an outside press only closes the dialog. `"trap-focus"`: traps focus, and leaves the page scrollable and clickable. `false`: a dialog beside the page, which Tab can leave and outside presses don't close.
    * @defaultValue true
    */
-  modal?: Extract<Modal, boolean | "trap-focus">
+  modal?: Extract<Modal, boolean | "trap-focus">;
   /**
    * Whether pressing outside the dialog, like on its backdrop, closes it. The press counts once it's released outside too, so dragging a text selection out of a field doesn't close it.
    * @defaultValue true, or false when `modal` is false
    */
-  closeOnOutsidePress?: boolean
+  closeOnOutsidePress?: boolean;
   /**
    * How the dialog presents. `"sheet"` slides it up from the bottom of the screen, where it can be swiped away, and `"auto"` does that on small touch screens. Decided each time it opens; the server renders `"dialog"` for `"auto"`.
    * @defaultValue "dialog"
    */
-  presentation?: PresentationSetting<"dialog">
+  presentation?: PresentationSetting<"dialog">;
   /** Opens, closes and inspects the dialog from anywhere, and connects triggers outside it. Create one with `createDialogController()`. */
-  controller?: DialogController<any, any>
-}
+  controller?: DialogController<any, any>;
+};
 
 /**
  * The options `alertDialog` takes. A component takes them as props on its
@@ -263,8 +253,8 @@ type AlertDialogOptions = DialogSharedOptions & {
   /** Runs when the alert dialog wants to open or close. `details.reason` says why, `details.cancel()` stops it, and `details.returnValue` is the `value` of the Close part that closed it. */
   onOpenChange?: (
     open: boolean,
-    details: DialogOpenChangeDetails<AlertDialogOpenChangeReason>
-  ) => void
+    details: DialogOpenChangeDetails<AlertDialogOpenChangeReason>,
+  ) => void;
   /**
    * Runs when a trigger or a controller with another payload opens the alert dialog, before
    * `onOpenChange`, or a controller's `open({ payload })` gives the open one another payload.
@@ -272,54 +262,54 @@ type AlertDialogOptions = DialogSharedOptions & {
    */
   onPayloadChange?: (
     payload: unknown,
-    details: ChangeDetails<AlertDialogPayloadChangeReason>
-  ) => void
+    details: ChangeDetails<AlertDialogPayloadChangeReason>,
+  ) => void;
   /** Opens, closes and inspects the alert dialog from anywhere. Create one with `createAlertDialogController()` or `createConfirm()`. */
-  controller?: AlertDialogController<any, any>
-}
+  controller?: AlertDialogController<any, any>;
+};
 
 type TriggerProps = {
   /**
    * Stops the trigger from opening the dialog. A native button can't be focused or pressed, unless `focusableWhenDisabled` is set.
    * @defaultValue false
    */
-  disabled?: boolean
+  disabled?: boolean;
   /**
    * Keeps a disabled trigger in the tab order with `aria-disabled` instead of the native attribute, so it can host a tooltip that says why. Presses still do nothing.
    * @defaultValue false
    */
-  focusableWhenDisabled?: boolean
+  focusableWhenDisabled?: boolean;
   /** Data for the content to render when this trigger opens the dialog, like the row it belongs to. */
-  payload?: unknown
+  payload?: unknown;
   /**
    * A keyboard shortcut that presses the trigger, like `"mod+k"`. `mod` is Command on Apple platforms
    * and Control elsewhere. Sets `aria-keyshortcuts`, and a Shortcut part inside shows it. A modal
    * dialog pauses the page's shortcuts while it's open.
    */
-  shortcut?: string
-}
+  shortcut?: string;
+};
 
 type ContentProps = PortalProps & {
   /**
    * Where focus goes when the dialog opens. Opening with touch focuses the dialog itself, so no on-screen keyboard appears.
    * @defaultValue "auto"
    */
-  initialFocus?: DialogInitialFocus
+  initialFocus?: DialogInitialFocus;
   /**
    * Where focus goes when the dialog closes while focus is inside it.
    * @defaultValue "trigger"
    */
-  finalFocus?: DialogFinalFocus
+  finalFocus?: DialogFinalFocus;
   /**
    * Whether the dialog stays in the page, hidden, while closed. For animation libraries that drive the exit from state.
    * @defaultValue false
    */
-  keepMounted?: boolean
-}
+  keepMounted?: boolean;
+};
 
 type CloseProps = {
   /** Reported as `returnValue` in `onOpenChange` and by the controller's `open()`. `createConfirm()` resolves `true` for `"confirm"`. */
-  value?: string
+  value?: string;
   /**
    * Runs when the part is pressed, before the dialog closes. A returned Promise keeps the dialog
    * open while it runs: the part gets `data-pending`, `aria-busy` and `aria-disabled`, screen readers
@@ -328,13 +318,13 @@ type CloseProps = {
    * it open and puts the reason in the part's `error` state until the next press, or until the
    * dialog opens again. `details.source` says how the part was pressed, for changes made after an `await`.
    */
-  action?: (event: Event | undefined, details: ActionDetails) => unknown
-}
+  action?: (event: Event | undefined, details: ActionDetails) => unknown;
+};
 
 type ShortcutProps = {
   /** The keys to show. Inside a trigger, its `shortcut`. */
-  shortcut?: string
-}
+  shortcut?: string;
+};
 
 /**
  * The props the `trigger` slot of `dialog` takes.
@@ -342,56 +332,56 @@ type ShortcutProps = {
  */
 type DialogTriggerProps = TriggerProps & {
   /** Connects a trigger outside the dialog, like one per table row, to the dialog with this controller. */
-  controller?: DialogController<any, any>
-}
+  controller?: DialogController<any, any>;
+};
 /**
  * The props the `content` slot of `dialog` takes.
  * @stable
  */
-type DialogContentProps = ContentProps
+type DialogContentProps = ContentProps;
 /**
  * The props the `close` slot of `dialog` takes.
  * @stable
  */
-type DialogCloseProps = CloseProps
+type DialogCloseProps = CloseProps;
 /**
  * What a `close` part's `action` receives after the event: how the part was pressed.
  * @experimental
  */
-type DialogCloseActionDetails = ActionDetails
+type DialogCloseActionDetails = ActionDetails;
 /**
  * The props the `shortcut` slot of `dialog` takes.
  * @stable
  */
-type DialogShortcutProps = ShortcutProps
+type DialogShortcutProps = ShortcutProps;
 /**
  * The props the `trigger` slot of `alertDialog` takes.
  * @stable
  */
 type AlertDialogTriggerProps = TriggerProps & {
   /** Connects a trigger outside the alert dialog to the alert dialog with this controller. */
-  controller?: AlertDialogController<any, any>
-}
+  controller?: AlertDialogController<any, any>;
+};
 /**
  * The props the `content` slot of `alertDialog` takes.
  * @stable
  */
-type AlertDialogContentProps = ContentProps
+type AlertDialogContentProps = ContentProps;
 /**
  * The props the `close` slot of `alertDialog` takes.
  * @stable
  */
-type AlertDialogCloseProps = CloseProps
+type AlertDialogCloseProps = CloseProps;
 /**
  * What a `close` part's `action` receives after the event: how the part was pressed.
  * @experimental
  */
-type AlertDialogCloseActionDetails = ActionDetails
+type AlertDialogCloseActionDetails = ActionDetails;
 /**
  * The props the `shortcut` slot of `alertDialog` takes.
  * @stable
  */
-type AlertDialogShortcutProps = ShortcutProps
+type AlertDialogShortcutProps = ShortcutProps;
 
 /**
  * The state the `trigger` slot of `dialog` hands `render` functions and
@@ -400,10 +390,10 @@ type AlertDialogShortcutProps = ShortcutProps
  */
 type DialogTriggerState = {
   /** Whether the dialog is open from this trigger. */
-  open: boolean
+  open: boolean;
   /** Set by the trigger's `disabled` prop, which stops it opening the dialog. */
-  disabled: boolean
-}
+  disabled: boolean;
+};
 /**
  * The state the `backdrop` slot of `dialog` hands `render` functions and
  * state-based class names.
@@ -411,12 +401,12 @@ type DialogTriggerState = {
  */
 type DialogBackdropState = {
   /** Whether the dialog is open. False while it animates out. */
-  open: boolean
+  open: boolean;
   /** Whether the dialog was opened from inside another dialog. */
-  nested: boolean
+  nested: boolean;
   /** Whether a dialog opened from inside this one is open. */
-  nestedOpen: boolean
-}
+  nestedOpen: boolean;
+};
 /**
  * The state the `content` slot of `dialog` hands `render` functions and
  * state-based class names.
@@ -424,25 +414,25 @@ type DialogBackdropState = {
  */
 type DialogContentState<Payload = unknown> = {
   /** Whether the dialog is open. False while it animates out. */
-  open: boolean
+  open: boolean;
   /** The `modal` setting. Always true for an alert dialog. */
-  modal: boolean | "trap-focus"
+  modal: boolean | "trap-focus";
   /** Whether the dialog was opened from inside another dialog. */
-  nested: boolean
+  nested: boolean;
   /** Whether a dialog opened from inside this one is open. */
-  nestedOpen: boolean
+  nestedOpen: boolean;
   /** How many dialogs are open above this one, nested inside it. */
-  stack: number
+  stack: number;
   /**
    * The payload of the last open, from the trigger that opened it or a
    * controller, typed as the controller's `Payload`.
    */
-  payload: Payload | undefined
+  payload: Payload | undefined;
   /** Whether a Close part's action is running. */
-  pending: boolean
+  pending: boolean;
   /** How it presents this time it's open. */
-  presentation: "dialog" | "sheet"
-}
+  presentation: "dialog" | "sheet";
+};
 /**
  * The state the `close` slot of `dialog` hands `render` functions and
  * state-based class names.
@@ -450,10 +440,10 @@ type DialogContentState<Payload = unknown> = {
  */
 type DialogCloseState = {
   /** Whether this part's action is running. */
-  pending: boolean
+  pending: boolean;
   /** Why this part's last action failed, until it's pressed again or the dialog opens again. */
-  error: unknown
-}
+  error: unknown;
+};
 /**
  * The state the `shortcut` slot of `dialog` hands `render` functions and
  * state-based class names.
@@ -461,20 +451,20 @@ type DialogCloseState = {
  */
 type DialogShortcutState = {
   /** The shortcut formatted for this platform: `⌘K` on Apple platforms and `Ctrl+K` elsewhere. Empty without one. */
-  text: string
-}
+  text: string;
+};
 /**
  * The state the `trigger` slot of `alertDialog` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type AlertDialogTriggerState = DialogTriggerState
+type AlertDialogTriggerState = DialogTriggerState;
 /**
  * The state the `backdrop` slot of `alertDialog` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type AlertDialogBackdropState = DialogBackdropState
+type AlertDialogBackdropState = DialogBackdropState;
 /**
  * The state the `content` slot of `alertDialog` hands `render` functions and
  * state-based class names.
@@ -485,36 +475,36 @@ type AlertDialogContentState<Payload = unknown> = Omit<
   "presentation"
 > & {
   /** Always `"dialog"`: an alert dialog never presents as a sheet. */
-  presentation: "dialog"
-}
+  presentation: "dialog";
+};
 /**
  * The state the `close` slot of `alertDialog` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type AlertDialogCloseState = DialogCloseState
+type AlertDialogCloseState = DialogCloseState;
 /**
  * The state the `shortcut` slot of `alertDialog` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type AlertDialogShortcutState = DialogShortcutState
+type AlertDialogShortcutState = DialogShortcutState;
 
 // A dialog's presentation, which an alert dialog and a drawer don't carry. A
 // refused dismissal nudges the sheet.
 const presentable = {
   rules() {
-    let sheet: Sheet | undefined
+    let sheet: Sheet | undefined;
     return {
       preset: dialogPreset,
       bind: () => ({ onSheet: (next: Sheet | undefined) => (sheet = next) }),
       onRefuse: () => sheet?.nudge(),
-    } satisfies DialogRules
+    } satisfies DialogRules;
   },
   slots: (slot: SlotFactory<DialogState, DialogApi>) => ({
     viewport: popupViewport(slot),
   }),
-}
+};
 
 const dialogPrimitive = /* @__PURE__ */ defineDialog<
   DialogOptions,
@@ -530,8 +520,8 @@ const dialogPrimitive = /* @__PURE__ */ defineDialog<
     presentation: "string",
     controller: "value",
   },
-  presentable
-)
+  presentable,
+);
 
 /**
  * The type of `dialog`.
@@ -546,7 +536,7 @@ interface DialogPrimitive extends Named<typeof dialogPrimitive> {}
  * primitive.
  * @stable
  */
-const dialog: DialogPrimitive = dialogPrimitive
+const dialog: DialogPrimitive = dialogPrimitive;
 
 export {
   type AlertDialogBackdropState,
@@ -589,12 +579,12 @@ export {
   type DialogShortcutState,
   type DialogTriggerProps,
   type DialogTriggerState,
-}
-export type { DialogApi } from "./dialog-api"
+};
+export type { DialogApi } from "./dialog-api";
 export {
   alertDialog,
   type AlertDialogPrimitive,
   confirm,
   createAlertDialogController,
   createConfirm,
-} from "./alert-dialog"
+} from "./alert-dialog";

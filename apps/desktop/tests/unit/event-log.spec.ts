@@ -73,7 +73,11 @@ test("a run is a few lines: start, each tool, end with totals; tokens are only c
   });
   const events: SessionDriverEvent[] = [
     { ...base, type: "sessionUpdated", snapshot: snapshot("running") },
-    ...Array.from({ length: 200 }, (): SessionDriverEvent => ({ ...base, type: "assistantDelta", text: "tok " })),
+    ...Array.from({ length: 200 }, (): SessionDriverEvent => ({
+      ...base,
+      type: "assistantDelta",
+      text: "tok ",
+    })),
     { ...base, type: "toolStarted", toolName: "bash", callId: "c1" },
     { ...base, type: "toolFinished", callId: "c1", success: false },
     { ...base, type: "runFailed", error: { message: "provider overloaded", code: "529" } },
@@ -81,7 +85,12 @@ test("a run is a few lines: start, each tool, end with totals; tokens are only c
   for (const event of events) recorder.record(event);
   const lines = await newLines();
   // 200 deltas write nothing; tool.start is a trace line, written only as context of the failure.
-  expect(lines.map((line) => line.k)).toEqual(["run.start", "tool.end", "tool.start", "run.failed"]);
+  expect(lines.map((line) => line.k)).toEqual([
+    "run.start",
+    "tool.end",
+    "tool.start",
+    "run.failed",
+  ]);
   expect(lines[2]).toMatchObject({ ctx: 1, tool: "bash" });
   const failed = lines.find((line) => line.k === "run.failed");
   expect(failed).toMatchObject({
@@ -96,5 +105,9 @@ test("a run is a few lines: start, each tool, end with totals; tokens are only c
     code: "529",
   });
   expect(lines.find((line) => line.k === "run.start")).toMatchObject({ model: "claude-opus-5-5" });
-  expect(lines.find((line) => line.k === "tool.end")).toMatchObject({ tool: "bash", ok: false, l: "w" });
+  expect(lines.find((line) => line.k === "tool.end")).toMatchObject({
+    tool: "bash",
+    ok: false,
+    l: "w",
+  });
 });

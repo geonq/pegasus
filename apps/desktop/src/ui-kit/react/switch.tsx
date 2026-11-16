@@ -2,19 +2,15 @@ import {
   switchPrimitive,
   type SwitchOptions,
   type SwitchState,
-} from "../core/components/switch/switch"
-import {
-  controlRender,
-  useFieldControl,
-  type ButtonControlProps,
-} from "./field-context"
-import { createParts, usePart } from "./use-primitive"
+} from "../core/components/switch/switch";
+import { controlRender, useFieldControl, type ButtonControlProps } from "./field-context";
+import { createParts, usePart } from "./use-primitive";
 
-const parts = createParts(switchPrimitive, { root: "button", thumb: "span" })
+const parts = createParts(switchPrimitive, { root: "button", thumb: "span" });
 
 // The hidden native input that takes part in the form.
 function SwitchInput() {
-  return usePart(switchPrimitive, "input", {}, {}, "input")
+  return usePart(switchPrimitive, "input", {}, {}, "input");
 }
 
 /**
@@ -27,7 +23,7 @@ function Switch({
   render,
   ...props
 }: SwitchOptions & ButtonControlProps<SwitchState>) {
-  const field = useFieldControl()
+  const field = useFieldControl();
   return (
     <parts.Root
       {...props}
@@ -35,16 +31,16 @@ function Switch({
       name={name ?? field?.name}
       render={controlRender(field, "button", render, <SwitchInput />)}
     />
-  )
+  );
 }
 
 /**
  * The thumb that slides along the switch as it turns on or off.
  * @stable
  */
-const SwitchThumb = parts.Thumb
+const SwitchThumb = parts.Thumb;
 
-export { createSwitchController } from "../core/components/switch/switch"
+export { createSwitchController } from "../core/components/switch/switch";
 export type {
   SwitchApi,
   SwitchCheckedChangeReason,
@@ -53,6 +49,6 @@ export type {
   SwitchPrimitive,
   SwitchState,
   SwitchThumbState,
-} from "../core/components/switch/switch"
+} from "../core/components/switch/switch";
 
-export { Switch, SwitchThumb }
+export { Switch, SwitchThumb };

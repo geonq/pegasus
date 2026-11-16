@@ -141,7 +141,8 @@ function electronCliArgs(entry?: string): string[] {
     args.push("--disable-frame-rate-limit", "--disable-backgrounding-occluded-windows");
   // Chromium's renderer sandbox cannot start under a restricted-token Windows sandbox
   // (every loadURL fails with ERR_FAILED); PI_APP_TEST_NO_SANDBOX=1 opts out there.
-  if (process.platform === "win32" && process.env.PI_APP_TEST_NO_SANDBOX === "1") args.push("--no-sandbox");
+  if (process.platform === "win32" && process.env.PI_APP_TEST_NO_SANDBOX === "1")
+    args.push("--no-sandbox");
   if (process.platform === "linux") {
     // A never-shown X11 window draws ~1.5 frames/s, which starves rAF-driven layout
     // and native wheel scrolling in background test mode.

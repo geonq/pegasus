@@ -3,14 +3,11 @@
 // primitive. State and the API live in select-api.ts, keys and pointer
 // presses in select-keyboard.ts, and parts and attributes in select-parts.ts,
 // on the listbox engine and the selection model Combobox shares.
-import { type AsyncOptionsStatus } from "../../foundation/lists/async-options"
-import { type Modal, type PopupResult } from "../../foundation/popups/popup"
-import { pointerModalAttribute } from "../../foundation/popups/modal-attribute"
-import {
-  type PortalProps,
-  type PositionProps,
-} from "../../foundation/platform/position"
-import type { PresentationSetting } from "../../foundation/popups/presentation"
+import { type AsyncOptionsStatus } from "../../foundation/lists/async-options";
+import { type Modal, type PopupResult } from "../../foundation/popups/popup";
+import { pointerModalAttribute } from "../../foundation/popups/modal-attribute";
+import { type PortalProps, type PositionProps } from "../../foundation/platform/position";
+import type { PresentationSetting } from "../../foundation/popups/presentation";
 import {
   filterAttribute,
   type ListData,
@@ -18,48 +15,36 @@ import {
   type ListFilter,
   type ListHighlightDetails,
   type ListStatusState,
-} from "../../foundation/lists/listbox"
-import {
-  type ItemIconProps,
-  type ItemIconState,
-} from "../../foundation/lists/item-icon"
+} from "../../foundation/lists/listbox";
+import { type ItemIconProps, type ItemIconState } from "../../foundation/lists/item-icon";
 import {
   type ListAnnouncement,
   type ListItemTextState,
-} from "../../foundation/lists/listbox-search"
-import { type ListSelectAllState } from "../../foundation/lists/listbox-select-all"
-import { createController } from "../../foundation/kernel/controller"
+} from "../../foundation/lists/listbox-search";
+import { type ListSelectAllState } from "../../foundation/lists/listbox-select-all";
+import { createController } from "../../foundation/kernel/controller";
 import type {
   ChangeDetails,
   ChangeOptions,
   DismissAttemptReason,
-} from "../../foundation/kernel/details"
-import { definePrimitive } from "../../foundation/kernel/primitive"
+} from "../../foundation/kernel/details";
+import { definePrimitive } from "../../foundation/kernel/primitive";
 import type {
   PrimitiveOptions,
   WithFeatures,
   WithGeneric,
-} from "../../foundation/kernel/primitive-types"
-import {
-  selectSlots,
-  type selectItemIcons,
-  type selectSelectAll,
-} from "./select-parts"
-import { initialSelectState, selectApi, syncSelectState } from "./select-api"
-import type { SelectGeneric } from "./select-generic"
-import { type DismissOptions } from "../../foundation/popups/dismissal"
+} from "../../foundation/kernel/primitive-types";
+import { selectSlots, type selectItemIcons, type selectSelectAll } from "./select-parts";
+import { initialSelectState, selectApi, syncSelectState } from "./select-api";
+import type { SelectGeneric } from "./select-generic";
+import { type DismissOptions } from "../../foundation/popups/dismissal";
 
 /**
  * Why a select's value wants to change.
  * @stable
  */
 type SelectValueChangeReason =
-  | "item-press"
-  | "list-navigation"
-  | "clear-press"
-  | "reset"
-  | "restore"
-  | "imperative"
+  "item-press" | "list-navigation" | "clear-press" | "reset" | "restore" | "imperative";
 
 /**
  * Why the text in a select's search field wants to change. Closing the list empties it, with the reason it closed.
@@ -76,7 +61,7 @@ type SelectQueryChangeReason =
   | "window-blur"
   | "back"
   | "swipe"
-  | "imperative"
+  | "imperative";
 
 /**
  * Why a select opened or closed.
@@ -92,46 +77,39 @@ type SelectOpenChangeReason =
   | "window-blur"
   | "back"
   | "swipe"
-  | "imperative"
+  | "imperative";
 
 /**
  * The dismissals `dismissible` refuses that `onDismissAttempt` hears about.
  * @stable
  */
-type SelectDismissReason = Extract<SelectOpenChangeReason, DismissAttemptReason>
+type SelectDismissReason = Extract<SelectOpenChangeReason, DismissAttemptReason>;
 
 /**
  * The value of a select: one item's value or `null`, or a list with `multiple`.
  * @stable
  */
-type SelectValue<
-  T = string,
-  Multiple extends boolean | undefined = false,
-> = Multiple extends true ? T[] : T | null
+type SelectValue<T = string, Multiple extends boolean | undefined = false> = Multiple extends true
+  ? T[]
+  : T | null;
 
 /**
  * Options for every write method on a select controller.
  * @stable
  */
-type SelectChangeOptions<Reason extends string> = ChangeOptions<Reason>
+type SelectChangeOptions<Reason extends string> = ChangeOptions<Reason>;
 
 /**
  * Opens, closes, reads and sets a select from outside it: a reset button, a
  * test, or a trigger outside the select. Pass it as the `controller` option.
  * @stable
  */
-function createSelectController<
-  T = string,
-  Multiple extends boolean | undefined = false,
->() {
+function createSelectController<T = string, Multiple extends boolean | undefined = false>() {
   return createController<{
     /** Whether the list is open. */
-    isOpen: () => boolean
+    isOpen: () => boolean;
     /** Opens or closes the list. Returns false when the change was canceled or it was already open or closed. */
-    setOpen: (
-      open: boolean,
-      options?: SelectChangeOptions<SelectOpenChangeReason>
-    ) => boolean
+    setOpen: (open: boolean, options?: SelectChangeOptions<SelectOpenChangeReason>) => boolean;
     /**
      * Opens the list, and resolves once it closes, with why and how. Resolves exactly once and never
      * rejects: on the next close from any source, when `signal` aborts, or with reason `"unmount"`
@@ -140,35 +118,32 @@ function createSelectController<
     open: (
       options?: SelectChangeOptions<SelectOpenChangeReason> & {
         /** Closes the list, with reason `"imperative"`, when it aborts. An already aborted signal never opens it. */
-        signal?: AbortSignal
-      }
-    ) => Promise<PopupResult<SelectOpenChangeReason, never>>
+        signal?: AbortSignal;
+      },
+    ) => Promise<PopupResult<SelectOpenChangeReason, never>>;
     /** Closes the list. Returns false when the close was canceled or it was already closed. */
-    close: (options?: SelectChangeOptions<SelectOpenChangeReason>) => boolean
+    close: (options?: SelectChangeOptions<SelectOpenChangeReason>) => boolean;
     /** Opens the list when it's closed, and closes it when it's open. Returns false when the change was canceled. */
-    toggle: (options?: SelectChangeOptions<SelectOpenChangeReason>) => boolean
+    toggle: (options?: SelectChangeOptions<SelectOpenChangeReason>) => boolean;
     /** The selected value. */
-    getValue: () => SelectValue<T, Multiple>
+    getValue: () => SelectValue<T, Multiple>;
     /**
      * Selects a value, as a user would. A disabled or read-only select ignores it. Returns false when
      * the change was canceled, ignored or the value was already selected.
      */
     setValue: (
       value: SelectValue<T, Multiple>,
-      options?: SelectChangeOptions<SelectValueChangeReason>
-    ) => boolean
+      options?: SelectChangeOptions<SelectValueChangeReason>,
+    ) => boolean;
     /** Selects nothing: `null`, or an empty list with `multiple`. Returns false when nothing changed. */
-    clear: (options?: SelectChangeOptions<SelectValueChangeReason>) => boolean
+    clear: (options?: SelectChangeOptions<SelectValueChangeReason>) => boolean;
     /** The text in the search field. */
-    getQuery: () => string
+    getQuery: () => string;
     /** Changes the text in the search field, which filters the list. Returns false when nothing changed. */
-    setQuery: (
-      query: string,
-      options?: SelectChangeOptions<SelectQueryChangeReason>
-    ) => boolean
+    setQuery: (query: string, options?: SelectChangeOptions<SelectQueryChangeReason>) => boolean;
     /** Moves focus to the trigger. */
-    focus: () => void
-  }>()
+    focus: () => void;
+  }>();
 }
 
 /**
@@ -176,10 +151,9 @@ function createSelectController<
  * option.
  * @stable
  */
-type SelectController<
-  T = string,
-  Multiple extends boolean | undefined = false,
-> = ReturnType<typeof createSelectController<T, Multiple>>
+type SelectController<T = string, Multiple extends boolean | undefined = false> = ReturnType<
+  typeof createSelectController<T, Multiple>
+>;
 
 /**
  * The options `select` takes. A component takes them as props on its root.
@@ -197,7 +171,7 @@ type SelectOptions<
     | SelectMultipleOptions<T, Multiple>
     | SelectSingleOptions<T, Multiple>
     | SelectEitherOptions<T, Multiple>
-  )
+  );
 
 /** The value options of a select that selects one item. `Multiple` true or `boolean` rules them out. */
 type SelectSingleOptions<T, Multiple> = {
@@ -205,39 +179,32 @@ type SelectSingleOptions<T, Multiple> = {
    * Whether several items can be selected. The value is then a list, and the list stays open as items toggle.
    * @defaultValue false
    */
-  multiple?: false
+  multiple?: false;
   /** The selected value. Pass it to control the select. `null` selects nothing. */
-  value?: T | null
+  value?: T | null;
   /** The value selected at first, when uncontrolled. A form reset returns to it. */
-  defaultValue?: T | null
+  defaultValue?: T | null;
   // TypeScript infers `T` from both sides of the union, so a multiple one's
   // state setter would make `T` a list here. `NoInfer` leaves `T` to the
   // value, the items and the multiple side's callback.
   /** Runs when a user, a form reset or a controller wants to change the value. `details.reason` says why, and `details.cancel()` stops it. */
   onValueChange?: (
     value: NoInfer<T> | null,
-    details: ChangeDetails<SelectValueChangeReason>
-  ) => void
-} & (boolean extends Multiple
-  ? never
-  : [Multiple] extends [true]
-    ? never
-    : unknown)
+    details: ChangeDetails<SelectValueChangeReason>,
+  ) => void;
+} & (boolean extends Multiple ? never : [Multiple] extends [true] ? never : unknown);
 
 /** The value options of a select that selects several items. `Multiple` `boolean` rules them out. */
 type SelectMultipleOptions<T, Multiple> = {
   /** Whether several items can be selected. The value is then a list, and the list stays open as items toggle. */
-  multiple: true
+  multiple: true;
   /** The selected values. Pass it to control the select. */
-  value?: T[]
+  value?: T[];
   /** The values selected at first, when uncontrolled. A form reset returns to them. */
-  defaultValue?: T[]
+  defaultValue?: T[];
   /** Runs when a user, a form reset or a controller wants to change the value. `details.reason` says why, and `details.cancel()` stops it. */
-  onValueChange?: (
-    value: T[],
-    details: ChangeDetails<SelectValueChangeReason>
-  ) => void
-} & (boolean extends Multiple ? never : unknown)
+  onValueChange?: (value: T[], details: ChangeDetails<SelectValueChangeReason>) => void;
+} & (boolean extends Multiple ? never : unknown);
 
 // Only when `Multiple` is `boolean`, like `<Select<string, boolean>>`, so
 // a `multiple` known only at run time takes a value of either shape.
@@ -247,105 +214,99 @@ type SelectEitherOptions<T, Multiple> = {
    * Whether several items can be selected.
    * @defaultValue false
    */
-  multiple?: boolean
+  multiple?: boolean;
   /** The selected value, or values with `multiple`. Pass it to control the select. */
-  value?: T | T[] | null
+  value?: T | T[] | null;
   /** The value or values selected at first, when uncontrolled. A form reset returns to it. */
-  defaultValue?: T | T[] | null
+  defaultValue?: T | T[] | null;
   /** Runs when a user, a form reset or a controller wants to change the value. `details.reason` says why, and `details.cancel()` stops it. */
   onValueChange?: (
     value: NoInfer<T> | NoInfer<T>[] | null,
-    details: ChangeDetails<SelectValueChangeReason>
-  ) => void
-} & (boolean extends Multiple ? unknown : never)
+    details: ChangeDetails<SelectValueChangeReason>,
+  ) => void;
+} & (boolean extends Multiple ? unknown : never);
 
 /** The options of a select that don't depend on `multiple`. */
 type SelectSharedOptions<T> = PortalProps & {
   /** Whether the list is open. Pass it to control it. */
-  open?: boolean
+  open?: boolean;
   /**
    * Whether the list starts open, when uncontrolled.
    * @defaultValue false
    */
-  defaultOpen?: boolean
+  defaultOpen?: boolean;
   /** Runs when the list wants to open or close. `details.reason` says why, and `details.cancel()` stops it. */
-  onOpenChange?: (
-    open: boolean,
-    details: ChangeDetails<SelectOpenChangeReason>
-  ) => void
+  onOpenChange?: (open: boolean, details: ChangeDetails<SelectOpenChangeReason>) => void;
   /** Runs once the list has finished opening or closing, after any animation. */
-  onOpenChangeComplete?: (open: boolean) => void
+  onOpenChangeComplete?: (open: boolean) => void;
   /** The items as data. Renders the list for you, and lets the trigger show labels and find items by typing before the list has ever opened. */
-  items?: ListData<T>
+  items?: ListData<T>;
   /** Items shown instead of `items` while the search field is empty, like recent choices. Groups work, like `{ type: "group", label: "Recent", items }`. Needs `items` and a `SelectInput`. */
-  emptyItems?: ListData<T>
+  emptyItems?: ListData<T>;
   /** The text in the search field, which filters the list. Pass it to control it. Closing the list empties it. */
-  query?: string
+  query?: string;
   /** The search field's text at first, when uncontrolled. */
-  defaultQuery?: string
+  defaultQuery?: string;
   /** Runs when the search field's text wants to change: typing, or closing the list, which empties it. */
-  onQueryChange?: (
-    query: string,
-    details: ChangeDetails<SelectQueryChangeReason>
-  ) => void
+  onQueryChange?: (query: string, details: ChangeDetails<SelectQueryChangeReason>) => void;
   /**
    * How a `SelectInput` narrows the list: `"contains"`, `"startsWith"`, a function of the item and the text, whose numeric result also sorts data items, or `false` to keep every item, for results a server already filtered.
    * @defaultValue "contains"
    */
-  filter?: ListFilter<T>
+  filter?: ListFilter<T>;
   /**
    * Whether results are loading or failed, for the status and empty parts. Sets `aria-busy` on the list while loading.
    * @defaultValue "idle"
    */
-  status?: AsyncOptionsStatus
+  status?: AsyncOptionsStatus;
   /** Runs when the highlight or scrolling reaches the last item, so the next page can load, like `createAsyncOptions`'s `loadMore`. Not again for the same items, unless the last load failed. */
-  onLoadMore?: () => void
+  onLoadMore?: () => void;
   /**
    * What screen readers hear after typing pauses in the search field, when no `SelectStatus` is rendered. Return null for nothing.
    * @defaultValue "3 results", "No results" or "Loading"
    */
-  announcement?: (change: ListAnnouncement) => string | null | undefined
+  announcement?: (change: ListAnnouncement) => string | null | undefined;
   /** What the value shows while nothing is selected. */
-  placeholder?: string
+  placeholder?: string;
   /** The string an item's value submits as and is identified by, for object values. Strings pass through, and objects use their `value` or `id`. */
-  itemToValue?: (value: T) => string
+  itemToValue?: (value: T) => string;
   /** The text a value shows in the trigger, for values whose item isn't rendered, like async results. */
-  itemToLabel?: (value: T) => string
+  itemToLabel?: (value: T) => string;
   /** Whether an item's value is the selected value, for object values that aren't the same object. */
-  isItemEqualToValue?: (itemValue: T, value: T) => boolean
+  isItemEqualToValue?: (itemValue: T, value: T) => boolean;
   /** Runs when the highlight moves, with the item's index among the visible items, so a virtualized list can scroll to it. */
-  onHighlight?: (value: T | null, details: ListHighlightDetails) => void
+  onHighlight?: (value: T | null, details: ListHighlightDetails) => void;
   /**
    * Whether arrow keys wrap from the last item to the first.
    * @defaultValue true
    */
-  loop?: boolean
+  loop?: boolean;
   /**
    * `"pointer"`: an outside press only closes the list. `true`: also locks scroll and makes the rest of the page inert. `false`: outside presses reach what they hit.
    * @defaultValue "pointer", or true while it presents as a sheet
    */
-  modal?: Extract<Modal, boolean | "pointer">
+  modal?: Extract<Modal, boolean | "pointer">;
   /**
    * How the list presents. `"sheet"` slides it up from the bottom of the screen, where it can be swiped away, and `"auto"` does that on small touch screens. Decided each time it opens; the server renders `"popover"` for `"auto"`.
    * @defaultValue "popover"
    */
-  presentation?: PresentationSetting<"popover">
+  presentation?: PresentationSetting<"popover">;
   /** Disables the select like a native one: it can't be focused or changed, and the value isn't submitted. */
-  disabled?: boolean
+  disabled?: boolean;
   /** Keeps the select focusable and its value submitted, but stops changes. */
-  readOnly?: boolean
+  readOnly?: boolean;
   /** Blocks form submission until a value is selected, with the browser's own message. */
-  required?: boolean
+  required?: boolean;
   /** The name the value submits under. Without one, the select submits nothing. */
-  name?: string
+  name?: string;
   /** The id of a form to belong to, when the select isn't inside that form. */
-  form?: string
+  form?: string;
   /** A hint for the browser's autofill, like `"country"`. */
-  autoComplete?: string
+  autoComplete?: string;
   /** Opens, closes, reads and sets the select from anywhere. Create one with `createSelectController()`. */
-  controller?: SelectController<any, any>
+  controller?: SelectController<any, any>;
 } & DismissOptions<SelectOpenChangeReason> &
-  PrimitiveOptions
+  PrimitiveOptions;
 
 /**
  * Props of the trigger, in every framework.
@@ -356,10 +317,10 @@ type SelectTriggerProps = {
    * Stops the trigger from opening the list. A native button can't be focused or pressed.
    * @defaultValue false
    */
-  disabled?: boolean
+  disabled?: boolean;
   /** Connects a trigger outside the select to the select with this controller. */
-  controller?: SelectController<any, any>
-}
+  controller?: SelectController<any, any>;
+};
 
 /**
  * Props of the value, in every framework.
@@ -367,15 +328,15 @@ type SelectTriggerProps = {
  */
 type SelectValueProps = {
   /** What shows while nothing is selected. Overrides the select's `placeholder`. */
-  placeholder?: string
+  placeholder?: string;
   /** With `multiple`, how many labels show before the rest are counted, as in "Apple, Banana and 2 more", joined the way the page's language joins lists. */
-  maxLabels?: number
+  maxLabels?: number;
   /**
    * The words for the labels past `maxLabels`.
    * @defaultValue (count) => `${count} more`
    */
-  getMoreLabel?: (count: number) => string
-}
+  getMoreLabel?: (count: number) => string;
+};
 
 /**
  * Props of the content, in every framework.
@@ -387,33 +348,33 @@ type SelectContentProps = PositionProps &
      * Which side of the trigger the list opens on.
      * @defaultValue "bottom"
      */
-    side?: PositionProps["side"]
+    side?: PositionProps["side"];
     /**
      * How the list lines up with the trigger along that side.
      * @defaultValue "start"
      */
-    align?: PositionProps["align"]
+    align?: PositionProps["align"];
     /**
      * Gap between the trigger and the list, in pixels.
      * @defaultValue 4
      */
-    sideOffset?: number
+    sideOffset?: number;
     /**
      * Shift along the trigger, in pixels.
      * @defaultValue 0
      */
-    alignOffset?: number
+    alignOffset?: number;
     /**
      * Whether the list overlaps the trigger so the selected item sits on it, like a native select on macOS. Falls back to opening below when there isn't room, and for touch.
      * @defaultValue false
      */
-    alignItemWithTrigger?: boolean
+    alignItemWithTrigger?: boolean;
     /**
      * Whether the list stays in the page, hidden, while closed. For animation libraries that drive the exit from state.
      * @defaultValue false
      */
-    keepMounted?: boolean
-  }
+    keepMounted?: boolean;
+  };
 
 /**
  * Props of an item, in every framework.
@@ -421,14 +382,14 @@ type SelectContentProps = PositionProps &
  */
 type SelectItemProps<T = string> = {
   /** The text the trigger shows and typing finds, when the content isn't plain text. Not the accessible name: use `aria-label` for that. */
-  label?: string
+  label?: string;
   /** Keeps the item from being chosen. The keyboard and the pointer skip it. Sets `data-disabled` and `aria-disabled`. */
-  disabled?: boolean
+  disabled?: boolean;
   /** The item's position among all items, for virtualized lists that render only some. Sets `aria-posinset` and `aria-setsize`. */
-  index?: number
+  index?: number;
   /** What the value becomes when the item is chosen. A string, or any value with `itemToValue`. */
-  value: T
-}
+  value: T;
+};
 
 /**
  * Props of the check inside an item, in every framework.
@@ -439,8 +400,8 @@ type SelectItemIndicatorProps = {
    * Whether the indicator stays in the page while its item isn't selected, so it can be styled or animated in both states.
    * @defaultValue false
    */
-  keepMounted?: boolean
-}
+  keepMounted?: boolean;
+};
 
 /**
  * Props of the clear button, in every framework.
@@ -451,8 +412,8 @@ type SelectClearProps = {
    * Whether the clear button stays in the page while nothing is selected.
    * @defaultValue false
    */
-  keepMounted?: boolean
-}
+  keepMounted?: boolean;
+};
 
 /**
  * The state the `trigger` slot of `select` hands `render` functions and
@@ -461,16 +422,16 @@ type SelectClearProps = {
  */
 type SelectTriggerState = {
   /** Whether the list is open. */
-  open: boolean
+  open: boolean;
   /** Whether the select is disabled, by itself or by a `<fieldset>`. */
-  disabled: boolean
+  disabled: boolean;
   /** Whether the select keeps its value but refuses changes, from its `readOnly` option. Sets `aria-readonly`. */
-  readOnly: boolean
+  readOnly: boolean;
   /** Whether a value must be selected before the form submits, from its `required` option. Sets `aria-required`. */
-  required: boolean
+  required: boolean;
   /** Whether nothing is selected, so the placeholder shows. */
-  placeholder: boolean
-}
+  placeholder: boolean;
+};
 /**
  * The state the `value` slot of `select` hands `render` functions and
  * state-based class names.
@@ -478,14 +439,14 @@ type SelectTriggerState = {
  */
 type SelectValueState = {
   /** The selected value: one, `null`, or a list with `multiple`. */
-  value: unknown
+  value: unknown;
   /** The selected item's label, the labels joined with commas for several, or with `maxLabels`, as a list in the page's language, like "Apple, Banana and 2 more". An empty string for none. */
-  label: string
+  label: string;
   /** Each selected item's label, in the order they were selected. */
-  labels: string[]
+  labels: string[];
   /** Whether nothing is selected, so the placeholder shows. */
-  placeholder: boolean
-}
+  placeholder: boolean;
+};
 /**
  * The state the `content` slot of `select` hands `render` functions and
  * state-based class names.
@@ -493,19 +454,19 @@ type SelectValueState = {
  */
 type SelectContentState = {
   /** Whether the list is open. False while it animates out. */
-  open: boolean
+  open: boolean;
   /** How it presents this time it's open. */
-  presentation: "popover" | "sheet"
+  presentation: "popover" | "sheet";
   /**
    * Whether several items can be selected.
    * @defaultValue false
    */
-  multiple?: boolean
+  multiple?: boolean;
   /** The data items that match the search, for rendering a virtualized list yourself. */
-  items: ListData<unknown>
+  items: ListData<unknown>;
   /** Whether results are loading or failed. */
-  status: AsyncOptionsStatus
-}
+  status: AsyncOptionsStatus;
+};
 /**
  * The state the `item` slot of `select` hands `render` functions and
  * state-based class names.
@@ -513,12 +474,12 @@ type SelectContentState = {
  */
 type SelectItemState = {
   /** Whether the item has keyboard focus or is under the pointer. */
-  highlighted: boolean
+  highlighted: boolean;
   /** Whether its value is in the select's value, compared with `isItemEqualToValue` when you pass one. */
-  selected: boolean
+  selected: boolean;
   /** Whether the item's own `disabled` prop is set. It can't be highlighted or chosen. */
-  disabled: boolean
-}
+  disabled: boolean;
+};
 /**
  * The state the `input` slot of `select` hands `render` functions and
  * state-based class names.
@@ -526,45 +487,45 @@ type SelectItemState = {
  */
 type SelectInputState = {
   /** Whether the list is open. */
-  open: boolean
+  open: boolean;
   /** Whether the select is disabled, by itself or by a `<fieldset>`. A read-only select's search field stays enabled. */
-  disabled: boolean
-}
+  disabled: boolean;
+};
 /**
  * The state the `empty` slot of `select` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type SelectEmptyState = ListEmptyState
+type SelectEmptyState = ListEmptyState;
 /**
  * The state the `status` slot of `select` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type SelectStatusState = ListStatusState
+type SelectStatusState = ListStatusState;
 /**
  * The state the `item-text` slot of `select` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type SelectItemTextState = ListItemTextState
+type SelectItemTextState = ListItemTextState;
 /**
  * The props the `item-icon` slot of `select` takes.
  * @stable
  */
-type SelectItemIconProps = ItemIconProps
+type SelectItemIconProps = ItemIconProps;
 /**
  * The state the `item-icon` slot of `select` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type SelectItemIconState = ItemIconState
+type SelectItemIconState = ItemIconState;
 /**
  * The state the `select-all` slot of `select` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type SelectSelectAllState = ListSelectAllState
+type SelectSelectAllState = ListSelectAllState;
 /**
  * The state the `item-indicator` slot of `select` hands `render` functions and
  * state-based class names.
@@ -572,8 +533,8 @@ type SelectSelectAllState = ListSelectAllState
  */
 type SelectItemIndicatorState = {
   /** Whether its item is selected. While false, the indicator isn't shown unless `keepMounted` is set. */
-  selected: boolean
-}
+  selected: boolean;
+};
 /**
  * The state the `clear` slot of `select` hands `render` functions and
  * state-based class names.
@@ -581,8 +542,8 @@ type SelectItemIndicatorState = {
  */
 type SelectClearState = {
   /** Whether the select is disabled or read-only, so there's nothing it can clear. */
-  disabled: boolean
-}
+  disabled: boolean;
+};
 /**
  * The state the `arrow` slot of `select` hands `render` functions and
  * state-based class names.
@@ -590,8 +551,8 @@ type SelectClearState = {
  */
 type SelectArrowState = {
   /** Whether the list is open. */
-  open: boolean
-}
+  open: boolean;
+};
 
 const selectPrimitive = /* @__PURE__ */ definePrimitive({
   name: "select",
@@ -639,17 +600,14 @@ const selectPrimitive = /* @__PURE__ */ definePrimitive({
   api: selectApi,
   // An arrow function, so TypeScript infers the slot names before it checks the parts.
   slots: (slot) => selectSlots(slot),
-})
+});
 
 /**
  * The type of `select`.
  * @stable
  */
 interface SelectPrimitive extends WithGeneric<
-  WithFeatures<
-    typeof selectPrimitive,
-    typeof selectSelectAll | typeof selectItemIcons
-  >,
+  WithFeatures<typeof selectPrimitive, typeof selectSelectAll | typeof selectItemIcons>,
   SelectGeneric
 > {}
 
@@ -662,7 +620,7 @@ interface SelectPrimitive extends WithGeneric<
  * Its types list the slots of the features its parts register, too.
  * @stable
  */
-const select = selectPrimitive as SelectPrimitive
+const select = selectPrimitive as SelectPrimitive;
 
 export {
   createSelectController,
@@ -696,7 +654,7 @@ export {
   type SelectValueChangeReason,
   type SelectValueProps,
   type SelectValueState,
-}
+};
 export type {
   ListData,
   ListFilter,
@@ -704,7 +662,7 @@ export type {
   ListHighlightDetails,
   ListItem,
   ListSeparator,
-} from "../../foundation/lists/listbox"
-export type { ListAnnouncement } from "../../foundation/lists/listbox-search"
-export type { MatchSegment } from "../../foundation/text/match"
-export type { SelectApi } from "./select-api"
+} from "../../foundation/lists/listbox";
+export type { ListAnnouncement } from "../../foundation/lists/listbox-search";
+export type { MatchSegment } from "../../foundation/text/match";
+export type { SelectApi } from "./select-api";

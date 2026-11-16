@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import type { TranscriptMessage } from "../../contracts/desktop-state";
-import { CHILD_START_STALL_MS, childHasRun, idleChildStatus } from "../../electron/orchestration/app-store-orchestration";
+import {
+  CHILD_START_STALL_MS,
+  childHasRun,
+  idleChildStatus,
+} from "../../electron/orchestration/app-store-orchestration";
 
 const noTranscript = () => [] as readonly TranscriptMessage[];
 
@@ -62,7 +66,9 @@ test("a child that never started a run stops counting as working once it has sta
   const created = "2026-11-13T10:00:00.000Z";
   const start = Date.parse(created);
   expect(idleChildStatus([], noTranscript, created, start + 60_000)).toBe("queued");
-  expect(idleChildStatus([], noTranscript, created, start + CHILD_START_STALL_MS + 1)).toBe("failed");
+  expect(idleChildStatus([], noTranscript, created, start + CHILD_START_STALL_MS + 1)).toBe(
+    "failed",
+  );
   // A child that ran is complete however old it is, and an unknown age keeps it queued.
   expect(
     idleChildStatus(

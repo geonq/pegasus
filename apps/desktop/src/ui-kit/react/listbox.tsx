@@ -5,18 +5,12 @@ import {
   type ListboxItemState,
   type ListboxOptions,
   type ListboxState,
-} from "../core/components/listbox/listbox-root"
-import * as React from "react"
-import { controlRender, useFieldControl } from "./field-context"
-import {
-  createParts,
-  useHandle,
-  usePart,
-  usePrimitive,
-  type PartProps,
-} from "./use-primitive"
-import { FormInputs } from "./form-inputs"
-import { ListItems, type ListParts } from "./list-items"
+} from "../core/components/listbox/listbox-root";
+import * as React from "react";
+import { controlRender, useFieldControl } from "./field-context";
+import { createParts, useHandle, usePart, usePrimitive, type PartProps } from "./use-primitive";
+import { FormInputs } from "./form-inputs";
+import { ListItems, type ListParts } from "./list-items";
 
 const parts = createParts(listboxPrimitive, {
   item: "div",
@@ -25,24 +19,24 @@ const parts = createParts(listboxPrimitive, {
   group: "div",
   "group-label": "div",
   separator: "div",
-})
+});
 
 function useListbox() {
-  return useHandle(listboxPrimitive)
+  return useHandle(listboxPrimitive);
 }
 
 // Element props that mean something else on a listbox part.
-type Clashing = "value" | "defaultValue" | "onChange" | "onSelect"
+type Clashing = "value" | "defaultValue" | "onChange" | "onSelect";
 
 /**
  * The props of `Listbox`.
  * @stable
  */
-type ListboxProps<
-  T = string,
-  Multiple extends boolean | undefined = false,
-> = Omit<PartProps<"div", ListboxState>, Clashing | keyof ListboxOptions> &
-  ListboxOptions<T, Multiple> & {}
+type ListboxProps<T = string, Multiple extends boolean | undefined = false> = Omit<
+  PartProps<"div", ListboxState>,
+  Clashing | keyof ListboxOptions
+> &
+  ListboxOptions<T, Multiple> & {};
 
 /**
  * An always-visible list to choose one option from, or several.
@@ -75,7 +69,7 @@ function Listbox<T = string, Multiple extends boolean | undefined = false>({
   children,
   ...props
 }: ListboxProps<T, Multiple>) {
-  const field = useFieldControl(props)
+  const field = useFieldControl(props);
   const listbox = usePrimitive(listboxPrimitive, {
     value,
     defaultValue,
@@ -97,25 +91,25 @@ function Listbox<T = string, Multiple extends boolean | undefined = false>({
     debug,
     name: name ?? field?.name,
     disabled: disabled || field?.disabled,
-  } as ListboxOptions<any, any>)
+  } as ListboxOptions<any, any>);
   // Without children, a data listbox renders its items.
   const content = (state: ListboxState) =>
     typeof children === "function"
       ? children(state)
-      : (children ?? (items && <ListboxItems items={state.items} />))
+      : (children ?? (items && <ListboxItems items={state.items} />));
   // The props left once the options are taken out, which TypeScript can't see for every `Multiple`.
-  const element = props as PartProps<"div", ListboxState>
+  const element = props as PartProps<"div", ListboxState>;
   const root = {
     ...element,
     children: content,
     render: controlRender(field, "div", render),
-  }
+  };
   return (
     <>
       {usePart(listbox, "root", {}, root)}
       <FormInputs handle={listbox} />
     </>
-  )
+  );
 }
 
 /**
@@ -123,53 +117,46 @@ function Listbox<T = string, Multiple extends boolean | undefined = false>({
  * @stable
  */
 const ListboxItem = parts.Item as <T = string>(
-  props: Omit<PartProps<"div", ListboxItemState>, Clashing> &
-    ListboxItemProps<T>
-) => React.ReactNode
+  props: Omit<PartProps<"div", ListboxItemState>, Clashing> & ListboxItemProps<T>,
+) => React.ReactNode;
 
 /**
  * The check inside a selected item. Rendered while it's selected, or always with `keepMounted`.
  * @stable
  */
-const ListboxItemIndicator = parts.ItemIndicator
+const ListboxItemIndicator = parts.ItemIndicator;
 
 /**
  * An icon inside an item. Screen readers and typeahead skip it, and `mirror` flips it in right-to-left text.
  * @stable
  */
-const ListboxItemIcon = parts.ItemIcon
+const ListboxItemIcon = parts.ItemIcon;
 
 /**
  * A group of items, named by its `ListboxGroupLabel`.
  * @stable
  */
-const ListboxGroup = parts.Group
+const ListboxGroup = parts.Group;
 
 /**
  * The group's heading, which names the group.
  * @stable
  */
-const ListboxGroupLabel = parts.GroupLabel
+const ListboxGroupLabel = parts.GroupLabel;
 
 /**
  * A line between items or groups, hidden from screen readers.
  * @stable
  */
-const ListboxSeparator = parts.Separator
+const ListboxSeparator = parts.Separator;
 
 /**
  * Renders data items. Used by data listboxes, and available for custom layouts.
  * @stable
  */
 function ListboxItems({ items }: { items: ListData<unknown> }) {
-  const listbox = useListbox()
-  return (
-    <ListItems
-      items={items}
-      parts={listParts}
-      keyOf={listbox.api.internal.keyOf}
-    />
-  )
+  const listbox = useListbox();
+  return <ListItems items={items} parts={listParts} keyOf={listbox.api.internal.keyOf} />;
 }
 
 const listParts: ListParts = {
@@ -177,9 +164,9 @@ const listParts: ListParts = {
   Group: ListboxGroup,
   GroupLabel: ListboxGroupLabel,
   Separator: ListboxSeparator,
-}
+};
 
-export { createListboxController } from "../core/components/listbox/listbox-root"
+export { createListboxController } from "../core/components/listbox/listbox-root";
 export type {
   ListData,
   ListGroup,
@@ -200,7 +187,7 @@ export type {
   ListboxState,
   ListboxValue,
   ListboxValueChangeReason,
-} from "../core/components/listbox/listbox-root"
+} from "../core/components/listbox/listbox-root";
 
 export {
   Listbox,
@@ -212,4 +199,4 @@ export {
   ListboxItems,
   type ListboxProps,
   ListboxSeparator,
-}
+};

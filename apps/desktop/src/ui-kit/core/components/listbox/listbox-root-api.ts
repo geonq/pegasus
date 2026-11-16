@@ -1,67 +1,64 @@
 // Listbox's state and API: the value and its form, the option that holds the
 // tab stop, and the ways a selection changes: choosing one, toggling one,
 // replacing the selection, Shift ranges and selecting everything.
-import { createClaim } from "../../foundation/focus/roving-focus"
-import { dispatchChange, formInternals } from "../../foundation/forms/form"
-import { createItemIcons } from "../../foundation/lists/item-icon"
+import { createClaim } from "../../foundation/focus/roving-focus";
+import { dispatchChange, formInternals } from "../../foundation/forms/form";
+import { createItemIcons } from "../../foundation/lists/item-icon";
 import {
   createListboxEngine,
   itemKey,
   revealInList,
   type ListData,
   type ListFiltering,
-} from "../../foundation/lists/listbox-engine"
-import { isDisabled } from "../../foundation/lists/listbox-parts"
-import { isSameKeys } from "../../foundation/selection/listbox-range"
-import { createKeySelection } from "../../foundation/selection/selection-model"
-import { createListboxKeyboard } from "./listbox-root-keyboard"
+} from "../../foundation/lists/listbox-engine";
+import { isDisabled } from "../../foundation/lists/listbox-parts";
+import { isSameKeys } from "../../foundation/selection/listbox-range";
+import { createKeySelection } from "../../foundation/selection/selection-model";
+import { createListboxKeyboard } from "./listbox-root-keyboard";
 import type {
   ListboxChangeOptions,
   ListboxOptions,
   ListboxValueChangeReason,
-} from "./listbox-root"
-import type { PrimitiveContext } from "../../foundation/kernel/primitive-types"
-import { createValueSelection } from "../../foundation/lists/listbox-value"
-import { orientationOf } from "../../foundation/focus/collection"
-import { createChange } from "../../foundation/kernel/input-source"
+} from "./listbox-root";
+import type { PrimitiveContext } from "../../foundation/kernel/primitive-types";
+import { createValueSelection } from "../../foundation/lists/listbox-value";
+import { orientationOf } from "../../foundation/focus/collection";
+import { createChange } from "../../foundation/kernel/input-source";
 
 type ListboxStore = {
-  value: unknown
+  value: unknown;
   // What a form reset returns to.
-  initial: unknown
+  initial: unknown;
   // The option that has focus. Live, so moving it renders nothing.
-  highlighted: string | null
+  highlighted: string | null;
   // The option that holds the list's one tab stop, once the options have bound.
-  stop: string | null
-  multiple: boolean
-  activation: "automatic" | "manual"
-  deselectable: boolean
-  orientation: "horizontal" | "vertical"
-  keepInView: boolean
-  disabled: boolean
-  formDisabled: boolean
-  readOnly: boolean
-  required: boolean
-  name: string | undefined
-  form: string | undefined
-  items: ListData<unknown> | undefined
+  stop: string | null;
+  multiple: boolean;
+  activation: "automatic" | "manual";
+  deselectable: boolean;
+  orientation: "horizontal" | "vertical";
+  keepInView: boolean;
+  disabled: boolean;
+  formDisabled: boolean;
+  readOnly: boolean;
+  required: boolean;
+  name: string | undefined;
+  form: string | undefined;
+  items: ListData<unknown> | undefined;
   // Counts labels learned from items. The selection model keeps it.
-  labels: number
+  labels: number;
   // Counts icons learned from items.
-  icons: number
+  icons: number;
   // The groups whose label is in the page, so only those are named by it.
-  groupLabels: readonly string[]
-}
+  groupLabels: readonly string[];
+};
 
-type Change = { reason: ListboxValueChangeReason; event?: Event }
+type Change = { reason: ListboxValueChangeReason; event?: Event };
 
 function initialListboxStore(options: ListboxOptions<any, any>): ListboxStore {
-  const empty = () => (options.multiple ? [] : null)
+  const empty = () => (options.multiple ? [] : null);
   return {
-    value:
-      options.value !== undefined
-        ? options.value
-        : (options.defaultValue ?? empty()),
+    value: options.value !== undefined ? options.value : (options.defaultValue ?? empty()),
     initial: options.defaultValue ?? empty(),
     highlighted: null,
     stop: null,
@@ -70,15 +67,14 @@ function initialListboxStore(options: ListboxOptions<any, any>): ListboxStore {
     formDisabled: false,
     groupLabels: [],
     ...syncListboxStore(options),
-  }
+  };
 }
 
 function syncListboxStore(options: ListboxOptions<any, any>) {
   return {
     multiple: !!options.multiple,
     // The APG's models: selection follows focus in a single list, and waits for Space with several.
-    activation:
-      options.activation ?? (options.multiple ? "manual" : "automatic"),
+    activation: options.activation ?? (options.multiple ? "manual" : "automatic"),
     deselectable: !!options.deselectable,
     orientation: orientationOf(options.orientation, "vertical"),
     keepInView: options.keepInView ?? true,
@@ -89,35 +85,31 @@ function syncListboxStore(options: ListboxOptions<any, any>) {
     form: options.form,
     items: options.items,
     // Like a native select's default, changing it changes what a reset returns to.
-    ...(options.defaultValue === undefined
-      ? {}
-      : { initial: options.defaultValue }),
+    ...(options.defaultValue === undefined ? {} : { initial: options.defaultValue }),
     ...(options.value === undefined ? {} : { value: options.value }),
-  } satisfies Partial<ListboxStore>
+  } satisfies Partial<ListboxStore>;
 }
 
 /** For a list nobody types into, like Listbox: every item shows. */
-const noFiltering: ListFiltering = { data: (data) => data, matches: () => true }
+const noFiltering: ListFiltering = { data: (data) => data, matches: () => true };
 
-function listboxApiBody(
-  context: PrimitiveContext<ListboxOptions<any, any>, ListboxStore, string>
-) {
-  const { id, store, options, element } = context
-  const change = createChange(context)
-  const toKey = (value: unknown) => itemKey(value, options().itemToValue)
-  const rootElement = () => element("root")
+function listboxApiBody(context: PrimitiveContext<ListboxOptions<any, any>, ListboxStore, string>) {
+  const { id, store, options, element } = context;
+  const change = createChange(context);
+  const toKey = (value: unknown) => itemKey(value, options().itemToValue);
+  const rootElement = () => element("root");
 
   // Whether focus is in the list. It stays true while a focused option leaves
   // the page, so focus can come back to the list.
-  let focusInside = false
+  let focusInside = false;
   // The option focused last, which keeps the tab stop while it's in the list.
-  let remembered: string | null = null
+  let remembered: string | null = null;
   // The keys the list last asked for, so a controlled value coming back is
   // known as the list's own change, which keeps the anchor.
-  let requested: string[] | null = null
-  let checkQueued = false
+  let requested: string[] | null = null;
+  let checkQueued = false;
   // Whether the selected option has been scrolled into view, once.
-  let revealed = false
+  let revealed = false;
 
   // Nobody types into a listbox, so it ships no filtering.
   const listbox = createListboxEngine(
@@ -134,140 +126,132 @@ function listboxApiBody(
       container: rootElement,
       keepInView: () => store.get().keepInView,
       onHighlight: (key, index, event) =>
-        options().onHighlight?.(
-          key === null ? null : (listbox.valueOf(key) ?? null),
-          { index, event }
-        ),
+        options().onHighlight?.(key === null ? null : (listbox.valueOf(key) ?? null), {
+          index,
+          event,
+        }),
       onRegister: () => queueCheck(),
     },
-    noFiltering
-  )
+    noFiltering,
+  );
   const selection = createValueSelection({
     store,
     options,
     listbox,
     toKey,
     onDestroy: context.onDestroy,
-  })
-  const icons = createItemIcons(store)
+  });
+  const icons = createItemIcons(store);
 
-  const order = () => listbox.entries().map((entry) => entry.key)
+  const order = () => listbox.entries().map((entry) => entry.key);
   const selectable = (key: string) => {
-    const entry = listbox.find(key)
-    return !!entry && !listbox.disabled(entry)
-  }
+    const entry = listbox.find(key);
+    return !!entry && !listbox.disabled(entry);
+  };
 
   // The option that holds the tab stop: the one focused last, the first
   // selected, the first enabled, or the first, as the APG's listbox asks. A
   // disabled selected option doesn't hold it, since keys skip disabled ones.
   function stopKey() {
-    const list = listbox.entries()
+    const list = listbox.entries();
     if (remembered !== null && list.some((entry) => entry.key === remembered)) {
-      return remembered
+      return remembered;
     }
     // An option whose value changed while it had focus fires no focus event,
     // so it's found by its element.
-    const active =
-      remembered === null ? null : rootElement()?.ownerDocument.activeElement
-    const held =
-      active && list.find((entry) => element("item", entry.key) === active)
+    const active = remembered === null ? null : rootElement()?.ownerDocument.activeElement;
+    const held = active && list.find((entry) => element("item", entry.key) === active);
     if (held) {
       if (store.get().highlighted === remembered) {
-        store.set({ highlighted: held.key })
+        store.set({ highlighted: held.key });
       }
-      return (remembered = held.key)
+      return (remembered = held.key);
     }
-    const enabled = list.filter((entry) => !entry.disabled)
-    const selected = enabled.find((entry) =>
-      selection.isSelected(entry.key, entry.value)
-    )
-    return (selected ?? enabled[0] ?? list[0])?.key ?? null
+    const enabled = list.filter((entry) => !entry.disabled);
+    const selected = enabled.find((entry) => selection.isSelected(entry.key, entry.value));
+    return (selected ?? enabled[0] ?? list[0])?.key ?? null;
   }
 
   function check() {
-    checkQueued = false
-    const stop = stopKey()
+    checkQueued = false;
+    const stop = stopKey();
     if (stop !== store.get().stop) {
-      store.set({ stop })
+      store.set({ stop });
     }
     if (!revealed) {
-      revealed = revealSelected(stop)
+      revealed = revealSelected(stop);
     }
   }
 
   // Once the options are in place, the selected one scrolls into view without
   // taking focus, like in a native list. Returns whether they were.
   function revealSelected(key: string | null) {
-    const el = key === null ? undefined : listbox.element(key)
-    const root = rootElement()
+    const el = key === null ? undefined : listbox.element(key);
+    const root = rootElement();
     if (!el?.isConnected || !root) {
-      return false
+      return false;
     }
     if (selection.keys().length && store.get().keepInView) {
-      revealInList(el, root)
+      revealInList(el, root);
     }
-    return true
+    return true;
   }
 
   // Batched, since a long list registers all at once.
   function queueCheck() {
     if (checkQueued) {
-      return
+      return;
     }
-    checkQueued = true
-    queueMicrotask(check)
+    checkQueued = true;
+    queueMicrotask(check);
   }
 
   // The element that takes part in the form: the custom element, or the hidden input.
   const formElement = () => {
-    const root = rootElement()
-    return formInternals(root) ? root : element("form-input")
-  }
+    const root = rootElement();
+    return formInternals(root) ? root : element("form-input");
+  };
 
   function setValue(value: unknown, { reason, event }: Change) {
-    const state = store.get()
+    const state = store.get();
     if (isDisabled(state) || (state.readOnly && reason !== "reset")) {
-      return false
+      return false;
     }
-    selection.stopRestoring()
-    const done = change("value", value, { reason, event })
+    selection.stopRestoring();
+    const done = change("value", value, { reason, event });
     if (done && reason !== "reset" && reason !== "restore") {
-      dispatchChange(formElement())
+      dispatchChange(formElement());
     }
-    return done
+    return done;
   }
 
   // Selects these keys, keeping the values already selected as they are, so object values keep their identity.
   function setKeys(keys: string[], why: Change) {
-    const current = new Map(
-      selection.keys().map((key, index) => [key, selection.values()[index]])
-    )
-    const value = keys.map((key) =>
-      current.has(key) ? current.get(key) : listbox.valueOf(key)
-    )
-    requested = keys
-    const done = setValue(value, why)
+    const current = new Map(selection.keys().map((key, index) => [key, selection.values()[index]]));
+    const value = keys.map((key) => (current.has(key) ? current.get(key) : listbox.valueOf(key)));
+    requested = keys;
+    const done = setValue(value, why);
     // A refused change, like on a read-only list, has nothing to recognize later.
     if (!done) {
-      requested = null
+      requested = null;
     }
-    return done
+    return done;
   }
 
   // Chooses an option of a single listbox. Choosing the selected one again
   // keeps it, or unselects it with `deselectable`.
   function choose(key: string, why: Change) {
-    const entry = listbox.find(key)
+    const entry = listbox.find(key);
     if (!entry || listbox.disabled(entry)) {
-      return
+      return;
     }
     if (selection.isSelected(key, entry.value)) {
       if (store.get().deselectable && why.reason === "item-press") {
-        setValue(null, why)
+        setValue(null, why);
       }
-      return
+      return;
     }
-    setValue(entry.value, why)
+    setValue(entry.value, why);
   }
 
   // Toggling, replacing, Shift ranges from the anchor and select all, on keys.
@@ -276,31 +260,31 @@ function listboxApiBody(
     set: setKeys,
     order,
     selectable,
-  })
-  const { toggle, replace, extend } = keySelection
+  });
+  const { toggle, replace, extend } = keySelection;
 
   function toggleAll(why: Change) {
     if (store.get().multiple) {
-      keySelection.toggleAll(why)
+      keySelection.toggleAll(why);
     }
   }
 
   // Focus landed on an option, from a key, a press or Tab.
   function focused(key: string) {
-    focusInside = true
-    remembered = key
-    store.set({ highlighted: key, stop: key })
+    focusInside = true;
+    remembered = key;
+    store.set({ highlighted: key, stop: key });
   }
 
   // The list itself got focus, like from a press on its padding, a Field
   // label, or an option that left the page. It hands focus to the tab stop.
   function focusStop() {
-    focusInside = true
-    const { stop } = store.get()
-    const key = stop ?? stopKey()
-    const el = key === null ? undefined : listbox.element(key)
+    focusInside = true;
+    const { stop } = store.get();
+    const key = stop ?? stopKey();
+    const el = key === null ? undefined : listbox.element(key);
     if (el?.isConnected) {
-      el.focus({ preventScroll: true })
+      el.focus({ preventScroll: true });
     }
   }
 
@@ -308,20 +292,18 @@ function listboxApiBody(
   // takes focus with it, which isn't leaving: the engine gives focus back once
   // it sees the move, so this waits until after that.
   function blurred(event: FocusEvent) {
-    const target = event.target as Node
+    const target = event.target as Node;
     const settle = () => {
       if (!target.isConnected) {
-        return
+        return;
       }
-      if (
-        rootElement()?.contains(target.ownerDocument?.activeElement ?? null)
-      ) {
-        return
+      if (rootElement()?.contains(target.ownerDocument?.activeElement ?? null)) {
+        return;
       }
-      focusInside = false
-      store.set({ highlighted: null })
-    }
-    queueMicrotask(() => queueMicrotask(settle))
+      focusInside = false;
+      store.set({ highlighted: null });
+    };
+    queueMicrotask(() => queueMicrotask(settle));
   }
 
   const keyboard = createListboxKeyboard({
@@ -333,49 +315,42 @@ function listboxApiBody(
     extend,
     toggleAll,
     anchorKey: keySelection.anchor,
-  })
+  });
 
   // A value from outside the list, like a controller, a controlled prop or a
   // reset, starts ranges and the tab stop over. An empty selection drops the anchor.
-  let previousValue = store.get().value
+  let previousValue = store.get().value;
   store.subscribe(() => {
-    const { value } = store.get()
+    const { value } = store.get();
     if (value === previousValue) {
-      return
+      return;
     }
-    previousValue = value
-    const keys = selection.keys()
-    const own = requested !== null && isSameKeys(requested, keys)
-    requested = null
+    previousValue = value;
+    const keys = selection.keys();
+    const own = requested !== null && isSameKeys(requested, keys);
+    requested = null;
     if (!own || !keys.length) {
-      keySelection.resetAnchor()
+      keySelection.resetAnchor();
     }
     if (!own && !focusInside) {
-      remembered = null
+      remembered = null;
     }
-    queueCheck()
-  })
+    queueCheck();
+  });
 
   const api = {
     id,
     getValue: () => store.get().value,
-    setValue: (
-      value: unknown,
-      { reason = "imperative", event }: ListboxChangeOptions = {}
-    ) => setValue(value, { reason, event }),
+    setValue: (value: unknown, { reason = "imperative", event }: ListboxChangeOptions = {}) =>
+      setValue(value, { reason, event }),
     clear: ({ reason = "imperative", event }: ListboxChangeOptions = {}) =>
       setValue(selection.empty(), { reason, event }),
     selectAll({ reason = "imperative", event }: ListboxChangeOptions = {}) {
       if (!store.get().multiple) {
-        return false
+        return false;
       }
-      const missing = order().filter(
-        (key) => selectable(key) && !selection.isSelected(key)
-      )
-      return (
-        missing.length > 0 &&
-        setKeys([...selection.keys(), ...missing], { reason, event })
-      )
+      const missing = order().filter((key) => selectable(key) && !selection.isSelected(key));
+      return missing.length > 0 && setKeys([...selection.keys(), ...missing], { reason, event });
     },
     focus: focusStop,
     // Internal. Used by slots and adapters.
@@ -401,51 +376,46 @@ function listboxApiBody(
       // change: it's still the default.
       adoptValue: (value: unknown) => store.set({ value }),
       reset() {
-        setValue(store.get().initial, { reason: "reset" })
+        setValue(store.get().initial, { reason: "reset" });
       },
       // The browser restores a disabled or read-only control too, as a native one.
       restore(saved: string) {
-        selection.restore(saved, (value) =>
-          change("value", value, { reason: "restore" })
-        )
+        selection.restore(saved, (value) => change("value", value, { reason: "restore" }));
       },
       setFormDisabled(formDisabled: boolean) {
-        store.set({ formDisabled })
+        store.set({ formDisabled });
       },
       // Picks the item a browser's autofill wrote, by its value or its label.
       autofill(text: string) {
-        const lower = text.toLowerCase()
+        const lower = text.toLowerCase();
         const entry = listbox
           .entries()
           .find(
-            (entry) =>
-              entry.key.toLowerCase() === lower ||
-              entry.label.toLowerCase() === lower
-          )
+            (entry) => entry.key.toLowerCase() === lower || entry.label.toLowerCase() === lower,
+          );
         if (entry && !store.get().multiple) {
-          setValue(entry.value, { reason: "item-press" })
+          setValue(entry.value, { reason: "item-press" });
         }
       },
     },
-  }
+  };
 
   // Data items are known at once, so their stop is too, on the server as well.
   if (store.get().items) {
-    check()
+    check();
   }
-  return api
+  return api;
 }
 
-const listboxApi: (...args: Parameters<typeof listboxApiBody>) => ListboxApi =
-  listboxApiBody
+const listboxApi: (...args: Parameters<typeof listboxApiBody>) => ListboxApi = listboxApiBody;
 
 // What an item part registers with: its props, and the group it's in.
 type ListboxItemMeta = {
-  value: unknown
-  label?: string
-  disabled?: boolean
-  group?: string
-}
+  value: unknown;
+  label?: string;
+  disabled?: boolean;
+  group?: string;
+};
 
 /**
  * `listbox`'s api, which its slots and controller call.
@@ -454,10 +424,4 @@ type ListboxItemMeta = {
  */
 interface ListboxApi extends ReturnType<typeof listboxApiBody> {}
 
-export {
-  initialListboxStore,
-  type ListboxApi,
-  listboxApi,
-  type ListboxStore,
-  syncListboxStore,
-}
+export { initialListboxStore, type ListboxApi, listboxApi, type ListboxStore, syncListboxStore };

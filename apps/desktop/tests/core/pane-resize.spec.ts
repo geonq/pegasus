@@ -61,7 +61,9 @@ async function drag(window: Page, handle: Locator, dx: number, steps = 60): Prom
     return all.slice(1).sort((a, b) => a - b);
   });
   const p95 = gaps[Math.floor(gaps.length * 0.95)] ?? 0;
-  console.log(`frames during drag: ${gaps.length}, p95 gap ${p95.toFixed(1)} ms, max ${(gaps.at(-1) ?? 0).toFixed(1)} ms`);
+  console.log(
+    `frames during drag: ${gaps.length}, p95 gap ${p95.toFixed(1)} ms, max ${(gaps.at(-1) ?? 0).toFixed(1)} ms`,
+  );
   lastDragP95 = p95;
   const rendered = await window.evaluate(() => globalThis.__renders ?? {});
   const top = Object.entries(rendered)

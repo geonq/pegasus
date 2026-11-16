@@ -78,7 +78,7 @@ test("a streamed token re-renders one timeline row and one sidebar row", async (
       runId,
       text: "first ",
     });
-    await expect(window.locator('[data-session-id]')).toHaveCount(4);
+    await expect(window.locator("[data-session-id]")).toHaveCount(4);
     await window.waitForTimeout(600);
     await window.evaluate(() => {
       (globalThis as { __piRenderCounts?: Record<string, number> }).__piRenderCounts = {};

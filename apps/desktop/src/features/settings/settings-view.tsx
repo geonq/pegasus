@@ -169,7 +169,8 @@ export function SettingsView({
 
           {section === "phone" ? <SettingsPhoneSection /> : null}
 
-          {section === "providers" && providersPlaceholderVisible(runtimeLoadStatus, Boolean(runtime)) ? (
+          {section === "providers" &&
+          providersPlaceholderVisible(runtimeLoadStatus, Boolean(runtime)) ? (
             <div
               className="settings-group resource-empty"
               role={runtimeLoadStatus === "error" ? "alert" : "status"}
@@ -202,20 +203,24 @@ export function SettingsView({
             </div>
           ) : section === "providers" ? (
             <>
-            {runtimeLoadStatus === "loading" ? (
-              <div className="resource-empty__body" role="status" data-testid="providers-refreshing">
-                Refreshing provider status…
-              </div>
-            ) : null}
-            <SettingsProvidersSection
-              runtime={runtime}
-              onLoginProvider={onLoginProvider}
-              onLogoutProvider={onLogoutProvider}
-              onSetProviderApiKey={onSetProviderApiKey}
-              onRemoveProviderApiKey={onRemoveProviderApiKey}
-              onSaveCustomProvider={onSaveCustomProvider}
-              onDeleteCustomProvider={onDeleteCustomProvider}
-            />
+              {runtimeLoadStatus === "loading" ? (
+                <div
+                  className="resource-empty__body"
+                  role="status"
+                  data-testid="providers-refreshing"
+                >
+                  Refreshing provider status…
+                </div>
+              ) : null}
+              <SettingsProvidersSection
+                runtime={runtime}
+                onLoginProvider={onLoginProvider}
+                onLogoutProvider={onLogoutProvider}
+                onSetProviderApiKey={onSetProviderApiKey}
+                onRemoveProviderApiKey={onRemoveProviderApiKey}
+                onSaveCustomProvider={onSaveCustomProvider}
+                onDeleteCustomProvider={onDeleteCustomProvider}
+              />
             </>
           ) : null}
 

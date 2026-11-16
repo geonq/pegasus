@@ -1,35 +1,24 @@
 // What production builds get for `#dev`: the same exports, doing nothing, so
 // warnings and the devtools hook cost no bytes. See `dev.ts`.
-import type { DevEvent } from "./dev"
+import type { DevEvent } from "./dev";
 
 // Typed as boolean so code behind `if (dev)` type-checks as reachable. Bundlers
 // still inline the `false` and drop that code with its arguments.
-const dev: boolean = false
+const dev: boolean = false;
 
 function emit(_event: DevEvent) {}
 
-function warn(
-  _message: string,
-  _from?: { component: string; id?: string },
-  _detail?: unknown
-) {}
+function warn(_message: string, _from?: { component: string; id?: string }, _detail?: unknown) {}
 
-function note(
-  _message: string,
-  _from?: { component: string; id?: string },
-  _detail?: unknown
-) {}
+function note(_message: string, _from?: { component: string; id?: string }, _detail?: unknown) {}
 
 function warnMissing<T>(slots: T, _from: { component: string; id?: string }) {
-  return slots
+  return slots;
 }
 
 function exposeShortcuts(_list: () => unknown[]) {}
 
-function checkRoles(
-  _slots: Record<string, object>,
-  _from: { component: string }
-) {}
+function checkRoles(_slots: Record<string, object>, _from: { component: string }) {}
 
 function checkRole(
   _definition: object,
@@ -37,27 +26,27 @@ function checkRole(
   _own: Record<string, unknown> | undefined,
   _role: unknown,
   _from: { component: string; id?: string },
-  _live?: Record<string, unknown>
+  _live?: Record<string, unknown>,
 ) {}
 
 function checkFocus(
   _focus: unknown,
   _slot: string,
   _el: HTMLElement,
-  _from: { component: string; id?: string }
+  _from: { component: string; id?: string },
 ) {}
 
 function expectControlled(
   _instance: object,
   _info: {
-    component: string
-    id: string
-    key: string
-    value: unknown
-    reason: string
-    source: string
+    component: string;
+    id: string;
+    key: string;
+    value: unknown;
+    reason: string;
+    source: string;
   },
-  _current: () => unknown
+  _current: () => unknown,
 ) {}
 
 function forgetControlled(_instance: object) {}
@@ -65,29 +54,28 @@ function forgetControlled(_instance: object) {}
 function heardControlled(_instance: object, _options: object) {}
 
 function measured(read: () => void) {
-  read()
+  read();
 }
 
-const isMeasuring = () => false
+const isMeasuring = () => false;
 
 function checkEvent(
   _reason: string,
   _event: Event | undefined,
-  _from: { component: string; id?: string }
+  _from: { component: string; id?: string },
 ) {}
 
 function checkPrevented(
   _name: string,
   _prevented: boolean,
   _details: { event?: Event; canceled: boolean },
-  _from: { component: string; id?: string }
+  _from: { component: string; id?: string },
 ) {}
-
 
 function checkControlled(
   _from: { component: string; id: string },
   _keys: string[],
-  _options: object
+  _options: object,
 ) {}
 
 export {
@@ -108,5 +96,5 @@ export {
   note,
   warn,
   warnMissing,
-}
-export type { DevEvent } from "./dev"
+};
+export type { DevEvent } from "./dev";

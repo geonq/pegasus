@@ -5,68 +5,63 @@
 // part that hydrates after the write keeps the server's attributes, so a
 // synchronous write leaves a hydrated trigger without its label. A flag only
 // the part's ancestors read can be written at once (`flagWhileBound`).
-import type { Store } from "./store"
+import type { Store } from "./store";
 
-type Draft = Record<string, unknown>
+type Draft = Record<string, unknown>;
 
 // Edits waiting for the microtask, per store. Parts that bind together, like
 // every label of a list, write the store once, so the list's other parts
 // check their attributes once, not once per label. Edits apply in the order
 // parts bound and unbound.
-const queued = new WeakMap<object, ((draft: Draft) => void)[]>()
+const queued = new WeakMap<object, ((draft: Draft) => void)[]>();
 
-function later<State extends object>(
-  store: Store<State>,
-  edit: (draft: Draft) => void
-) {
-  const waiting = queued.get(store)
+function later<State extends object>(store: Store<State>, edit: (draft: Draft) => void) {
+  const waiting = queued.get(store);
   if (waiting) {
-    return void waiting.push(edit)
+    return void waiting.push(edit);
   }
-  const edits = [edit]
-  queued.set(store, edits)
+  const edits = [edit];
+  queued.set(store, edits);
   queueMicrotask(() => {
-    queued.delete(store)
-    const draft: Draft = {}
+    queued.delete(store);
+    const draft: Draft = {};
     for (const run of edits) {
-      run(draft)
+      run(draft);
     }
     // The draft holds only the fields the edits name.
-    store.set(draft as Partial<State>)
-  })
+    store.set(draft as Partial<State>);
+  });
 }
 
 function keyWhileBound<Field extends string>(
   store: Store<Record<NoInfer<Field>, readonly string[]>>,
   field: Field,
-  key: string
+  key: string,
 ) {
   const edit = (change: (keys: readonly string[]) => readonly string[]) =>
     later(store, (draft) => {
-      draft[field] = change(
-        (draft[field] as readonly string[] | undefined) ?? store.get()[field]
-      )
-    })
-  let bound = true
-  let added = false
+      draft[field] = change((draft[field] as readonly string[] | undefined) ?? store.get()[field]);
+    });
+  let bound = true;
+  let added = false;
   edit((keys) => {
     if (!bound) {
-      return keys
+      return keys;
     }
-    added = true
-    return [...keys, key]
-  })
+    added = true;
+    return [...keys, key];
+  });
   return () => {
-    bound = false
+    bound = false;
     edit((keys) => {
       if (!added) {
-        return keys
+        return keys;
       }
       // Only this bind's entry, so a part bound again before this cleanup, like under StrictMode, stays listed.
-      const index = keys.indexOf(key)
-      return index === -1 ? keys : keys.filter((_, at) => at !== index)
-    })
-  }
+      const index = keys.indexOf(key);
+      return index === -1 ? keys : keys.filter((_, at) => at !== index);
+    });
+  };
 }
 
 /**
@@ -80,14 +75,14 @@ function keyWhileBound<Field extends string>(
 function flagWhileBound<Key extends string>(
   store: Store<Record<NoInfer<Key>, boolean | null>>,
   key: Key,
-  { now = false } = {}
+  { now = false } = {},
 ) {
   const flag = (value: boolean) =>
     now
       ? store.set({ [key]: value } as Record<Key, boolean>)
-      : later(store, (draft) => (draft[key] = value))
-  flag(true)
-  return () => flag(false)
+      : later(store, (draft) => (draft[key] = value));
+  flag(true);
+  return () => flag(false);
 }
 
 /**
@@ -97,13 +92,13 @@ function flagWhileBound<Key extends string>(
  */
 function settleFlag<Key extends string>(
   store: Store<Record<NoInfer<Key>, boolean | null>>,
-  key: Key
+  key: Key,
 ) {
   later(store, (draft) => {
     if (draft[key] === undefined && store.get()[key] === null) {
-      draft[key] = false
+      draft[key] = false;
     }
-  })
+  });
 }
 
-export { flagWhileBound, keyWhileBound, settleFlag }
+export { flagWhileBound, keyWhileBound, settleFlag };

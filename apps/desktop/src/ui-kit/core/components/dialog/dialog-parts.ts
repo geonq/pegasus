@@ -1,28 +1,25 @@
 // The parts Dialog, Alert Dialog and Drawer share. Each primitive spreads
 // them into its own `slots`, and overrides the ones that differ.
-import { dev, warn } from "../../foundation/kernel/dev-stub"
-import { trackKeyboard } from "../../foundation/platform/keyboard"
-import { ariaKeyshortcuts } from "../../foundation/platform/platform"
-import { popupContentAttrs } from "../../foundation/popups/popup"
-import {
-  ownsEvent,
-  registerPopupElement,
-} from "../../foundation/popups/popup-elements"
+import { dev, warn } from "../../foundation/kernel/dev-stub";
+import { trackKeyboard } from "../../foundation/platform/keyboard";
+import { ariaKeyshortcuts } from "../../foundation/platform/platform";
+import { popupContentAttrs } from "../../foundation/popups/popup";
+import { ownsEvent, registerPopupElement } from "../../foundation/popups/popup-elements";
 import {
   bindPopupContent,
   popupDescription,
   popupTitle,
   popupTrigger,
-} from "../../foundation/popups/popup-slots"
-import { settleFlag } from "../../foundation/kernel/bound-keys"
-import { openAttrs } from "../../foundation/kernel/attrs"
-import type { SlotFactory } from "../../foundation/kernel/primitive-types"
+} from "../../foundation/popups/popup-slots";
+import { settleFlag } from "../../foundation/kernel/bound-keys";
+import { openAttrs } from "../../foundation/kernel/attrs";
+import type { SlotFactory } from "../../foundation/kernel/primitive-types";
 import {
   adoptPlatform,
   bindPartShortcut,
   shortcutSlot,
-} from "../../foundation/shortcuts/shortcut-slot"
-import { ownContent, type DialogApi, type DialogState } from "./dialog-api"
+} from "../../foundation/shortcuts/shortcut-slot";
+import { ownContent, type DialogApi, type DialogState } from "./dialog-api";
 import type {
   DialogBackdropState,
   DialogCloseProps,
@@ -31,18 +28,15 @@ import type {
   DialogContentState,
   DialogTriggerProps,
   DialogTriggerState,
-} from "./dialog"
-import { onProps } from "../../foundation/kernel/part"
+} from "./dialog";
+import { onProps } from "../../foundation/kernel/part";
 
-type TriggerProps = Omit<DialogTriggerProps, "controller">
-type ContentProps = DialogContentProps
-type CloseProps = DialogCloseProps
+type TriggerProps = Omit<DialogTriggerProps, "controller">;
+type ContentProps = DialogContentProps;
+type CloseProps = DialogCloseProps;
 
-function dialogSlots(
-  slot: SlotFactory<DialogState, DialogApi>,
-  { name }: { name: string }
-) {
-  const trigger = popupTrigger(slot)
+function dialogSlots(slot: SlotFactory<DialogState, DialogApi>, { name }: { name: string }) {
+  const trigger = popupTrigger(slot);
   return {
     // A popup trigger whose `shortcut` presses it. A modal dialog's trigger
     // is inert while it's open, and "collapsed" once it closes says nothing
@@ -67,20 +61,20 @@ function dialogSlots(
       on: trigger.on,
       press: trigger.press,
       bind(el, part) {
-        const { key, store, api } = part
-        const unbind = trigger.bind!(el, part)
-        adoptPlatform(store)
+        const { key, store, api } = part;
+        const unbind = trigger.bind!(el, part);
+        adoptPlatform(store);
         // The trigger's own layer scopes it: on the page, a modal dialog pauses it.
         const offShortcut = bindPartShortcut(
           () => part.props.shortcut,
           (event) => api.internal.shortcutPress(key, event),
           { layer: el },
-          (listener) => onProps(part, listener)
-        )
+          (listener) => onProps(part, listener),
+        );
         return () => {
-          offShortcut()
-          unbind?.()
-        }
+          offShortcut();
+          unbind?.();
+        };
       },
     }),
 
@@ -91,8 +85,7 @@ function dialogSlots(
         nestedOpen: state.stack > 0,
       }),
       // Kept mounted with the content, so both show together.
-      present: (state, { api }) =>
-        state.mounted || !!api.internal.contentProps().keepMounted,
+      present: (state, { api }) => state.mounted || !!api.internal.contentProps().keepMounted,
       role: "presentation",
       attrs: (state) => ({
         hidden: state.mounted ? undefined : "",
@@ -101,8 +94,8 @@ function dialogSlots(
         "data-nested-open": state.stack > 0 ? "" : undefined,
       }),
       bind(el, { api }) {
-        api.internal.preset.resetStyles?.bind(el)
-        return api.internal.popup.backdrop(el)
+        api.internal.preset.resetStyles?.bind(el);
+        return api.internal.popup.backdrop(el);
       },
     }),
 
@@ -140,33 +133,31 @@ function dialogSlots(
         keydown(event, { api, el }) {
           // Keys from a dialog or drawer nested inside bubble through this one. Only the owner handles them.
           if (ownsEvent(el!, event, ownContent)) {
-            api.internal.popup.keydown(event)
+            api.internal.popup.keydown(event);
           }
         },
       },
       bind(el, { api, store, id, key }) {
         // How many dialogs are open above this one, for stacked styles.
-        const stack = () =>
-          el.style.setProperty("--dialog-stack", String(store.get().stack))
-        stack()
-        const offStack = store.subscribe(stack)
+        const stack = () => el.style.setProperty("--dialog-stack", String(store.get().stack));
+        stack();
+        const offStack = store.subscribe(stack);
         if (dev && el.parentElement?.closest("form")) {
           warn(
             "The content renders inside a form, which nests forms. Pass `container` to render it elsewhere.",
-            { component: name, id }
-          )
+            { component: name, id },
+          );
         }
-        const unbind = bindPopupContent(el, api.internal, key)
-        settleFlag(store, "titled")
+        const unbind = bindPopupContent(el, api.internal, key);
+        settleFlag(store, "titled");
         // How much the on-screen keyboard covers, so the dialog can move above it. A sheet follows it itself.
-        const offKeyboard =
-          store.get().presentation === "sheet" ? undefined : trackKeyboard(el)
+        const offKeyboard = store.get().presentation === "sheet" ? undefined : trackKeyboard(el);
         return () => {
-          offStack()
-          offKeyboard?.()
-          unbind()
-          el.style.removeProperty("--dialog-stack")
-        }
+          offStack();
+          offKeyboard?.();
+          unbind();
+          el.style.removeProperty("--dialog-stack");
+        };
       },
     }),
 
@@ -186,16 +177,12 @@ function dialogSlots(
         // Presses do nothing while it's pending. Not the native attribute, which would drop focus.
         "aria-disabled": state.pending === key ? "true" : undefined,
       }),
-      press: ({ api, key, props }, event) =>
-        api.internal.closePress(key, props, event),
+      press: ({ api, key, props }, event) => api.internal.closePress(key, props, event),
     }),
 
     // Without keys of its own, it shows the shortcut of the trigger it sits in.
-    shortcut: shortcutSlot(
-      slot,
-      (_state, api, el) => el && api.internal.shortcutOf(el)
-    ),
-  }
+    shortcut: shortcutSlot(slot, (_state, api, el) => el && api.internal.shortcutOf(el)),
+  };
 }
 
-export { dialogSlots }
+export { dialogSlots };

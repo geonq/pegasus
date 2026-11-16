@@ -2,9 +2,9 @@
 // data-starting-style for its first frame and data-ending-style while it
 // animates out. Unmounting waits for every running animation, with a timeout
 // from the computed durations so an infinite or stuck animation cannot block it.
-import { measured } from "../kernel/dev-stub"
+import { measured } from "../kernel/dev-stub";
 
-const pendingResets = new WeakMap<HTMLElement, () => void>()
+const pendingResets = new WeakMap<HTMLElement, () => void>();
 
 /**
  * Starts an element's enter animation: `data-starting-style` for its first
@@ -14,123 +14,111 @@ const pendingResets = new WeakMap<HTMLElement, () => void>()
  * @stable
  */
 function animateIn(el: HTMLElement, done?: () => void) {
-  pendingResets.get(el)?.()
+  pendingResets.get(el)?.();
   // An element already shown would transition to its starting style and back,
   // so it jumps there, unless a transition is under way. jsdom has no getAnimations.
-  const settled = el
-    .getAnimations?.()
-    .every((animation) => !isTransition(animation))
-  el.setAttribute("data-starting-style", "")
+  const settled = el.getAnimations?.().every((animation) => !isTransition(animation));
+  el.setAttribute("data-starting-style", "");
   if (settled) {
     for (const animation of el.getAnimations()) {
       if (isTransition(animation)) {
-        animation.finish()
+        animation.finish();
       }
     }
   }
-  let stopWaiting: (() => void) | undefined
-  let timer: ReturnType<typeof setTimeout> | undefined
+  let stopWaiting: (() => void) | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const frame = requestAnimationFrame(
     () =>
       (timer = setTimeout(() => {
-        el.removeAttribute("data-starting-style")
+        el.removeAttribute("data-starting-style");
         if (done) {
-          stopWaiting = whenFinished(el, done)
+          stopWaiting = whenFinished(el, done);
         }
-      }))
-  )
+      })),
+  );
   return () => {
-    cancelAnimationFrame(frame)
-    clearTimeout(timer)
-    stopWaiting?.()
-    el.removeAttribute("data-starting-style")
-  }
+    cancelAnimationFrame(frame);
+    clearTimeout(timer);
+    stopWaiting?.();
+    el.removeAttribute("data-starting-style");
+  };
 }
 
-const isTransition = (animation: Animation) => "transitionProperty" in animation
+const isTransition = (animation: Animation) => "transitionProperty" in animation;
 
 function seconds(value: string) {
   return value.split(",").map((part) => {
-    const number = parseFloat(part)
-    return part.trim().endsWith("ms") ? number / 1000 : number
-  })
+    const number = parseFloat(part);
+    return part.trim().endsWith("ms") ? number / 1000 : number;
+  });
 }
 
 // The longest transition or one iteration of the longest animation, in ms,
 // on the element or its ::backdrop, which a popup in the top layer animates too.
 function longest(el: HTMLElement) {
-  return Math.max(
-    durationOf(getComputedStyle(el)),
-    durationOf(getComputedStyle(el, "::backdrop"))
-  )
+  return Math.max(durationOf(getComputedStyle(el)), durationOf(getComputedStyle(el, "::backdrop")));
 }
 
 function durationOf(style: CSSStyleDeclaration) {
   const pairs = (durations: string, delays: string, iterations = "1") => {
-    const d = seconds(durations)
-    const l = seconds(delays)
+    const d = seconds(durations);
+    const l = seconds(delays);
     const n = iterations
       .split(",")
-      .map((part) => (part.trim() === "infinite" ? 1 : parseFloat(part) || 1))
+      .map((part) => (part.trim() === "infinite" ? 1 : parseFloat(part) || 1));
     return d.map(
       (duration, index) =>
-        (duration * (n[index % n.length] ?? 1) + (l[index % l.length] ?? 0)) *
-        1000
-    )
-  }
+        (duration * (n[index % n.length] ?? 1) + (l[index % l.length] ?? 0)) * 1000,
+    );
+  };
   return Math.max(
     0,
     ...pairs(style.transitionDuration, style.transitionDelay),
-    ...pairs(
-      style.animationDuration,
-      style.animationDelay,
-      style.animationIterationCount
-    )
-  )
+    ...pairs(style.animationDuration, style.animationDelay, style.animationIterationCount),
+  );
 }
 
 // How long, in ms, until the last of these animations ends. Script animations,
 // like a sheet's spring, have no CSS duration to read, so their own timing
 // counts. Infinite ones are left to the CSS fallback.
 function remaining(animations: Animation[]) {
-  let longestLeft = 0
+  let longestLeft = 0;
   for (const animation of animations) {
-    const timing = animation.effect?.getComputedTiming()
-    const end = Number(timing?.endTime)
+    const timing = animation.effect?.getComputedTiming();
+    const end = Number(timing?.endTime);
     if (!timing || !Number.isFinite(end)) {
-      continue
+      continue;
     }
-    longestLeft = Math.max(longestLeft, end - (Number(timing.localTime) || 0))
+    longestLeft = Math.max(longestLeft, end - (Number(timing.localTime) || 0));
   }
-  return longestLeft
+  return longestLeft;
 }
 
 function whenFinished(el: HTMLElement, done: () => void) {
-  let finished = false
+  let finished = false;
   // Reading animations flushes styles, so transitions just triggered are included.
-  const animations = el.getAnimations({ subtree: true })
+  const animations = el.getAnimations({ subtree: true });
   const finish = () => {
     if (finished) {
-      return
+      return;
     }
-    finished = true
-    clearTimeout(timer)
-    done()
-  }
+    finished = true;
+    clearTimeout(timer);
+    done();
+  };
   const timer = animations.length
     ? setTimeout(finish, Math.max(longest(el), remaining(animations)) + 50)
-    : undefined
+    : undefined;
   if (!animations.length) {
-    measured(finish)
+    measured(finish);
   } else {
-    Promise.allSettled(animations.map((animation) => animation.finished)).then(
-      finish
-    )
+    Promise.allSettled(animations.map((animation) => animation.finished)).then(finish);
   }
   return () => {
-    finished = true
-    clearTimeout(timer)
-  }
+    finished = true;
+    clearTimeout(timer);
+  };
 }
 
 /**
@@ -139,8 +127,8 @@ function whenFinished(el: HTMLElement, done: () => void) {
  * running when `animateOut` reads them.
  */
 function writeOpen(el: HTMLElement, open: boolean) {
-  el.toggleAttribute("data-open", open)
-  el.toggleAttribute("data-closed", !open)
+  el.toggleAttribute("data-open", open);
+  el.toggleAttribute("data-closed", !open);
 }
 
 /**
@@ -153,38 +141,38 @@ function writeOpen(el: HTMLElement, open: boolean) {
  * @stable
  */
 function animateOut(el: HTMLElement, done: () => void) {
-  pendingResets.get(el)?.()
-  el.removeAttribute("data-starting-style")
-  el.setAttribute("data-ending-style", "")
-  el.inert = true
-  let frame = 0
+  pendingResets.get(el)?.();
+  el.removeAttribute("data-starting-style");
+  el.setAttribute("data-ending-style", "");
+  el.inert = true;
+  let frame = 0;
   const reset = () => {
-    cancelAnimationFrame(frame)
-    pendingResets.delete(el)
-    el.removeAttribute("data-ending-style")
-    el.inert = false
-  }
-  let isAnimating = false
+    cancelAnimationFrame(frame);
+    pendingResets.delete(el);
+    el.removeAttribute("data-ending-style");
+    el.inert = false;
+  };
+  let isAnimating = false;
   // Frameworks unmount on their next render, and CSS keyed on the ending style
   // would show the open look until then. A frame requested as animations
   // finish can still run before this frame's paint, hence two.
   const stop = whenFinished(el, () => {
     if (!isAnimating) {
-      reset()
-      return done()
+      reset();
+      return done();
     }
-    pendingResets.set(el, reset)
+    pendingResets.set(el, reset);
     frame = requestAnimationFrame(() => {
-      frame = requestAnimationFrame(reset)
-    })
-    done()
-  })
+      frame = requestAnimationFrame(reset);
+    });
+    done();
+  });
   // Without animations `done` ran already, before anything painted the ending style.
-  isAnimating = true
+  isAnimating = true;
   return () => {
-    stop()
-    reset()
-  }
+    stop();
+    reset();
+  };
 }
 
-export { animateIn, animateOut, writeOpen }
+export { animateIn, animateOut, writeOpen };

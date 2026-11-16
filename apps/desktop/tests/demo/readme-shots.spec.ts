@@ -15,7 +15,9 @@ import {
 // README screenshots from a clean profile: fresh user data, demo folders, demo chats.
 // Nothing from the owner's machine (folders, chats, accounts) can appear in them.
 // Run: PI_APP_README_SHOTS_DIR=<repo>/docs/media playwright test -c tests/demo/playwright.demo.config.ts readme-shots
-const shotDir = process.env.PI_APP_README_SHOTS_DIR?.trim() || join(__dirname, "..", "..", "..", "..", "docs", "media");
+const shotDir =
+  process.env.PI_APP_README_SHOTS_DIR?.trim() ||
+  join(__dirname, "..", "..", "..", "..", "docs", "media");
 
 const FOLDERS = ["orbit-api", "atlas-web", "pegasus", "ledger"] as const;
 const CHATS: ReadonlyArray<{ folder: (typeof FOLDERS)[number]; title: string }> = [
@@ -39,7 +41,9 @@ test("captures README screenshots from a clean profile", async () => {
     for (const path of folders) await waitForWorkspaceByPath(window, path);
     await window.evaluate(() => globalThis.window.piApp?.setEnableTransparency(true));
     await expect
-      .poll(() => window.evaluate(() => document.documentElement.classList.contains("enable-transparency")))
+      .poll(() =>
+        window.evaluate(() => document.documentElement.classList.contains("enable-transparency")),
+      )
       .toBe(true);
     await paintDesktopBehindGlass(window);
     await resize(harness, 1650, 960);
@@ -110,7 +114,8 @@ async function paintDesktopBehindGlass(window: Page): Promise<void> {
 
 async function resize(harness: DesktopHarness, width: number, height: number): Promise<void> {
   await harness.electronApp.evaluate(
-    ({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height),
+    ({ BrowserWindow }, size) =>
+      BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height),
     { width, height },
   );
 }
@@ -123,7 +128,11 @@ async function shot(window: Page, name: string): Promise<void> {
   const text = await window.evaluate(() => document.body.innerText);
   for (const folder of FOLDERS) expect(text).toContain(folder);
   expect(text).not.toMatch(/sprintline|FC27|LifeOS|Seher|DeepLife|rito|geonq|domke/i);
-  console.log(`${name} sidebar: ${(await window.locator(".sidebar").innerText()).replace(/\s+/g, " ").slice(0, 400)}`);
-  console.log(`${name} main: ${(await window.locator(".main").innerText()).replace(/\s+/g, " ").slice(0, 400)}`);
+  console.log(
+    `${name} sidebar: ${(await window.locator(".sidebar").innerText()).replace(/\s+/g, " ").slice(0, 400)}`,
+  );
+  console.log(
+    `${name} main: ${(await window.locator(".main").innerText()).replace(/\s+/g, " ").slice(0, 400)}`,
+  );
   await window.screenshot({ path: join(shotDir, name) });
 }

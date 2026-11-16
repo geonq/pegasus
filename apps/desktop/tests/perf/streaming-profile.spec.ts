@@ -78,7 +78,8 @@ async function patchMain(harness: DesktopHarness): Promise<void> {
         const sends = (globalThis as unknown as { __perfSends: Record<string, number> })
           .__perfSends;
         sends[channel] = (sends[channel] ?? 0) + 1;
-        const bytes = (globalThis as unknown as { __perfBytes: Record<string, number> }).__perfBytes;
+        const bytes = (globalThis as unknown as { __perfBytes: Record<string, number> })
+          .__perfBytes;
         bytes[channel] = (bytes[channel] ?? 0) + Buffer.byteLength(JSON.stringify(args), "utf8");
         const started = performance.now();
         const result = original(channel, ...args);

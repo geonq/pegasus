@@ -2,13 +2,9 @@
 // nothing. See `name-check.ts`.
 
 function nameFrom(_el: Element, _names: () => boolean) {
-  return () => {}
+  return () => {};
 }
 
-function checkName(
-  _el: HTMLElement,
-  _part: string,
-  _from: { component: string; id?: string }
-) {}
+function checkName(_el: HTMLElement, _part: string, _from: { component: string; id?: string }) {}
 
-export { checkName, nameFrom }
+export { checkName, nameFrom };

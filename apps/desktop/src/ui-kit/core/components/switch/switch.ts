@@ -9,23 +9,20 @@ import {
   type CheckboxCheckedChangeReason,
   type CheckboxState,
   type ToggleOptions,
-} from "../../foundation/forms/toggle-control"
-import { createChange } from "../../foundation/kernel/input-source"
-import { createController } from "../../foundation/kernel/controller"
-import { definePrimitive } from "../../foundation/kernel/primitive"
-import type {
-  Named,
-  PrimitiveOptions,
-} from "../../foundation/kernel/primitive-types"
+} from "../../foundation/forms/toggle-control";
+import { createChange } from "../../foundation/kernel/input-source";
+import { createController } from "../../foundation/kernel/controller";
+import { definePrimitive } from "../../foundation/kernel/primitive";
+import type { Named, PrimitiveOptions } from "../../foundation/kernel/primitive-types";
 
 /**
  * Why the switch checked change happened, as `reason` in its change details:
  * `"imperative"`, `"reset"`, `"press"`, `"restore"`.
  * @stable
  */
-type SwitchCheckedChangeReason = CheckboxCheckedChangeReason
+type SwitchCheckedChangeReason = CheckboxCheckedChangeReason;
 
-type Details = CheckboxChangeOptions
+type Details = CheckboxChangeOptions;
 
 /**
  * Toggles and inspects a switch from outside it. Pass it as the `controller` option.
@@ -34,14 +31,14 @@ type Details = CheckboxChangeOptions
 function createSwitchController() {
   return createController<{
     /** Turns it on, or off. */
-    toggle: (details?: Details) => boolean
+    toggle: (details?: Details) => boolean;
     /** Whether it's on. */
-    getChecked: () => boolean
+    getChecked: () => boolean;
     /** Turns it on or off, as a user would. */
-    setChecked: (checked: boolean, details?: Details) => boolean
+    setChecked: (checked: boolean, details?: Details) => boolean;
     /** Moves focus to it. */
-    focus: () => void
-  }>()
+    focus: () => void;
+  }>();
 }
 
 /**
@@ -49,7 +46,7 @@ function createSwitchController() {
  * option.
  * @stable
  */
-type SwitchController = ReturnType<typeof createSwitchController>
+type SwitchController = ReturnType<typeof createSwitchController>;
 
 /**
  * The options `switchPrimitive` takes. A component takes them as props on its
@@ -58,28 +55,28 @@ type SwitchController = ReturnType<typeof createSwitchController>
  */
 type SwitchOptions = ToggleOptions<boolean> & {
   /** Toggles it from anywhere. Create one with `createSwitchController()`. */
-  controller?: SwitchController
-} & PrimitiveOptions
+  controller?: SwitchController;
+} & PrimitiveOptions;
 
 /**
  * The state the `root` slot of `switchPrimitive` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type SwitchState = Omit<CheckboxState, "indeterminate">
+type SwitchState = Omit<CheckboxState, "indeterminate">;
 /**
  * The state the `thumb` slot of `switchPrimitive` hands `render` functions and
  * state-based class names.
  * @stable
  */
-type SwitchThumbState = SwitchState
+type SwitchThumbState = SwitchState;
 
 /**
  * `switchPrimitive`'s api, which its slots and controller call.
  * Adapters expose it as `api`.
  * @stable
  */
-type SwitchApi = ReturnType<typeof toggleControl<boolean>>
+type SwitchApi = ReturnType<typeof toggleControl<boolean>>;
 
 const switchDefinition = /* @__PURE__ */ definePrimitive({
   name: "switch",
@@ -107,7 +104,7 @@ const switchDefinition = /* @__PURE__ */ definePrimitive({
       attrs: (state) => toggleDataAttrs(state),
     }),
   }),
-})
+});
 
 /**
  * The type of `switchPrimitive`.
@@ -121,7 +118,7 @@ interface SwitchPrimitive extends Named<typeof switchDefinition> {}
  * primitive.
  * @stable
  */
-const switchPrimitive: SwitchPrimitive = switchDefinition
+const switchPrimitive: SwitchPrimitive = switchDefinition;
 
 export {
   createSwitchController,
@@ -133,4 +130,4 @@ export {
   type SwitchPrimitive,
   type SwitchState,
   type SwitchThumbState,
-}
+};

@@ -1,24 +1,19 @@
 // The source of a change an event explains: whether a key, a pointer or a
 // screen reader caused it, read from `kernel/modality`. Details of a change no
 // event explains need only `kernel/details.ts`.
-import { dev, emit } from "./dev-stub"
-import { sourceOf, trackInput } from "./modality"
-import { changeFrom } from "./change"
-import {
-  createDetails,
-  resolveSource,
-  withSource,
-  type ChangeSource,
-} from "./details"
-import { isDestroying } from "./keep"
-import { callbackName } from "./option-names"
-import type { PrimitiveContext, ReasonFor } from "./primitive-types"
+import { dev, emit } from "./dev-stub";
+import { sourceOf, trackInput } from "./modality";
+import { changeFrom } from "./change";
+import { createDetails, resolveSource, withSource, type ChangeSource } from "./details";
+import { isDestroying } from "./keep";
+import { callbackName } from "./option-names";
+import type { PrimitiveContext, ReasonFor } from "./primitive-types";
 
 /**
  * How a change came about, from its reason, its event and the change that caused it.
  */
 const changeSource = (reason: string, event?: Event) =>
-  resolveSource(reason, event && (() => sourceOf(event)))
+  resolveSource(reason, event && (() => sourceOf(event)));
 
 /**
  * `createChange`'s source of a change, from its reason and event. Input
@@ -26,8 +21,8 @@ const changeSource = (reason: string, event?: Event) =>
  * already knows the key or pointer press behind it.
  */
 function inputSource() {
-  trackInput()
-  return changeSource
+  trackInput();
+  return changeSource;
 }
 
 /**
@@ -41,9 +36,9 @@ function inputSource() {
  */
 function createChange<Options, State extends object>(
   context: PrimitiveContext<Options, State, any>,
-  source: (reason: string, event?: Event) => ChangeSource = inputSource()
+  source: (reason: string, event?: Event) => ChangeSource = inputSource(),
 ) {
-  return changeFrom(context, source)
+  return changeFrom(context, source);
 }
 
 /**
@@ -63,38 +58,34 @@ function createChange<Options, State extends object>(
  */
 function createCommit<Options, State extends object>(
   context: PrimitiveContext<Options, State, any>,
-  source: (reason: string, event?: Event) => ChangeSource = inputSource()
+  source: (reason: string, event?: Event) => ChangeSource = inputSource(),
 ) {
   return <
     Key extends {
-      [
-        Name in keyof State & string
-      ]: `on${Capitalize<Name>}Commit` extends keyof Options ? Name : never
+      [Name in keyof State & string]: `on${Capitalize<Name>}Commit` extends keyof Options
+        ? Name
+        : never;
     }[keyof State & string],
   >(
     key: Key,
     value: State[Key],
     details: {
-      reason: ReasonFor<Options, Key, "Commit">
-      event?: Event
-      [extra: string]: unknown
-    }
+      reason: ReasonFor<Options, Key, "Commit">;
+      event?: Event;
+      [extra: string]: unknown;
+    },
   ) => {
     if (isDestroying()) {
-      return
+      return;
     }
-    const commitDetails = createDetails(
-      details,
-      source(details.reason, details.event),
-      false
-    )
+    const commitDetails = createDetails(details, source(details.reason, details.event), false);
     const callbacks = context.options() as Record<
       string,
       ((value: unknown, details: object) => void) | undefined
-    >
-    const callback = callbacks[callbackName(key, "Commit")]
+    >;
+    const callback = callbacks[callbackName(key, "Commit")];
     if (callback) {
-      withSource(commitDetails.source, () => callback(value, commitDetails))
+      withSource(commitDetails.source, () => callback(value, commitDetails));
     }
     if (dev) {
       emit({
@@ -105,9 +96,9 @@ function createCommit<Options, State extends object>(
         value,
         reason: details.reason,
         source: commitDetails.source,
-      })
+      });
     }
-  }
+  };
 }
 
 /**
@@ -126,26 +117,23 @@ function dispatch<Value>(
   name: `on${string}`,
   value: Value,
   details: {
-    reason: string
-    event?: Event
-    source?: ChangeSource
-    [extra: string]: unknown
-  }
+    reason: string;
+    event?: Event;
+    source?: ChangeSource;
+    [extra: string]: unknown;
+  },
 ) {
   const callbackDetails = createDetails(
     details,
-    details.source ?? changeSource(details.reason, details.event)
-  )
-  const callback = (context.options() as Record<string, unknown>)[name]
+    details.source ?? changeSource(details.reason, details.event),
+  );
+  const callback = (context.options() as Record<string, unknown>)[name];
   if (typeof callback === "function") {
     withSource(callbackDetails.source, () =>
-      (callback as (value: Value, details: unknown) => void)(
-        value,
-        callbackDetails
-      )
-    )
+      (callback as (value: Value, details: unknown) => void)(value, callbackDetails),
+    );
   }
-  return callbackDetails.canceled
+  return callbackDetails.canceled;
 }
 
-export { changeSource, createChange, createCommit, dispatch, inputSource }
+export { changeSource, createChange, createCommit, dispatch, inputSource };
