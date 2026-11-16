@@ -15,6 +15,7 @@ import type { RootStackParamList } from "./navigation";
 import { ChatScreen } from "./screens/ChatScreen";
 import { ChatsScreen } from "./screens/ChatsScreen";
 import { PairScreen } from "./screens/PairScreen";
+import { UsageScreen } from "./screens/UsageScreen";
 import { PegasusProvider, usePegasus } from "./state/PegasusProvider";
 import { usePalette } from "./theme";
 
@@ -91,6 +92,11 @@ function Root() {
               }}
             />
             <Stack.Screen name="Chat" component={ChatScreen} options={{ title: "" }} />
+            <Stack.Screen
+              name="Usage"
+              component={UsageScreen}
+              options={{ title: "Usage", presentation: "modal" }}
+            />
           </>
         ) : (
           <Stack.Screen name="Pair" component={PairScreen} options={{ headerShown: false }} />

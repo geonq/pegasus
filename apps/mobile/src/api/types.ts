@@ -28,11 +28,119 @@ export interface WorkspaceRecord {
   readonly sessions: readonly SessionRecord[];
 }
 
+/** One extension dialog the PC is waiting on; the driver asks only these four kinds. */
+export type PendingDialog =
+  | {
+      readonly kind: "confirm";
+      readonly requestId: string;
+      readonly title: string;
+      readonly message: string;
+      readonly defaultValue?: boolean;
+    }
+  | {
+      readonly kind: "input";
+      readonly requestId: string;
+      readonly title: string;
+      readonly placeholder?: string;
+      readonly initialValue?: string;
+    }
+  | {
+      readonly kind: "select";
+      readonly requestId: string;
+      readonly title: string;
+      readonly options: readonly string[];
+      readonly allowMultiple?: boolean;
+    }
+  | {
+      readonly kind: "editor";
+      readonly requestId: string;
+      readonly title: string;
+      readonly initialValue?: string;
+    };
+
+/** What the phone sends back; the PC checks it against the dialog still being pending. */
+export type PendingDialogAnswer =
+  | { readonly requestId: string; readonly confirmed: boolean }
+  | { readonly requestId: string; readonly value: string }
+  | { readonly requestId: string; readonly cancelled: true };
+
+export interface SessionExtensionUiState {
+  readonly pendingDialogs: readonly PendingDialog[];
+}
+
+/** A message sent while a run is live and held by the PC until the run reaches it. */
+export interface QueuedComposerMessage {
+  readonly id: string;
+  readonly mode: "steer" | "followUp";
+  readonly text: string;
+  readonly createdAt: string;
+}
+
+/** One subscription window as pi reports it, e.g. `windowMinutes: 300` for the 5-hour window. */
+export interface SessionPlanLimit {
+  readonly windowMinutes: number;
+  readonly usedPercent: number;
+  readonly resetsAt?: string;
+}
+
+export interface SessionPlanLimits {
+  readonly provider: string;
+  readonly limits: readonly SessionPlanLimit[];
+  readonly reportedAt: string;
+}
+
+export interface SessionUsageSnapshot {
+  readonly planLimits?: SessionPlanLimits;
+  /** True when the provider bills through a subscription, so `totals.cost` is not money spent. */
+  readonly subscription: boolean;
+  readonly totals?: { readonly cost: number };
+}
+
+export type OrchestrationChildStatus = "queued" | "running" | "waiting" | "complete" | "failed";
+
+export interface OrchestrationChildThread {
+  readonly id: string;
+  readonly title: string;
+  readonly role?: string;
+  readonly status: OrchestrationChildStatus;
+  readonly latestTranscript: string;
+  readonly parentWorkspaceId: string;
+  readonly parentSessionId: string;
+  readonly childWorkspaceId: string;
+  readonly childSessionId: string;
+  readonly updatedAt: string;
+}
+
+/** One signed-in account's plan windows, from the PC's `getAccountLimits`. */
+export interface AccountLimitWindow {
+  readonly label: string;
+  readonly usedPercent: number;
+  /** Epoch ms. */
+  readonly resetsAt?: number;
+}
+
+export interface AccountLimits {
+  readonly id: string;
+  readonly name: string;
+  readonly windows: readonly AccountLimitWindow[];
+  readonly asOf: number;
+  /** Where the numbers come from, or why there are none. */
+  readonly note?: string;
+}
+
 export interface DesktopAppState {
   readonly revision: number;
   readonly workspaces: readonly WorkspaceRecord[];
   readonly selectedWorkspaceId: string;
   readonly selectedSessionId: string;
+  /**
+   * These four are what the PC already sends (the desktop projection filters them to the workspaces
+   * this phone may see). Optional so a phone build newer than the PC still connects.
+   */
+  readonly sessionExtensionUiBySession?: Readonly<Record<string, SessionExtensionUiState>>;
+  readonly queuedComposerMessages?: readonly QueuedComposerMessage[];
+  readonly sessionUsageBySession?: Readonly<Record<string, SessionUsageSnapshot>>;
+  readonly orchestrationChildren?: readonly OrchestrationChildThread[];
 }
 
 export interface TranscriptMessage {

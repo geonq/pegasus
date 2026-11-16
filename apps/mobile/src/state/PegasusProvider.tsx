@@ -13,8 +13,10 @@ import { PegasusClient, PegasusError, type StreamStatus } from "../api/client";
 import { parsePairingLink } from "../api/pairing";
 import {
   applyTranscriptDelta,
+  type AccountLimits,
   type DesktopAppState,
   type Pairing,
+  type PendingDialogAnswer,
   type SelectedTranscript,
 } from "../api/types";
 import { forgetPairing, loadPairing, savePairing } from "../storage/pairing-store";
@@ -36,9 +38,18 @@ interface PegasusContextValue {
   readonly forget: () => Promise<void>;
   /** Opens the chat in this phone's own view on the PC; the transcript then streams in. */
   readonly openChat: (target: ChatTarget) => Promise<void>;
-  /** Sends to the chat open in this phone's view; `steer` reaches a running turn. */
-  readonly send: (text: string, steer: boolean) => Promise<void>;
+  /**
+   * Sends to the chat open in this phone's view: `send` queues the text for the run's next turn,
+   * `steer` reaches the running turn now.
+   */
+  readonly send: (text: string, mode: "send" | "steer") => Promise<void>;
   readonly stop: (target: ChatTarget) => Promise<void>;
+  /** Answers a pending approval, question or editor in this phone's view of a chat. */
+  readonly answer: (target: ChatTarget, answer: PendingDialogAnswer) => Promise<void>;
+  readonly removeQueued: (messageId: string) => Promise<void>;
+  readonly steerQueued: (messageId: string) => Promise<void>;
+  /** The PC's signed-in accounts and plan windows, for the Usage screen. */
+  readonly accountLimits: () => Promise<readonly AccountLimits[]>;
 }
 
 const PegasusContext = createContext<PegasusContextValue | null>(null);
@@ -161,11 +172,33 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
       openChat: async (target) => {
         await client().invoke("selectSession", target);
       },
-      send: async (text, steer) => {
-        await client().invoke("sendText", text, ...(steer ? [{ deliverAs: "steer" }] : []));
+      send: async (text, mode) => {
+        await client().invoke(
+          "sendText",
+          text,
+          ...(mode === "steer" ? [{ deliverAs: "steer" }] : []),
+        );
       },
       stop: async (target) => {
         await client().invoke("cancelCurrentRun", target);
+      },
+      answer: async (target, response) => {
+        await client().invoke(
+          "respondToHostUiRequest",
+          target.workspaceId,
+          target.sessionId,
+          response,
+        );
+      },
+      removeQueued: async (messageId) => {
+        await client().invoke("removeQueuedComposerMessage", messageId);
+      },
+      steerQueued: async (messageId) => {
+        await client().invoke("steerQueuedComposerMessage", messageId);
+      },
+      accountLimits: async () => {
+        const limits = await client().invoke<readonly AccountLimits[]>("getAccountLimits");
+        return limits;
       },
     }),
     [pairing, linkError, status, state, transcript, client],

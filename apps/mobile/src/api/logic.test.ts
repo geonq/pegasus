@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parsePairingLink } from "./pairing.ts";
 import { SseParser } from "./sse.ts";
-import { orderChats } from "./chats.ts";
+import { orderChats, waitingLabel } from "./chats.ts";
+import { planStatus } from "./usage.ts";
 
 const token = "a".repeat(43);
 
@@ -66,4 +67,70 @@ test("chats needing you come first, then running, then the newest", () => {
       ["old", "recent"],
     ],
   );
+});
+
+test("a pending dialog puts a chat under Needs you, first in the list", () => {
+  const s = (id: string) => ({
+    id,
+    title: id,
+    updatedAt: "2026-11-10T10:00:00.000Z",
+    preview: "",
+    status: "idle" as const,
+    hasUnseenUpdate: false,
+  });
+  const ordered = orderChats(
+    [
+      {
+        id: "w",
+        name: "pegasus",
+        path: "D:/Pi/pi-gui",
+        kind: "local",
+        sessions: [s("quiet"), s("waiting")],
+      },
+    ],
+    {
+      "w:waiting": {
+        pendingDialogs: [
+          { kind: "confirm", requestId: "r1", title: "Run tests?", message: "pnpm test" },
+        ],
+      },
+    },
+  );
+  assert.deepEqual(
+    ordered.map((chat) => [chat.session.id, chat.section, chat.pendingDialogs.length]),
+    [
+      ["waiting", "needs-you", 1],
+      ["quiet", "recent", 0],
+    ],
+  );
+  const first = ordered[0];
+  if (!first) throw new Error("expected at least one chat");
+  assert.equal(waitingLabel(first.pendingDialogs), "Approval needed");
+});
+
+test("the waiting line names both kinds and counts the queue", () => {
+  assert.equal(waitingLabel([]), null);
+  assert.equal(
+    waitingLabel([
+      { kind: "select", requestId: "a", title: "Pick", options: ["one", "two"] },
+      { kind: "input", requestId: "b", title: "Name", placeholder: "name" },
+    ]),
+    "Input · 2 waiting",
+  );
+  assert.equal(waitingLabel([{ kind: "editor", requestId: "a", title: "Edit" }]), "Input needed");
+  assert.deepEqual(
+    planStatus({
+      subscription: true,
+      planLimits: {
+        provider: "Claude · work",
+        reportedAt: "2026-11-13T10:00:00.000Z",
+        limits: [
+          { windowMinutes: 300, usedPercent: 12, resetsAt: "2026-11-13T15:00:00.000Z" },
+          { windowMinutes: 10080, usedPercent: 94 },
+        ],
+      },
+    }),
+    { provider: "Claude · work", usedPercent: 94 },
+  );
+  assert.equal(planStatus({ subscription: false }), null);
 });

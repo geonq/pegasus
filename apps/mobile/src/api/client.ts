@@ -18,7 +18,9 @@ const MAX_STREAM_CHARS = 32 * 1024 * 1024;
 export type StreamStatus =
   | { readonly state: "connecting" }
   | { readonly state: "live" }
-  | { readonly state: "retrying"; readonly inMs: number; readonly reason: string };
+  | { readonly state: "retrying"; readonly inMs: number; readonly reason: string }
+  /** The PC refused this phone's key: only pairing again helps, so retrying stops. */
+  | { readonly state: "revoked"; readonly reason: string };
 
 /**
  * The desktop's remote API (served by the Pegasus host on the PC):
@@ -122,12 +124,16 @@ export class PegasusClient {
         if (broken) retry("Pegasus sent an unreadable update.");
         else connect();
       };
-      request.onload = () =>
-        retry(
-          request.status === 401
-            ? "This phone's key was revoked. Pair it again."
-            : "The connection closed.",
-        );
+      request.onload = () => {
+        if (stopped) return;
+        if (request.status === 401) {
+          // Retrying a refused key cannot fix it and would hammer the PC; only pairing does.
+          stopped = true;
+          onStatus({ state: "revoked", reason: "This phone's key was revoked. Pair it again." });
+          return;
+        }
+        retry("The connection closed.");
+      };
       request.send();
     };
 

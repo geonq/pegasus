@@ -1,8 +1,8 @@
 import { LegendList } from "@legendapp/list/react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { orderChats, SECTION_TITLES, type ChatRow } from "../api/chats";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { orderChats, SECTION_TITLES, waitingLabel, type ChatRow } from "../api/chats";
 import { StatusDot } from "../components/StatusDot";
 import { usePegasus } from "../state/PegasusProvider";
 import { radius, spacing, type, usePalette } from "../theme";
@@ -15,12 +15,15 @@ type Row =
 /** Every chat on the PC: Needs you, then Working, then Recent, like the desktop sidebar. */
 export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackParamList, "Chats">) {
   const palette = usePalette();
-  const { state, status, pairing } = usePegasus();
+  const { state, status, pairing, forget } = usePegasus();
 
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
     let section: string | undefined;
-    for (const chat of orderChats(state?.workspaces ?? [])) {
+    for (const chat of orderChats(
+      state?.workspaces ?? [],
+      state?.sessionExtensionUiBySession ?? {},
+    )) {
       if (chat.section !== section) {
         section = chat.section;
         out.push({ kind: "header", title: SECTION_TITLES[chat.section], key: `h:${chat.section}` });
@@ -32,22 +35,32 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
 
   const banner =
     status.state === "retrying"
-      ? `${status.reason} Retrying in ${Math.round(status.inMs / 1000)} s.`
-      : status.state === "connecting" && !state
-        ? `Connecting to ${pairing?.hostName ?? "your PC"}…`
-        : null;
+      ? `${status.reason} Retrying in ${Math.round(status.inMs / 1000)} s. Showing the last update.`
+      : status.state === "revoked"
+        ? status.reason
+        : status.state === "connecting" && !state
+          ? `Connecting to ${pairing?.hostName ?? "your PC"}…`
+          : null;
 
   return (
     <View style={[styles.screen, { backgroundColor: palette.background }]}>
       {banner ? (
-        <Text
-          style={[
-            styles.banner,
-            { color: palette.textMuted, backgroundColor: palette.surfaceRaised },
-          ]}
-        >
-          {banner}
-        </Text>
+        <View style={[styles.banner, { backgroundColor: palette.surfaceRaised }]}>
+          <Text style={[styles.bannerText, { color: palette.textMuted }]}>{banner}</Text>
+          {status.state === "revoked" ? (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => {
+                forget().catch((reason: unknown) =>
+                  Alert.alert("Could not unpair", String(reason)),
+                );
+              }}
+            >
+              <Text style={[styles.bannerAction, { color: palette.accentText }]}>Pair again</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
       <LegendList
         data={rows}
@@ -83,16 +96,25 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
                   {item.session.title || "Untitled chat"}
                 </Text>
                 <Text numberOfLines={1} style={[styles.rowDetail, { color: palette.textMuted }]}>
-                  {item.session.status === "running" && item.session.currentStep
-                    ? item.session.currentStep
-                    : item.session.status === "failed"
-                      ? "Stopped with an error"
-                      : item.session.preview || item.workspace.name}
+                  {waitingLabel(item.pendingDialogs) ??
+                    (item.session.status === "running" && item.session.currentStep
+                      ? item.session.currentStep
+                      : item.session.status === "failed"
+                        ? "Stopped with an error"
+                        : item.session.preview || item.workspace.name)}
                 </Text>
               </View>
-              <Text style={[styles.project, { color: palette.textMuted }]} numberOfLines={1}>
-                {item.workspace.name}
-              </Text>
+              {item.pendingDialogs.length > 0 ? (
+                <View style={[styles.waitChip, { backgroundColor: palette.warning }]}>
+                  <Text style={[styles.waitChipText, { color: palette.background }]}>
+                    {item.pendingDialogs.length}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.project, { color: palette.textMuted }]} numberOfLines={1}>
+                  {item.workspace.name}
+                </Text>
+              )}
             </Pressable>
           )
         }
@@ -110,7 +132,25 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  banner: { fontSize: type.caption, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  bannerText: { flex: 1, fontSize: type.caption, lineHeight: 16 },
+  bannerAction: { fontSize: type.caption, fontWeight: "600" },
+  waitChip: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  waitChipText: { fontSize: type.caption, fontWeight: "700" },
   header: {
     fontSize: type.caption,
     fontWeight: "600",
