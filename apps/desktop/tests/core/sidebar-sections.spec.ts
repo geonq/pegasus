@@ -206,7 +206,11 @@ test("snoozing moves a chat into Snoozed with Undo, and it wakes unread when its
     // From the row's menu: the chat leaves the list for the folded Snoozed group.
     const row = today.locator(".session-row", { hasText: "Later" });
     await row.click({ button: "right" });
-    await row.getByRole("menu").getByRole("button", { name: "Snooze for an hour" }).click();
+    await window
+      .locator(".floating-menu")
+      .getByRole("menu")
+      .getByRole("button", { name: "Snooze for an hour" })
+      .click();
     const snoozed = window.getByRole("region", { name: "Snoozed" });
     await expect(snoozed).toBeVisible();
     await expect(snoozed.locator(".attention-group__count")).toHaveText("1");

@@ -66,6 +66,7 @@ import {
 } from "../../../contracts/ipc";
 import { formatRelativeTime } from "../../lib/string-utils";
 import { useStableHandlers } from "../../lib/use-stable-handlers";
+import { FloatingMenu } from "../../ui/floating-menu";
 import { PaneResizeHandle, type PaneWidthBounds } from "../../ui/pane-resize-handle";
 import { usePersistedPaneWidth } from "../../ui/use-persisted-pane-width";
 import { sessionLastInteractedAt } from "../../../contracts/thread-recency";
@@ -1681,6 +1682,8 @@ const ThreadSessionRow = memo(function ThreadSessionRow({
     !overlay &&
     threadMenu?.openMenu?.surface === "sidebar" &&
     threadMenu.openMenu.sessionId === thread.session.id;
+  const menuAt =
+    menuOpen && threadMenu?.openMenu?.surface === "sidebar" ? threadMenu.openMenu.at : undefined;
   const classes = [
     "session-row",
     active ? "session-row--active" : "",
@@ -1715,7 +1718,7 @@ const ThreadSessionRow = memo(function ThreadSessionRow({
           if (!threadMenu || overlay) return;
           event.preventDefault();
           event.stopPropagation();
-          threadMenu.openSidebarMenu(thread.session.id);
+          threadMenu.openSidebarMenu(thread.session.id, { x: event.clientX, y: event.clientY });
         }}
       >
         {foldable ? (
@@ -1827,7 +1830,14 @@ const ThreadSessionRow = memo(function ThreadSessionRow({
               ) : null}
             </span>
           </span>
-          {threadMenu && menuOpen ? (
+          {threadMenu && menuOpen && menuAt ? (
+            <FloatingMenu at={menuAt} wrapRef={threadMenu.menuWrapRef}>
+              <ThreadActionsMenu
+                actions={threadMenu.actionsFor(thread)}
+                className="session-row__menu session-row__menu--floating"
+              />
+            </FloatingMenu>
+          ) : threadMenu && menuOpen ? (
             <div className="session-row__menu-wrap" ref={threadMenu.menuWrapRef}>
               <ThreadActionsMenu
                 actions={threadMenu.actionsFor(thread)}

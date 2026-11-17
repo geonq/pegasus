@@ -83,7 +83,7 @@ test("right-click thread menu supports rename, archive/restore, mark read, and c
     await row.hover();
     await expect(row.locator(".session-row__menu-button")).toHaveCount(0);
     await row.click({ button: "right" });
-    const menu = row.getByRole("menu");
+    const menu = window.locator(".floating-menu").getByRole("menu");
     expect(await menuItemTitles(menu)).toEqual([
       "Rename chat",
       "Pin chat",
@@ -102,7 +102,11 @@ test("right-click thread menu supports rename, archive/restore, mark read, and c
       .toBe(target!.sessionId);
 
     await row.click({ button: "right" });
-    await row.getByRole("menu").getByRole("button", { name: "Mark as read" }).click();
+    await window
+      .locator(".floating-menu")
+      .getByRole("menu")
+      .getByRole("button", { name: "Mark as read" })
+      .click();
     await expect(row).toHaveAttribute("data-sidebar-indicator", "none");
     await captureProof(window, "02-marked-read.png");
 
@@ -138,7 +142,11 @@ test("right-click thread menu supports rename, archive/restore, mark read, and c
     await captureProof(window, "06-gap-fixed.png");
 
     await row.click({ button: "right" });
-    await row.getByRole("menu").getByRole("button", { name: "Rename chat" }).click();
+    await window
+      .locator(".floating-menu")
+      .getByRole("menu")
+      .getByRole("button", { name: "Rename chat" })
+      .click();
     const renameInput = window.getByLabel(`Rename thread ${targetTitle}`);
     await renameInput.fill(renamedTitle);
     await window.getByRole("button", { name: "Save" }).click();
@@ -147,7 +155,11 @@ test("right-click thread menu supports rename, archive/restore, mark read, and c
     await captureProof(window, "03-renamed.png");
 
     await row.click({ button: "right" });
-    await row.getByRole("menu").getByRole("button", { name: "Archive chat" }).click();
+    await window
+      .locator(".floating-menu")
+      .getByRole("menu")
+      .getByRole("button", { name: "Archive chat" })
+      .click();
     await expect(
       window.locator(".session-list > .session-row", { hasText: renamedTitle }),
     ).toHaveCount(0);
@@ -160,7 +172,11 @@ test("right-click thread menu supports rename, archive/restore, mark read, and c
       hasText: renamedTitle,
     });
     await archivedRow.click({ button: "right" });
-    await archivedRow.getByRole("menu").getByRole("button", { name: "Unarchive chat" }).click();
+    await window
+      .locator(".floating-menu")
+      .getByRole("menu")
+      .getByRole("button", { name: "Unarchive chat" })
+      .click();
     await expect(
       window.locator(".session-list > .session-row", { hasText: renamedTitle }),
     ).toHaveCount(1);
@@ -191,7 +207,7 @@ test("header and right-click menus match, show shortcuts, and Shift chords renam
 
     const row = window.locator(".session-row", { hasText: targetTitle }).first();
     await row.click({ button: "right" });
-    const rowMenu = row.getByRole("menu");
+    const rowMenu = window.locator(".floating-menu").getByRole("menu");
     const rowItems = await menuItemTitles(rowMenu);
     await expect(
       rowMenu.getByRole("button", { name: "Rename chat" }).locator(".workspace-menu__shortcut"),
@@ -236,6 +252,50 @@ test("header and right-click menus match, show shortcuts, and Shift chords renam
     // Archiving moves to the next thread; one press archives only one.
     await expect(window.locator(".chat-header__title")).toHaveText(keptTitle);
     await expect(window.locator(".session-row", { hasText: keptTitle })).toHaveCount(1);
+  } finally {
+    await harness.close();
+  }
+});
+
+test("a right-click menu near the window edge stays fully on screen", async () => {
+  test.setTimeout(60_000);
+  const userDataDir = await makeUserDataDir();
+  const workspacePath = await makeWorkspace("thread-menu-edge-workspace");
+  const harness = await launchDesktop(userDataDir, {
+    initialWorkspaces: [workspacePath],
+    testMode: "background",
+  });
+  try {
+    const window = await harness.firstWindow();
+    const title = "Edge menu thread";
+    await createNamedThread(window, title);
+    const row = window.locator(".session-row", { hasText: title }).first();
+    const viewport = await window.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }));
+    const rowBox = await row.boundingBox();
+    expect(rowBox).not.toBeNull();
+    // Right-click as low and as far right as possible inside the row: the menu cannot open
+    // down-right of the pointer there, so it must flip instead of being clipped.
+    const rowBottom = Math.min(rowBox!.y + rowBox!.height - 2, viewport.height - 4);
+    await window.mouse.click(rowBox!.x + rowBox!.width - 4, rowBottom, { button: "right" });
+    const menu = window.locator(".floating-menu").getByRole("menu");
+    await expect(menu).toBeVisible();
+    const box = await menu.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
+    // Every item is really hit-testable, not hidden behind the sidebar's clipping.
+    const last = menu.locator(".workspace-menu__item").last();
+    const lastBox = await last.boundingBox();
+    const hit = await window.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.closest(".floating-menu") !== null,
+      { x: lastBox!.x + lastBox!.width / 2, y: lastBox!.y + lastBox!.height / 2 },
+    );
+    expect(hit).toBe(true);
   } finally {
     await harness.close();
   }

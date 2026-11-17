@@ -35,9 +35,17 @@ interface UseThreadActionsParams {
   readonly flushComposerDraft: () => void;
 }
 
-/** Where a thread menu is open: a sidebar row's right-click menu, or the thread header. */
+/**
+ * Where a thread menu is open: a sidebar row's right-click menu (at the pointer, when it came from
+ * a right-click), or the thread header.
+ */
 type OpenThreadMenu =
-  { readonly surface: "sidebar"; readonly sessionId: string } | { readonly surface: "header" };
+  | {
+      readonly surface: "sidebar";
+      readonly sessionId: string;
+      readonly at?: { readonly x: number; readonly y: number };
+    }
+  | { readonly surface: "header" };
 
 export interface ThreadMenuState {
   readonly platform: NodeJS.Platform;
@@ -47,7 +55,10 @@ export interface ThreadMenuState {
   readonly setRenameDraft: Dispatch<SetStateAction<string>>;
   readonly menuWrapRef: RefObject<HTMLDivElement | null>;
   readonly renamePanelRef: RefObject<HTMLFormElement | null>;
-  readonly openSidebarMenu: (sessionId: string) => void;
+  readonly openSidebarMenu: (
+    sessionId: string,
+    at?: { readonly x: number; readonly y: number },
+  ) => void;
   readonly toggleHeaderMenu: () => void;
   readonly submitRename: (subject: ThreadActionSubject) => void;
   readonly cancelRename: () => void;
@@ -189,9 +200,9 @@ export function useThreadActions({
     setRenameDraft,
     menuWrapRef,
     renamePanelRef,
-    openSidebarMenu: (sessionId) => {
+    openSidebarMenu: (sessionId, at) => {
       setRenameSessionId(null);
-      setOpenMenu({ surface: "sidebar", sessionId });
+      setOpenMenu({ surface: "sidebar", sessionId, ...(at ? { at } : {}) });
     },
     toggleHeaderMenu: () => {
       setRenameSessionId(null);
