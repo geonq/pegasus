@@ -1392,6 +1392,9 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
   cursor: default;
+  /* Zoom and pan are written to transform per pointer event; it tracks 1:1, no transition. */
+  touch-action: none;
+  user-select: none;
 }
 
 .image-viewer__close {
@@ -1409,6 +1412,59 @@
 
 .image-viewer__close:hover {
   background: rgba(255, 255, 255, 0.24);
+}
+
+.image-viewer__nav {
+  position: absolute;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  margin-top: -18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .image-viewer__nav:hover {
+    background: rgba(255, 255, 255, 0.24);
+  }
+}
+
+.image-viewer__nav--prev {
+  left: 16px;
+}
+
+.image-viewer__nav--next {
+  right: 16px;
+}
+
+.image-viewer__nav--prev svg {
+  transform: scaleX(-1);
+}
+
+.image-viewer__count,
+.image-viewer__zoom {
+  position: absolute;
+  bottom: 16px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.image-viewer__count {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.image-viewer__zoom {
+  right: 16px;
 }
 
 .secondary-surface {

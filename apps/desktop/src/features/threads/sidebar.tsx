@@ -89,6 +89,7 @@ import {
 import { AttentionToastHost, useAttentionToasts } from "./attention-toast";
 import { UndoToastHost } from "./undo-toast";
 import { VirtualSessionList } from "./virtual-session-list";
+import { useThreadHoverCard } from "./thread-hover-card";
 import { useThreadShortcutHintsVisible } from "./thread-shortcut-hints";
 import { useSignIns } from "../usage/account-state";
 import { UpdateBanner } from "../updates/update-banner";
@@ -1713,6 +1714,17 @@ const ThreadSessionRow = memo(function ThreadSessionRow({
     threadMenu.openMenu.sessionId === thread.session.id;
   const menuAt =
     menuOpen && threadMenu?.openMenu?.surface === "sidebar" ? threadMenu.openMenu.at : undefined;
+  const localRowRef = useRef<HTMLDivElement | null>(null);
+  const setRowRef = (node: HTMLDivElement | null) => {
+    localRowRef.current = node;
+    if (typeof ref === "function") ref(node);
+    else if (ref) (ref as MutableRefObject<HTMLDivElement | null>).current = node;
+  };
+  const hoverCard = useThreadHoverCard(
+    localRowRef,
+    !overlay && !dragging && !menuOpen && threadMenu?.renameSessionId !== thread.session.id,
+    thread,
+  );
   const classes = [
     "session-row",
     active ? "session-row--active" : "",
@@ -1730,9 +1742,10 @@ const ThreadSessionRow = memo(function ThreadSessionRow({
   return (
     <>
       <div
-        ref={ref}
+        ref={setRowRef}
         style={style}
         className={classes}
+        {...hoverCard.handlers}
         data-sidebar-indicator={indicatorVariant}
         data-session-pinned={pinned ? "true" : "false"}
         data-session-id={thread.session.id}
@@ -1750,6 +1763,7 @@ const ThreadSessionRow = memo(function ThreadSessionRow({
           threadMenu.openSidebarMenu(thread.session.id, { x: event.clientX, y: event.clientY });
         }}
       >
+        {hoverCard.card}
         {foldable ? (
           <button
             aria-expanded={!folded}
