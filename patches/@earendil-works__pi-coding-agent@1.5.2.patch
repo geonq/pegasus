@@ -1,19 +1,17 @@
 diff --git a/dist/utils/shell.js b/dist/utils/shell.js
-index e5c17aa..de051c9 100644
+index 5e416a1..a0139e0 100644
 --- a/dist/utils/shell.js
 +++ b/dist/utils/shell.js
-@@ -102,11 +102,13 @@ export function getShellConfig(customShellPath) {
+@@ -120,7 +120,12 @@ export function getShellConfig(customShellPath) {
  }
  export const POWERSHELL_ARGS = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command"];
  /** Resolve PowerShell on Windows, preferring PowerShell 7 when available. */
 +/* pi-ecosystem: cached PowerShell config */
 +let cachedPowerShell;
  export function getPowerShellConfig() {
++    return (cachedPowerShell ??= resolvePowerShellConfigUncached());
++}
++function resolvePowerShellConfigUncached() {
      if (process.platform !== "win32") {
          throw new Error("The powershell tool is only available on Windows.");
-     }
--    const shell = findExecutableOnPath("pwsh.exe") ?? findExecutableOnPath("powershell.exe");
-+    const shell = (cachedPowerShell ??= findExecutableOnPath("pwsh.exe") ?? findExecutableOnPath("powershell.exe") ?? undefined);
-     if (!shell) {
-         throw new Error("No PowerShell executable found. Install PowerShell or add powershell.exe/pwsh.exe to PATH.");
      }

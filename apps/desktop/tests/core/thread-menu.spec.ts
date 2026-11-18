@@ -271,8 +271,8 @@ test("a right-click menu near the window edge stays fully on screen", async () =
     await createNamedThread(window, title);
     const row = window.locator(".session-row", { hasText: title }).first();
     const viewport = await window.evaluate(() => ({
-      width: window.innerWidth,
-      height: window.innerHeight,
+      width: globalThis.innerWidth,
+      height: globalThis.innerHeight,
     }));
     const rowBox = await row.boundingBox();
     expect(rowBox).not.toBeNull();
