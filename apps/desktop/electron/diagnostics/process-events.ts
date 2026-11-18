@@ -34,10 +34,38 @@ export function watchProcessEvents(): void {
       name: details.name || details.serviceName,
     });
   });
+  // Node's own warnings (e.g. MaxListenersExceededWarning) with where they came from, so a leak
+  // names its emitter instead of only repeating in the console.
+  process.on("warning", (warning) => {
+    const leak = warning as Error & { emitter?: object; type?: unknown; count?: unknown };
+    logEvent("main.warning", {
+      l: "w",
+      name: warning.name,
+      emitter: leak.emitter?.constructor?.name,
+      event: typeof leak.type === "string" ? leak.type : undefined,
+      count: typeof leak.count === "number" ? leak.count : undefined,
+      ...errorFields(warning),
+    });
+  });
+  watchMainStalls();
   app.on("web-contents-created", (_event, contents) => watchWebContents(contents));
   // before-quit repeats when the quit flush re-quits; one line per quit.
   app.once("before-quit", () => logEvent("app.quit"));
   app.on("will-quit", () => flushEventLogSync());
+}
+
+const STALL_TICK_MS = 250;
+const STALL_LOG_MS = 300;
+
+/** Logs every time main's event loop was blocked long enough to be felt (clicks, chat switches). */
+function watchMainStalls(): void {
+  let expected = performance.now() + STALL_TICK_MS;
+  setInterval(() => {
+    const now = performance.now();
+    const late = now - expected;
+    expected = now + STALL_TICK_MS;
+    if (late >= STALL_LOG_MS) logEvent("main.stall", { l: "w", ms: Math.round(late) });
+  }, STALL_TICK_MS).unref();
 }
 
 function watchWebContents(contents: WebContents): void {

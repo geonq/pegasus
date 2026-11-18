@@ -25,6 +25,7 @@ import type {
   UsageReport,
 } from "../../contracts/usage";
 import type { DesktopAppStore } from "../application/app-store";
+import { logEvent } from "../diagnostics/event-log";
 import type { NotificationPermissionService } from "../platform/notification-permission";
 import type { TerminalService } from "../platform/terminal-service";
 import type { ThemeManager } from "../platform/theme-manager";
@@ -396,9 +397,18 @@ export function registerDesktopIpc({
     run(event, () => owners.workspace.syncCurrentWorkspace()),
   );
 
-  ipcMain.handle(desktopIpc.selectSession, (event, rawTarget: unknown) => {
+  ipcMain.handle(desktopIpc.selectSession, async (event, rawTarget: unknown) => {
     const target = expectSessionTarget(rawTarget);
-    return run(event, () => owners.conversation.selectSession(target));
+    const started = performance.now();
+    try {
+      return await run(event, () => owners.conversation.selectSession(target));
+    } finally {
+      // Always written (not only traced), so a slow chat switch can be measured from the log.
+      logEvent("session.select", {
+        s: target.sessionId,
+        ms: Math.round(performance.now() - started),
+      });
+    }
   });
   ipcMain.handle(desktopIpc.renameSession, (event, rawTarget: unknown, rawTitle: unknown) => {
     const target = expectSessionTarget(rawTarget);
