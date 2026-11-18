@@ -149,8 +149,10 @@ test("Needs you and Working head the Chats list, and Archive takes a real click 
     const working = window.getByRole("region", { name: "Working" });
     await expect(needsYou.locator(".session-row")).toHaveCount(1);
     await expect(working.locator(".session-row")).toHaveCount(1);
-    // Both sit above the project folder rows, so many projects never push them off screen.
-    const firstFolder = (await window.locator(".workspace-row").first().boundingBox())!;
+    // Both sit above the Projects section, so many projects never push them off screen.
+    const firstFolder = (await window
+      .getByRole("region", { name: "Projects", exact: true })
+      .boundingBox())!;
     expect((await needsYou.boundingBox())!.y).toBeLessThan(firstFolder.y);
     expect((await working.boundingBox())!.y).toBeLessThan(firstFolder.y);
 

@@ -1256,7 +1256,13 @@
   color: var(--fg-strong);
 }
 
-.attention-group__head--button:hover {
+@media (hover: hover) and (pointer: fine) {
+  .attention-group__head--button:hover {
+    background: var(--overlay-hover);
+  }
+}
+
+.attention-group__head--button:active {
   background: var(--overlay-hover);
 }
 
