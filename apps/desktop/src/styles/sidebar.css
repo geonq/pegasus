@@ -1449,3 +1449,93 @@
     }
   }
 }
+
+/* Chat hover card: drawn beside a row after a short rest (see features/threads/thread-hover-card.tsx). */
+.floating-menu:has(> .thread-hover-card) {
+  pointer-events: none;
+}
+
+.thread-hover-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  font-size: 12px;
+  /* Grows out of the row it describes: from its left edge when it sits right of the row. */
+  transform-origin: left top;
+  transition:
+    opacity 150ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 150ms cubic-bezier(0.23, 1, 0.32, 1);
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+.thread-hover-card[data-side="left"] {
+  transform-origin: right top;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thread-hover-card {
+    transition: opacity 120ms ease-out;
+    @starting-style {
+      transform: none;
+    }
+  }
+}
+
+.thread-hover-card__title {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.thread-hover-card__facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 10px;
+  margin: 0;
+}
+
+.thread-hover-card__facts dt {
+  color: var(--muted);
+}
+
+.thread-hover-card__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.thread-hover-card__dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.thread-hover-card__dot--working {
+  background: var(--status-running);
+}
+
+.thread-hover-card__dot--needs-you {
+  background: var(--accent);
+}
+
+.thread-hover-card__preview {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
