@@ -2931,6 +2931,14 @@ export class SessionSupervisor {
         this.refreshUsage(record);
         return [sessionUpdatedEvent(record)];
       case "entry_appended":
+        // An extension can pick the model itself (a subagent chat takes the model its parent
+        // assigned). The picker reads record.config, so re-derive it or the chat shows the default.
+        if (event.entry.type === "model_change" || event.entry.type === "thinking_level_change") {
+          record.config = record.session
+            ? deriveSessionConfig(record.session.sessionManager)
+            : record.config;
+          return [sessionUpdatedEvent(record)];
+        }
         if (isExtensionCardEntry(event.entry) || isExtensionPinEntry(event.entry)) {
           return [
             {
