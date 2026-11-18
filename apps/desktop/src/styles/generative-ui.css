@@ -556,3 +556,42 @@
 .generative-ui__agent-text .generative-ui__check-note {
   grid-column: auto;
 }
+
+.generative-ui__mermaid-block {
+  display: grid;
+  gap: var(--space-1-5);
+}
+
+.generative-ui__mermaid-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1-5);
+}
+
+.generative-ui__mermaid-toggle {
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--fg-muted);
+  background: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .generative-ui__mermaid-toggle:hover,
+  .generative-ui__mermaid-copy:hover {
+    color: var(--fg-strong);
+    background: var(--overlay-hover);
+  }
+}
+
+.generative-ui__mermaid-copy {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+}

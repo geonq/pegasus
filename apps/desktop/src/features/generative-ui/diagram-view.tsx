@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from "react";
 import type { DiagramNode, UiNode } from "../../../contracts/generative-ui";
+import { CopyButton } from "../../ui/copy-button";
 import { layoutDiagram, NODE_HEIGHT, NODE_WIDTH } from "./diagram-layout";
 import { useGenerativeUiHost } from "./generative-ui-view";
 
@@ -238,6 +239,7 @@ let mermaidCount = 0;
 export function MermaidDiagram({ source }: { readonly source: string }) {
   const [svg, setSvg] = useState<string>();
   const [error, setError] = useState<string>();
+  const [showCode, setShowCode] = useState(false);
   const dark =
     typeof document !== "undefined" && document.documentElement.classList.contains("dark");
   useEffect(() => {
@@ -279,12 +281,37 @@ export function MermaidDiagram({ source }: { readonly source: string }) {
     );
   }
   if (!svg) return <div className="generative-ui__muted">Drawing diagram…</div>;
-  // Mermaid's strict mode output, sanitized by Mermaid itself (DOMPurify).
   return (
-    <div
-      className="generative-ui__mermaid"
-      data-testid="generative-ui-mermaid"
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    <div className="generative-ui__mermaid-block" data-testid="generative-ui-mermaid-block">
+      <div className="generative-ui__mermaid-tools">
+        <button
+          aria-pressed={showCode}
+          className="generative-ui__mermaid-toggle"
+          data-testid="mermaid-toggle"
+          type="button"
+          onClick={() => setShowCode((current) => !current)}
+        >
+          {showCode ? "Show diagram" : "Show code"}
+        </button>
+        <CopyButton
+          className="generative-ui__mermaid-copy"
+          label="Copy Mermaid source"
+          testId="mermaid-copy"
+          text={source}
+        />
+      </div>
+      {showCode ? (
+        <pre className="generative-ui__code" data-testid="mermaid-source">
+          {source}
+        </pre>
+      ) : (
+        // Mermaid's strict mode output, sanitized by Mermaid itself (DOMPurify).
+        <div
+          className="generative-ui__mermaid"
+          data-testid="generative-ui-mermaid"
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
+      )}
+    </div>
   );
 }
