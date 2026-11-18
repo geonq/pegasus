@@ -1,8 +1,8 @@
 //! Shared host state and request dispatch. One `Host` per process; each connection calls `dispatch`.
 use crate::terminals::Terminals;
 use pegasus_core::protocol::{
-    Empty, ErrorCode, HelloParams, HelloResult, HostError, HostEvent, ShutdownParams, ShutdownResult,
-    StatusResult, TerminalId, TerminalList, TerminalResizeParams, TerminalSpawnParams, TerminalWriteParams,
+    Empty, ErrorCode, HelloParams, HelloResult, HostError, HostEvent, QuickCommandDeleteParams, QuickCommandList,
+    QuickCommandRunParams, QuickCommandSaveParams, QuickCommandsParams, ShutdownParams, ShutdownResult, StatusResult, TerminalId, TerminalList, TerminalResizeParams, TerminalSpawnParams, TerminalWriteParams,
     PROTOCOL,
 };
 use std::collections::HashSet;
@@ -58,6 +58,7 @@ pub struct Host {
     sessions_root: std::path::PathBuf,
     clients: AtomicU32,
     pub terminals: Arc<Terminals>,
+    quick_commands: crate::quick_commands::QuickCommands,
     pub remote: Arc<crate::remote::Remote>,
     /// How long an orphaned terminal waits for a client before it is killed.
     pub orphan_grace: std::time::Duration,
@@ -113,6 +114,8 @@ impl Host {
     ) -> Arc<Self> {
         let events = broadcast::channel(1024).0;
         let sessions_root = sessions.root().to_path_buf();
+        // Next to the sessions folder, in the agent dir that holds the host's other state files.
+        let quick_commands_file = sessions_root.parent().unwrap_or(&sessions_root).join("pegasus-quick-commands.json");
         let (exiting, exit_rx) = watch::channel(false);
         let runtime_worker = crate::runtime::RuntimeWorker::start(log_dir, exit_rx);
         Arc::new(Host {
@@ -121,6 +124,7 @@ impl Host {
             sessions_root,
             clients: AtomicU32::new(0),
             terminals: Arc::new(Terminals::new(events.clone())),
+            quick_commands: crate::quick_commands::QuickCommands::new(quick_commands_file),
             remote: Arc::new(crate::remote::Remote::default()),
             orphan_grace,
             started: Instant::now(),
@@ -292,6 +296,25 @@ impl Host {
             "terminal.list" => {
                 let _: Empty = parse(params)?;
                 to_body(&TerminalList { terminals: self.terminals.list() })
+            }
+            "quickCommands.list" => {
+                let p: QuickCommandsParams = parse(params)?;
+                to_body(&QuickCommandList { commands: self.quick_commands.list(&p.project)? })
+            }
+            "quickCommands.save" => {
+                let p: QuickCommandSaveParams = parse(params)?;
+                to_body(&QuickCommandList { commands: self.quick_commands.save(p)? })
+            }
+            "quickCommands.delete" => {
+                let p: QuickCommandDeleteParams = parse(params)?;
+                to_body(&QuickCommandList { commands: self.quick_commands.delete(&p.project, &p.id)? })
+            }
+            "quickCommands.run" => {
+                let p: QuickCommandRunParams = parse(params)?;
+                let command = self.quick_commands.get(&p.project, &p.id)?;
+                // Carriage return is Enter in every shell the terminal runs (cmd, PowerShell, bash).
+                self.terminals.write(&p.terminal_id, &format!("{}\r", command.command))?;
+                to_body(&Empty {})
             }
             "review.create" | "review.check" | "review.read" | "review.stage" | "review.treeChanges" => {
                 let method = method.to_string();

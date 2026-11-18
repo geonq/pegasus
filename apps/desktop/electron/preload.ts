@@ -23,7 +23,10 @@ import {
   type ChangedFilesResult,
   type DesktopNotificationPermissionStatus,
   type WorkspaceFilePreview,
+  type HostConnectionStatus,
   type PiDesktopCommand,
+  type QuickCommand,
+  type QuickCommandInput,
   type TerminalDataEvent,
   type TerminalErrorEvent,
   type TerminalExitEvent,
@@ -579,6 +582,20 @@ const localPiDesktopApi = {
     ) as Promise<TerminalPanelSnapshot | null>,
   setTerminalTitle: (terminalId: string, title: string) =>
     ipcRenderer.invoke(desktopIpc.terminalSetTitle, terminalId, title) as Promise<void>,
+  listQuickCommands: (workspaceId: string) =>
+    ipcRenderer.invoke(desktopIpc.listQuickCommands, workspaceId) as Promise<
+      readonly QuickCommand[]
+    >,
+  saveQuickCommand: (workspaceId: string, input: QuickCommandInput) =>
+    ipcRenderer.invoke(desktopIpc.saveQuickCommand, workspaceId, input) as Promise<
+      readonly QuickCommand[]
+    >,
+  deleteQuickCommand: (workspaceId: string, id: string) =>
+    ipcRenderer.invoke(desktopIpc.deleteQuickCommand, workspaceId, id) as Promise<
+      readonly QuickCommand[]
+    >,
+  runQuickCommand: (workspaceId: string, terminalId: string, id: string) =>
+    ipcRenderer.invoke(desktopIpc.runQuickCommand, workspaceId, terminalId, id) as Promise<void>,
   setTerminalFocused: (focused: boolean) => {
     ipcRenderer.send(desktopIpc.terminalSetFocused, focused);
     return Promise.resolve();
@@ -682,6 +699,8 @@ const localPiDesktopApi = {
     ipcRenderer.invoke(desktopIpc.getAccountLimits, options) as Promise<readonly AccountLimits[]>,
   getClaudeSlots: () =>
     ipcRenderer.invoke(desktopIpc.getClaudeSlots) as Promise<readonly ClaudeSlot[]>,
+  getHostStatus: () =>
+    ipcRenderer.invoke(desktopIpc.getHostStatus) as Promise<HostConnectionStatus>,
   getPhoneAccess: () => ipcRenderer.invoke(desktopIpc.getPhoneAccess) as Promise<PhoneAccessState>,
   pairPhone: (label: string) =>
     ipcRenderer.invoke(desktopIpc.pairPhone, label) as Promise<PhonePairing>,

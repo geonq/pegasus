@@ -20,4 +20,6 @@
 @import "./styles/activity-beam.css";
 @import "./styles/usage.css";
 @import "./styles/charts.css";
+@import "./styles/quick-command.css";
 @import "./styles/floating-panels.css";
+@import "./styles/status-bar.css";

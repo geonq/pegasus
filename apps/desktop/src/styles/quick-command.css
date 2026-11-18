@@ -1,0 +1,164 @@
+/* Terminal quick commands: a strip of saved commands under the terminal tabs. */
+
+.terminal-panel {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.quick-commands {
+  border-bottom: 1px solid var(--line);
+  background: var(--sidebar);
+  font-size: var(--text-sm);
+}
+
+.enable-transparency .quick-commands {
+  background: transparent;
+}
+
+.quick-commands__strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-height: 34px;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-2-5);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.quick-commands__empty {
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.quick-commands__chip {
+  flex-shrink: 0;
+  max-width: 180px;
+  height: 24px;
+  padding: 0 var(--space-2-5);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface-overlay);
+  color: var(--fg-strong);
+  font: inherit;
+  font-weight: var(--font-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition:
+    background var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.quick-commands__chip:active:not(:disabled),
+.quick-commands .button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.quick-commands__chip:disabled {
+  opacity: 0.45;
+}
+
+.quick-commands__chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .quick-commands__chip:hover:not(:disabled) {
+    border-color: var(--surface-overlay-border);
+    background: var(--surface-overlay-hover);
+  }
+}
+
+.quick-commands__tools {
+  display: flex;
+  gap: 3px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.quick-commands__tools [aria-pressed="true"] {
+  border-color: var(--line);
+  background: var(--overlay-hover);
+  color: var(--fg-strong);
+}
+
+.quick-commands__error {
+  margin: 0;
+  padding: 0 var(--space-2-5) var(--space-1-5);
+  color: var(--error-ink);
+}
+
+.quick-commands__manage {
+  display: grid;
+  gap: var(--space-1);
+  max-height: 40vh;
+  padding: 0 var(--space-2-5) var(--space-2);
+  overflow-y: auto;
+}
+
+.quick-commands__row,
+.quick-commands__form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+}
+
+.quick-commands__name {
+  flex-shrink: 0;
+  max-width: 30%;
+  overflow: hidden;
+  color: var(--fg-strong);
+  font-weight: var(--font-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-commands__command {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-commands__delete {
+  color: var(--error-ink);
+}
+
+.quick-commands__input {
+  flex: 1 1 30%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg-strong);
+  font: inherit;
+}
+
+.quick-commands__input--command {
+  flex-basis: 50%;
+  font-family: var(--font-mono);
+}
+
+.quick-commands__input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quick-commands__chip,
+  .quick-commands .button {
+    transition: none;
+  }
+
+  .quick-commands__chip:active:not(:disabled),
+  .quick-commands .button:active:not(:disabled) {
+    transform: none;
+  }
+}

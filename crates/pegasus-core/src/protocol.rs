@@ -258,6 +258,55 @@ pub struct TerminalList {
     pub terminals: Vec<TerminalInfo>,
 }
 
+/// A saved terminal command of one project, runnable in one click from the terminal panel.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct QuickCommand {
+    pub id: String,
+    pub name: String,
+    pub command: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct QuickCommandsParams {
+    /// The project's folder path; commands are stored per project.
+    pub project: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct QuickCommandSaveParams {
+    pub project: String,
+    /// Omitted = add a new command; otherwise replace the one with this id.
+    #[serde(default)]
+    #[ts(optional)]
+    pub id: Option<String>,
+    pub name: String,
+    pub command: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct QuickCommandDeleteParams {
+    pub project: String,
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuickCommandRunParams {
+    pub project: String,
+    pub id: String,
+    /// The host terminal the command is typed into (followed by Enter).
+    pub terminal_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct QuickCommandList {
+    pub commands: Vec<QuickCommand>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RemoteClientConfig {
@@ -419,6 +468,10 @@ methods! {
     "terminal.resize" => TerminalResizeParams => Empty,
     "terminal.kill" => TerminalId => Empty,
     "terminal.list" => Empty => TerminalList,
+    "quickCommands.list" => QuickCommandsParams => QuickCommandList,
+    "quickCommands.save" => QuickCommandSaveParams => QuickCommandList,
+    "quickCommands.delete" => QuickCommandDeleteParams => QuickCommandList,
+    "quickCommands.run" => QuickCommandRunParams => Empty,
     "review.create" => crate::review_types::ReviewCreateParams => crate::review_types::ReviewCreateResult,
     "review.check" => crate::review_types::ReviewFileParams => crate::review_types::ReviewCheckResult,
     "review.read" => crate::review_types::ReviewFileParams => crate::review_types::ReviewReadResult,
@@ -461,6 +514,12 @@ pub fn ts_bindings() -> String {
         TerminalWriteParams::decl(&cfg),
         TerminalResizeParams::decl(&cfg),
         TerminalList::decl(&cfg),
+        QuickCommand::decl(&cfg),
+        QuickCommandsParams::decl(&cfg),
+        QuickCommandSaveParams::decl(&cfg),
+        QuickCommandDeleteParams::decl(&cfg),
+        QuickCommandRunParams::decl(&cfg),
+        QuickCommandList::decl(&cfg),
         RemoteClientConfig::decl(&cfg),
         RemoteServeParams::decl(&cfg),
         RemoteError::decl(&cfg),

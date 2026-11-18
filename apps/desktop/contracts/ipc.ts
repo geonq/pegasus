@@ -213,6 +213,10 @@ export const desktopIpc = {
   terminalRestartSession: "pi-gui:terminal-restart-session",
   terminalCloseSession: "pi-gui:terminal-close-session",
   terminalSetTitle: "pi-gui:terminal-set-title",
+  listQuickCommands: "pi-gui:list-quick-commands",
+  saveQuickCommand: "pi-gui:save-quick-command",
+  deleteQuickCommand: "pi-gui:delete-quick-command",
+  runQuickCommand: "pi-gui:run-quick-command",
   terminalSetFocused: "pi-gui:terminal-set-focused",
   sidePanelSetFocused: "pi-gui:side-panel-set-focused",
   reportRendererStall: "pi-gui:report-renderer-stall",
@@ -250,6 +254,7 @@ export const desktopIpc = {
   getAccountStates: "pi-gui:get-account-states",
   getAccountLimits: "pi-gui:get-account-limits",
   getClaudeSlots: "pi-gui:get-claude-slots",
+  getHostStatus: "pi-gui:get-host-status",
   getPhoneAccess: "pi-gui:get-phone-access",
   pairPhone: "pi-gui:pair-phone",
   revokePhone: "pi-gui:revoke-phone",
@@ -481,6 +486,26 @@ export interface TerminalSessionSnapshot {
   readonly truncated: boolean;
   readonly exitCode?: number;
   readonly signal?: number;
+}
+
+/** `off`: disabled by PEGASUS_HOST=0. `unavailable`: no binary, or it could not start or answer. */
+export interface HostConnectionStatus {
+  readonly state: "connected" | "off" | "unavailable";
+  readonly version?: string;
+}
+
+/** A saved terminal command of one project. */
+export interface QuickCommand {
+  readonly id: string;
+  readonly name: string;
+  readonly command: string;
+}
+
+/** Without `id` a new command is added; with it that command is replaced. */
+export interface QuickCommandInput {
+  readonly id?: string;
+  readonly name: string;
+  readonly command: string;
 }
 
 export interface TerminalPanelSnapshot {
@@ -909,6 +934,11 @@ export interface PiDesktopApi {
   ): Promise<TerminalPanelSnapshot>;
   closeTerminalSession(terminalId: string): Promise<TerminalPanelSnapshot | null>;
   setTerminalTitle(terminalId: string, title: string): Promise<void>;
+  listQuickCommands(workspaceId: string): Promise<readonly QuickCommand[]>;
+  saveQuickCommand(workspaceId: string, input: QuickCommandInput): Promise<readonly QuickCommand[]>;
+  deleteQuickCommand(workspaceId: string, id: string): Promise<readonly QuickCommand[]>;
+  /** Types the saved command into the terminal and presses Enter. */
+  runQuickCommand(workspaceId: string, terminalId: string, id: string): Promise<void>;
   setTerminalFocused(focused: boolean): Promise<void>;
   setSidePanelFocused(focused: boolean): Promise<void>;
   onTerminalData(listener: (event: TerminalDataEvent) => void): () => void;
@@ -964,6 +994,8 @@ export interface PiDesktopApi {
   getAccountLimits(options?: { readonly cachedOnly?: boolean }): Promise<readonly AccountLimits[]>;
   /** Who each Claude CLI slot is signed in as (a local file read, no network). */
   getClaudeSlots(): Promise<readonly ClaudeSlot[]>;
+  /** Whether this app reaches its Rust host (never starts one while attaching is cooling down). */
+  getHostStatus(): Promise<HostConnectionStatus>;
   /** Settings › Phone: paired phones and this PC's Tailscale address. */
   getPhoneAccess?(): Promise<PhoneAccessState>;
   pairPhone?(label: string): Promise<PhonePairing>;

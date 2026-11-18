@@ -82,6 +82,7 @@ import { renderBuiltinToolPanel } from "../features/workbench/builtin-tools";
 import { AgentsPanel } from "../features/workbench/agents-panel";
 
 import { UsageView } from "../features/usage/usage-view";
+import { StatusBar } from "../features/status-bar/status-bar";
 
 import { useWorkbenchWidth } from "../features/workbench/use-workbench-width";
 
@@ -2144,6 +2145,12 @@ export default function App() {
           </Workbench>
         ) : null}
       </main>
+
+      <StatusBar
+        api={api}
+        provider={resolvedSessionProvider}
+        onOpenUsage={() => setActiveView("usage")}
+      />
 
       {scheduledEditor ? (
         <ScheduledTaskEditor

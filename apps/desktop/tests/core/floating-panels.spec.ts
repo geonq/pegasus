@@ -87,11 +87,11 @@ test("the sidebar floats pinned top-left and resizes in width and height, rememb
     expect(Math.abs(Math.round(restored.width) - size!.width)).toBeLessThanOrEqual(2);
     expect(Math.abs(Math.round(restored.height) - size!.height)).toBeLessThanOrEqual(2);
 
-    // Double-clicking the bottom edge returns it to full height.
+    // Double-clicking the bottom edge returns it to full height (down to the status bar).
     await window.getByRole("separator", { name: "Sidebar height" }).dblclick();
-    const view = await viewport(window);
+    const statusBar = await box(window.getByTestId("status-bar"));
     const full = await box(window.locator("#primary-sidebar"));
-    expect(full.height).toBeGreaterThan(view.height - 40);
+    expect(full.height).toBeGreaterThan(statusBar.y - 40);
   } finally {
     await second.close();
   }

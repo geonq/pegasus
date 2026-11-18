@@ -3,6 +3,8 @@ import { accessSync, constants, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 import type { HostClient, HostEvent } from "@pi-gui/host-protocol";
 import type {
+  QuickCommand,
+  QuickCommandInput,
   TerminalPanelSnapshot,
   TerminalSessionSnapshot,
   TerminalSessionStatus,
@@ -144,6 +146,47 @@ export class TerminalService {
     }
     this.onHost(session, "write", async (host) => {
       for (const chunk of chunks) await host.call("terminal.write", { id: hostId, data: chunk });
+    });
+  }
+
+  /** Saved commands of a project; the host stores them (crates/pegasus-host/src/quick_commands.rs). */
+  async listQuickCommands(workspaceId: string): Promise<readonly QuickCommand[]> {
+    const host = await this.requireHost();
+    return (await host.call("quickCommands.list", { project: this.projectKey(workspaceId) }))
+      .commands;
+  }
+
+  async saveQuickCommand(
+    workspaceId: string,
+    input: QuickCommandInput,
+  ): Promise<readonly QuickCommand[]> {
+    const host = await this.requireHost();
+    return (
+      await host.call("quickCommands.save", { project: this.projectKey(workspaceId), ...input })
+    ).commands;
+  }
+
+  async deleteQuickCommand(workspaceId: string, id: string): Promise<readonly QuickCommand[]> {
+    const host = await this.requireHost();
+    return (await host.call("quickCommands.delete", { project: this.projectKey(workspaceId), id }))
+      .commands;
+  }
+
+  /** The host types the saved command into this window's terminal and presses Enter. */
+  async runQuickCommand(
+    webContents: WebContents,
+    workspaceId: string,
+    terminalId: string,
+    id: string,
+  ): Promise<void> {
+    const session = this.requireOwnedSession(webContents, terminalId);
+    const hostId = session.hostId;
+    if (!hostId || session.status !== "running") throw new Error("This terminal is not running.");
+    const host = await this.requireHost();
+    await host.call("quickCommands.run", {
+      project: this.projectKey(workspaceId),
+      id,
+      terminalId: hostId,
     });
   }
 
@@ -333,6 +376,18 @@ export class TerminalService {
       console.warn(`[terminal] ${session.id} ${message}`);
       this.sendToOwner(session, desktopIpc.terminalError, { terminalId: session.id, message });
     }
+  }
+
+  private async requireHost(): Promise<HostClient> {
+    const host = await this.options.connectHost();
+    if (!host) throw new Error("The Pegasus host is not running; see the host log.");
+    return host;
+  }
+
+  private projectKey(workspaceId: string): string {
+    const workspacePath = this.options.getWorkspacePath(workspaceId);
+    if (!workspacePath) throw new Error(`Unknown workspace: ${workspaceId}`);
+    return normalizeRootKey(workspacePath);
   }
 
   private killHostTerminal(session: TerminalSession): void {

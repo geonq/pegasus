@@ -16,6 +16,7 @@ import {
   type ChangedFilesResult,
   type CustomProviderProbeInput,
   type CustomProviderProbeResult,
+  type HostConnectionStatus,
 } from "../../contracts/ipc";
 import type {
   AccountLimits,
@@ -230,6 +231,7 @@ export interface DesktopIpcCapabilities {
   readonly getAccountStates: () => Promise<readonly AccountStatus[]>;
   readonly getAccountLimits: (cachedOnly: boolean) => Promise<readonly AccountLimits[]>;
   readonly getClaudeSlots: () => Promise<readonly ClaudeSlot[]>;
+  readonly getHostStatus: () => Promise<HostConnectionStatus>;
   readonly getPhoneAccess: () => Promise<PhoneAccessState>;
   readonly pairPhone: (label: string) => Promise<PhonePairing>;
   readonly revokePhone: (phoneId: string) => Promise<void>;
@@ -1173,6 +1175,50 @@ function registerTerminalIpc(windows: WindowOwner, capabilities: DesktopIpcCapab
         );
     },
   );
+  ipcMain.handle(desktopIpc.listQuickCommands, (event, rawWorkspaceId: unknown) => {
+    windows.windowForSender(event.sender);
+    return capabilities
+      .terminal()
+      .listQuickCommands(expectNonEmptyString(rawWorkspaceId, "workspaceId"));
+  });
+  ipcMain.handle(
+    desktopIpc.saveQuickCommand,
+    (event, rawWorkspaceId: unknown, rawInput: unknown) => {
+      windows.windowForSender(event.sender);
+      const input = expectRecord(rawInput, "input");
+      return capabilities
+        .terminal()
+        .saveQuickCommand(expectNonEmptyString(rawWorkspaceId, "workspaceId"), {
+          id: expectOptionalString(input.id, "id"),
+          name: expectString(input.name, "name"),
+          command: expectString(input.command, "command"),
+        });
+    },
+  );
+  ipcMain.handle(
+    desktopIpc.deleteQuickCommand,
+    (event, rawWorkspaceId: unknown, rawId: unknown) => {
+      windows.windowForSender(event.sender);
+      return capabilities
+        .terminal()
+        .deleteQuickCommand(
+          expectNonEmptyString(rawWorkspaceId, "workspaceId"),
+          expectNonEmptyString(rawId, "id"),
+        );
+    },
+  );
+  ipcMain.handle(
+    desktopIpc.runQuickCommand,
+    (event, rawWorkspaceId: unknown, rawTerminalId: unknown, rawId: unknown) =>
+      capabilities
+        .terminal()
+        .runQuickCommand(
+          windows.windowForSender(event.sender).webContents,
+          expectNonEmptyString(rawWorkspaceId, "workspaceId"),
+          expectNonEmptyString(rawTerminalId, "terminalId"),
+          expectNonEmptyString(rawId, "id"),
+        ),
+  );
   ipcMain.on(desktopIpc.terminalSetFocused, (event, rawFocused: unknown) => {
     const window = windows.windowForSender(event.sender);
     capabilities.setTerminalFocused(window.webContents.id, expectBoolean(rawFocused, "focused"));
@@ -1217,6 +1263,10 @@ function registerWorkspaceFileIpc(
   ipcMain.handle(desktopIpc.getClaudeSlots, async (event) => {
     windows.windowForSender(event.sender);
     return capabilities.getClaudeSlots();
+  });
+  ipcMain.handle(desktopIpc.getHostStatus, async (event) => {
+    windows.windowForSender(event.sender);
+    return capabilities.getHostStatus();
   });
   ipcMain.handle(desktopIpc.getPhoneAccess, async (event) => {
     windows.windowForSender(event.sender);
