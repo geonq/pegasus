@@ -137,6 +137,18 @@ function sidebarWidthBounds(_sidebar: HTMLElement, shell: HTMLElement): PaneWidt
   };
 }
 
+/** The floating sidebar is pinned to the top-left; its bottom edge can be pulled up from the window's. */
+const SIDEBAR_HEIGHT_RANGE = { min: 320, max: 4000 } as const;
+
+function sidebarHeightBounds(sidebar: HTMLElement, shell: HTMLElement): PaneWidthBounds {
+  const top = sidebar.getBoundingClientRect().top - shell.getBoundingClientRect().top;
+  const gap = Number.parseFloat(getComputedStyle(shell).getPropertyValue("--float-gap")) || 0;
+  return {
+    min: SIDEBAR_HEIGHT_RANGE.min,
+    max: Math.max(SIDEBAR_HEIGHT_RANGE.min, Math.floor(shell.clientHeight - top - gap)),
+  };
+}
+
 const IS_MAC = typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent);
 
 interface ThreadShortcutBadge {
@@ -199,8 +211,14 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
     "pi-gui.sidebar-width",
     SIDEBAR_WIDTH_RANGE,
   );
-  const sidebarWidthStyle: (CSSProperties & { "--sidebar-width": string }) | undefined =
-    sidebarWidth === undefined ? undefined : { "--sidebar-width": `${sidebarWidth}px` };
+  const [sidebarHeight, setSidebarHeight] = usePersistedPaneWidth(
+    "pi-gui.sidebar-height",
+    SIDEBAR_HEIGHT_RANGE,
+  );
+  const sidebarWidthStyle = {
+    ...(sidebarWidth === undefined ? {} : { "--sidebar-width": `${sidebarWidth}px` }),
+    ...(sidebarHeight === undefined ? {} : { "--sidebar-height": `${sidebarHeight}px` }),
+  } as CSSProperties;
   const [activeId, setActiveId] = useState<string | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [workingFolded, setWorkingFolded] = useState(false);
@@ -446,6 +464,17 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
         onResize={setSidebarWidth}
         onReset={() => setSidebarWidth(undefined)}
         cssVar="--sidebar-width"
+        cssVarOn="pane"
+      />
+      <PaneResizeHandle
+        className="sidebar__resize-handle sidebar__resize-handle--bottom"
+        label="Sidebar height"
+        controls="primary-sidebar"
+        edge="bottom"
+        bounds={sidebarHeightBounds}
+        onResize={setSidebarHeight}
+        onReset={() => setSidebarHeight(undefined)}
+        cssVar="--sidebar-height"
         cssVarOn="pane"
       />
       <div className="sidebar__top">

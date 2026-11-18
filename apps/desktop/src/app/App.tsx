@@ -1943,7 +1943,10 @@ export default function App() {
 
         {projectFilesVisible && projectFilesWorkspace && api ? (
           <aside className="workbench side-panel" id="task-workbench" aria-label="Project files">
-            <WorkbenchResizeHandle onResize={workbenchWidth.setWidth} />
+            <WorkbenchResizeHandle
+              onResize={workbenchWidth.setWidth}
+              onResizeHeight={workbenchWidth.setHeight}
+            />
             <div className="workbench__tabbar">
               <span className="workbench__solo-title">Files · {projectFilesWorkspace.name}</span>
 
@@ -1980,7 +1983,10 @@ export default function App() {
 
         {agentsAsideVisible && !projectFilesVisible ? (
           <aside aria-label="Agents" className="workbench side-panel" id="task-workbench">
-            <WorkbenchResizeHandle onResize={workbenchWidth.setWidth} />
+            <WorkbenchResizeHandle
+              onResize={workbenchWidth.setWidth}
+              onResizeHeight={workbenchWidth.setHeight}
+            />
             <div className="workbench__tabbar">
               <span className="workbench__solo-title">Agents</span>
 
@@ -2007,6 +2013,7 @@ export default function App() {
             platform={api?.platform ?? "linux"}
             tabHintsVisible={sidePanelTabHintsVisible}
             onResize={workbenchWidth.setWidth}
+            onResizeHeight={workbenchWidth.setHeight}
             onTogglePanel={commands.toggleSidePanel}
             extensionViews={extensionViews.views}
             extensionViewsLoading={extensionViews.loading}

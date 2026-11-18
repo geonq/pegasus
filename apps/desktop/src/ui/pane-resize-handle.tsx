@@ -6,7 +6,8 @@ export interface PaneWidthBounds {
 }
 
 /**
- * Drag and keyboard handle on one vertical edge of a pane. The handle must be a
+ * Drag and keyboard handle on one edge of a pane: a side edge sets its width, the bottom edge
+ * its height (then every "width" below means the pane's height). The handle must be a
  * direct child of the pane; `bounds` receives the pane and the pane's parent.
  * `edge` is the pane edge the handle sits on, so dragging away from the pane widens it.
  */
@@ -24,7 +25,7 @@ export function PaneResizeHandle({
   readonly className: string;
   readonly label: string;
   readonly controls: string;
-  readonly edge: "left" | "right";
+  readonly edge: "left" | "right" | "bottom";
   readonly bounds: (pane: HTMLElement, container: HTMLElement) => PaneWidthBounds;
   readonly onResize: (width: number) => void;
   readonly onReset?: () => void;
@@ -37,6 +38,8 @@ export function PaneResizeHandle({
   readonly cssVarOn?: "pane" | "container";
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // A bottom handle sizes the pane's height; the same code then reads y and heights.
+  const vertical = edge === "bottom";
   const drag = useRef<{ pointerId: number; x: number; width: number } | null>(null);
   const boundsRef = useRef(bounds);
   boundsRef.current = bounds;
@@ -54,7 +57,9 @@ export function PaneResizeHandle({
       if (drag.current) return;
       const { min, max } = boundsRef.current(pane, container);
       setSize({
-        width: Math.round(pane.getBoundingClientRect().width),
+        width: Math.round(
+          vertical ? pane.getBoundingClientRect().height : pane.getBoundingClientRect().width,
+        ),
         min: Math.min(min, max),
         max,
       });
@@ -84,19 +89,23 @@ export function PaneResizeHandle({
     applyLive(pending.width);
     onResize(pending.width);
   };
-  const widen = edge === "right" ? 1 : -1;
+  const widen = edge === "left" ? -1 : 1;
   const resize = (width: number) => onResize(Math.max(size.min, Math.min(size.max, width)));
   // `size.width` follows the pane through a ResizeObserver, so it can lag a resize that has just
   // been applied; steps and drags start from the width on screen now.
   const currentWidth = () =>
-    Math.round(ref.current?.parentElement?.getBoundingClientRect().width ?? size.width);
+    Math.round(
+      (vertical
+        ? ref.current?.parentElement?.getBoundingClientRect().height
+        : ref.current?.parentElement?.getBoundingClientRect().width) ?? size.width,
+    );
   return (
     <div
       ref={ref}
       className={className}
       role="separator"
       aria-label={label}
-      aria-orientation="vertical"
+      aria-orientation={vertical ? "horizontal" : "vertical"}
       aria-controls={controls}
       aria-valuemin={size.min}
       aria-valuemax={size.max}
@@ -109,7 +118,11 @@ export function PaneResizeHandle({
         if (document.activeElement === event.currentTarget) event.currentTarget.blur();
         event.currentTarget.setPointerCapture(event.pointerId);
         const startWidth = currentWidth();
-        drag.current = { pointerId: event.pointerId, x: event.clientX, width: startWidth };
+        drag.current = {
+          pointerId: event.pointerId,
+          x: vertical ? event.clientY : event.clientX,
+          width: startWidth,
+        };
         // A live variable left from the last drag must not show before the first frame.
         if (cssVar) applyLive(startWidth);
         setResizing(true);
@@ -117,7 +130,7 @@ export function PaneResizeHandle({
       onPointerMove={(event) => {
         const start = drag.current;
         if (!start || start.pointerId !== event.pointerId) return;
-        const width = start.width + widen * (event.clientX - start.x);
+        const width = start.width + widen * ((vertical ? event.clientY : event.clientX) - start.x);
         if (!cssVar) return resize(width);
         const clamped = Math.max(size.min, Math.min(size.max, width));
         const live = frame.current ?? (frame.current = { raf: 0, width: clamped });
@@ -139,9 +152,9 @@ export function PaneResizeHandle({
       onDoubleClick={onReset}
       onKeyDown={(event) => {
         const next =
-          event.key === "ArrowRight"
+          event.key === (vertical ? "ArrowDown" : "ArrowRight")
             ? currentWidth() + widen * 20
-            : event.key === "ArrowLeft"
+            : event.key === (vertical ? "ArrowUp" : "ArrowLeft")
               ? currentWidth() - widen * 20
               : event.key === "Home"
                 ? size.min

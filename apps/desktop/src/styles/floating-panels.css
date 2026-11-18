@@ -1,0 +1,140 @@
+/* =============================================================================
+ * Floating panels: the left sidebar and the right side panel are cards that
+ * float inside the window. A gap separates them from every window edge and from
+ * the chat, their corners are rounded and they cast a soft shadow. The sidebar
+ * is pinned to the top-left and the side panel to the top-right; each one's
+ * width (inner edge) and height (bottom edge) can be dragged and is remembered.
+ * Loaded after sidebar.css, main.css and workbench.css, so it only overrides.
+ * ========================================================================== */
+
+.shell {
+  /* Space between a floating panel and the window edge or the chat column. */
+  --float-gap: 8px;
+  --float-radius: var(--radius-2xl, 16px);
+  --float-shadow:
+    0 1px 2px color-mix(in srgb, #000 18%, transparent),
+    0 12px 32px -8px color-mix(in srgb, #000 28%, transparent);
+  padding: var(--float-gap) 0 var(--float-gap) var(--float-gap);
+  column-gap: var(--float-gap);
+}
+
+.shell--sidebar-collapsed,
+.shell--loading {
+  padding-left: 0;
+}
+
+/* ---- Left sidebar ---------------------------------------------------- */
+
+.sidebar {
+  /* Pinned top-left: it keeps its top edge and grows or shrinks downwards only. */
+  align-self: start;
+  height: min(var(--sidebar-height, 100%), 100%);
+  max-height: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--float-radius);
+  box-shadow: var(--float-shadow);
+  /* The window's top strip no longer sits under the sidebar, so it needs less clearance. */
+  --titlebar-inset-top: 44px;
+}
+
+/* The side handle sits on the inner edge of the card (it clips its overflow), clear of the corners. */
+.sidebar__resize-handle {
+  top: var(--float-radius);
+  bottom: var(--float-radius);
+  right: 0;
+}
+
+.sidebar__resize-handle--bottom,
+.workbench__resize-handle--bottom {
+  top: auto;
+  bottom: 0;
+  left: var(--float-radius);
+  right: var(--float-radius);
+  width: auto;
+  height: 8px;
+  cursor: row-resize;
+}
+
+.sidebar__resize-handle--bottom:hover,
+.sidebar__resize-handle--bottom:focus-visible,
+.sidebar__resize-handle--bottom[data-resizing="true"],
+.workbench__resize-handle--bottom:hover,
+.workbench__resize-handle--bottom:focus-visible,
+.workbench__resize-handle--bottom[data-resizing="true"] {
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+.shell:has(.sidebar__resize-handle--bottom[data-resizing="true"]),
+.main:has(.workbench__resize-handle--bottom[data-resizing="true"]) {
+  cursor: row-resize;
+}
+
+/* ---- Right side panel ------------------------------------------------- */
+
+/* The gap to the window's right edge is the container's padding, not the panel's margin: the
+   panel's on-screen width must equal --workbench-width, or every drag (which starts from the
+   measured width) would shrink it by the gap. */
+.main--with-side-panel {
+  column-gap: var(--float-gap);
+  padding-right: var(--float-gap);
+}
+
+.main--with-side-panel > .side-panel {
+  /* Pinned top-right with a gap to the window's right edge and to the chat. */
+  align-self: start;
+  height: min(var(--workbench-height, 100%), calc(100% - var(--float-gap)));
+  max-height: calc(100% - var(--float-gap));
+  margin-bottom: var(--float-gap);
+  border: 1px solid var(--line);
+  border-radius: var(--float-radius);
+  box-shadow: var(--float-shadow);
+}
+
+.side-panel .workbench__resize-handle:not(.workbench__resize-handle--bottom) {
+  top: var(--float-radius);
+  bottom: var(--float-radius);
+  left: 0;
+}
+
+/* The tab bar is the panel's top edge now: its corners follow the card's. */
+.side-panel > .workbench__tabbar {
+  border-top-left-radius: var(--float-radius);
+  border-top-right-radius: var(--float-radius);
+}
+
+/* Windows draws its caption buttons over the window's top-right corner. The floating panel no
+   longer reaches that corner, so the main top bar always keeps their space instead. */
+[data-platform="win32"] .main--with-side-panel .topbar {
+  padding-right: calc(138px + 8px);
+}
+
+[data-platform="win32"] .side-panel > .workbench__tabbar {
+  padding-right: var(--space-2);
+}
+
+[data-platform="win32"] .main--with-side-panel > .side-panel {
+  /* Start below the caption buttons so they never cover the panel's tabs. */
+  margin-top: calc(var(--chrome-bar-height) - var(--float-gap));
+  height: min(var(--workbench-height, 100%), calc(100% - var(--chrome-bar-height)));
+  max-height: calc(100% - var(--chrome-bar-height));
+}
+
+/* Narrow windows already show the side panel as an overlay; keep it a floating card there too. */
+@media (max-width: 980px) {
+  .main--with-side-panel {
+    padding-right: 0;
+  }
+
+  .main--with-side-panel > .side-panel {
+    right: var(--float-gap);
+    bottom: auto;
+    height: min(var(--workbench-height, 100%), calc(100% - 48px - var(--float-gap)));
+    margin: 0;
+  }
+}
+
+/* A dragged panel must not animate its size. */
+.sidebar:has(.sidebar__resize-handle[data-resizing="true"]),
+.side-panel:has(.workbench__resize-handle[data-resizing="true"]) {
+  transition: none;
+}

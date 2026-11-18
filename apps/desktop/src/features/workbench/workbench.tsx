@@ -17,6 +17,7 @@ interface WorkbenchProps {
   /** Whether the side panel tab modifier is held, so tabs show their numbers. */
   readonly tabHintsVisible: boolean;
   readonly onResize: (width: number) => void;
+  readonly onResizeHeight?: (height: number | undefined) => void;
   readonly onTogglePanel: () => void;
   readonly onOpenTool: (tool: ToolRef) => void;
   readonly onActivateTool: (toolId: string) => void;
@@ -47,6 +48,7 @@ export function Workbench({
   platform,
   tabHintsVisible,
   onResize,
+  onResizeHeight,
   onTogglePanel,
   onOpenTool,
   onActivateTool,
@@ -134,7 +136,7 @@ export function Workbench({
       data-testid="workbench"
       id="task-workbench"
     >
-      <WorkbenchResizeHandle onResize={onResize} />
+      <WorkbenchResizeHandle onResize={onResize} onResizeHeight={onResizeHeight} />
       <div className="workbench__tabbar">
         <div aria-label="Workspace tools" className="workbench__tabs" role="tablist">
           {view.tools.map((tool, index) => {
