@@ -100,6 +100,30 @@ export type TerminalResizeParams = { id: string, cols: number, rows: number, };
 
 export type TerminalList = { terminals: Array<TerminalInfo>, };
 
+export type QuickCommand = { id: string, name: string, command: string, };
+
+export type QuickCommandsParams = { 
+/**
+ * The project's folder path; commands are stored per project.
+ */
+project: string, };
+
+export type QuickCommandSaveParams = { project: string, 
+/**
+ * Omitted = add a new command; otherwise replace the one with this id.
+ */
+id?: string, name: string, command: string, };
+
+export type QuickCommandDeleteParams = { project: string, id: string, };
+
+export type QuickCommandRunParams = { project: string, id: string, 
+/**
+ * The host terminal the command is typed into (followed by Enter).
+ */
+terminalId: string, };
+
+export type QuickCommandList = { commands: Array<QuickCommand>, };
+
 export type RemoteClientConfig = { id: string, 
 /**
  * sha256 of the device's bearer token, hex; the token itself never reaches the host.
@@ -246,6 +270,10 @@ export interface HostMethods {
   "terminal.resize": { params: TerminalResizeParams; result: Empty };
   "terminal.kill": { params: TerminalId; result: Empty };
   "terminal.list": { params: Empty; result: TerminalList };
+  "quickCommands.list": { params: QuickCommandsParams; result: QuickCommandList };
+  "quickCommands.save": { params: QuickCommandSaveParams; result: QuickCommandList };
+  "quickCommands.delete": { params: QuickCommandDeleteParams; result: QuickCommandList };
+  "quickCommands.run": { params: QuickCommandRunParams; result: Empty };
   "review.create": { params: ReviewCreateParams; result: ReviewCreateResult };
   "review.check": { params: ReviewFileParams; result: ReviewCheckResult };
   "review.read": { params: ReviewFileParams; result: ReviewReadResult };

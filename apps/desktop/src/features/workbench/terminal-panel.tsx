@@ -18,6 +18,7 @@ import type {
 import { appendTerminalReplay } from "../../../contracts/terminal-model";
 import { getActiveTheme, useActiveTheme } from "../../ui/active-theme";
 import { terminalThemeFor } from "./terminal-theme";
+import { TerminalQuickCommands } from "./terminal-quick-commands";
 
 /** Ten thousand lines holds a long build log; Windows Terminal and VS Code defaults are the same order. */
 const TERMINAL_SCROLLBACK = 10_000;
@@ -454,6 +455,12 @@ export function TerminalPanel({ workspace, sessionId, onHide }: TerminalPanelPro
           </button>
         </div>
       </div>
+      <TerminalQuickCommands
+        // Worktree threads share the project's commands.
+        workspaceId={workspace.rootWorkspaceId ?? workspace.id}
+        terminalId={activeSession?.status === "running" ? activeSession.id : undefined}
+        onRan={() => terminalRef.current?.focus()}
+      />
       {error ? (
         <div className="terminal-panel__error">{error}</div>
       ) : (

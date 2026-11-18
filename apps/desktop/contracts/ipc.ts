@@ -213,6 +213,10 @@ export const desktopIpc = {
   terminalRestartSession: "pi-gui:terminal-restart-session",
   terminalCloseSession: "pi-gui:terminal-close-session",
   terminalSetTitle: "pi-gui:terminal-set-title",
+  listQuickCommands: "pi-gui:list-quick-commands",
+  saveQuickCommand: "pi-gui:save-quick-command",
+  deleteQuickCommand: "pi-gui:delete-quick-command",
+  runQuickCommand: "pi-gui:run-quick-command",
   terminalSetFocused: "pi-gui:terminal-set-focused",
   sidePanelSetFocused: "pi-gui:side-panel-set-focused",
   reportRendererStall: "pi-gui:report-renderer-stall",
@@ -480,6 +484,20 @@ export interface TerminalSessionSnapshot {
   readonly truncated: boolean;
   readonly exitCode?: number;
   readonly signal?: number;
+}
+
+/** A saved terminal command of one project. */
+export interface QuickCommand {
+  readonly id: string;
+  readonly name: string;
+  readonly command: string;
+}
+
+/** Without `id` a new command is added; with it that command is replaced. */
+export interface QuickCommandInput {
+  readonly id?: string;
+  readonly name: string;
+  readonly command: string;
 }
 
 export interface TerminalPanelSnapshot {
@@ -908,6 +926,11 @@ export interface PiDesktopApi {
   ): Promise<TerminalPanelSnapshot>;
   closeTerminalSession(terminalId: string): Promise<TerminalPanelSnapshot | null>;
   setTerminalTitle(terminalId: string, title: string): Promise<void>;
+  listQuickCommands(workspaceId: string): Promise<readonly QuickCommand[]>;
+  saveQuickCommand(workspaceId: string, input: QuickCommandInput): Promise<readonly QuickCommand[]>;
+  deleteQuickCommand(workspaceId: string, id: string): Promise<readonly QuickCommand[]>;
+  /** Types the saved command into the terminal and presses Enter. */
+  runQuickCommand(workspaceId: string, terminalId: string, id: string): Promise<void>;
   setTerminalFocused(focused: boolean): Promise<void>;
   setSidePanelFocused(focused: boolean): Promise<void>;
   onTerminalData(listener: (event: TerminalDataEvent) => void): () => void;
