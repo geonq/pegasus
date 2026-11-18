@@ -1099,6 +1099,89 @@
   background: transparent;
 }
 
+/* Parked drafts: the trigger sits beside Attach, its menu opens up and right-aligned. */
+.composer-stash__trigger {
+  position: relative;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.composer-stash__trigger:active {
+  transform: scale(0.97);
+}
+
+.composer-stash__count {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 var(--space-1);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  color: var(--fg-strong);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 13px;
+  text-align: center;
+}
+
+.composer-stash__menu {
+  left: auto;
+  right: 0;
+  width: 320px;
+}
+
+.composer-stash__list {
+  display: grid;
+  gap: var(--space-0-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.composer-stash__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.composer-stash__row > .model-selector__item {
+  flex: 1;
+  min-width: 0;
+}
+
+.composer-stash__row .model-selector__item-label {
+  white-space: nowrap;
+}
+
+.composer-stash__delete {
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+
+.composer-stash__delete svg {
+  width: 14px;
+  height: 14px;
+}
+
+.composer-stash__park:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-stash__trigger {
+    transition: none;
+  }
+
+  .composer-stash__trigger:active {
+    transform: none;
+  }
+}
+
 .composer__attachments {
   display: flex;
   flex-wrap: wrap;

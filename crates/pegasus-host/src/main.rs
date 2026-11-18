@@ -7,6 +7,7 @@
 //! clients, no active work) for `--idle-exit-secs` (default 600). A second host on the same endpoint
 //! exits with code 3 so racing launchers are harmless.
 mod detach;
+mod files;
 mod host;
 mod log;
 mod remote;

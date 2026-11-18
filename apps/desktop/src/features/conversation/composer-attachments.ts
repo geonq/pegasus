@@ -138,6 +138,31 @@ export function extractFilesFromDataTransfer(
   return dedupeFiles([...itemFiles, ...transferFiles]);
 }
 
+/**
+ * Splits a drop into folder paths and files. The browser reports a dropped folder as a File; only
+ * its entry says it is a directory. A folder without a filesystem path is left out.
+ */
+export function partitionDroppedFolders(dataTransfer: DataTransfer | null | undefined): {
+  readonly folderPaths: string[];
+  readonly files: File[];
+} {
+  const folders = new Set<File>();
+  for (const item of Array.from(dataTransfer?.items ?? [])) {
+    if (item.kind !== "file" || !item.webkitGetAsEntry()?.isDirectory) continue;
+    const file = item.getAsFile();
+    if (file) folders.add(file);
+  }
+  const folderPaths = [...folders].flatMap((folder) => {
+    const fsPath = resolveFilePath(folder as FileWithPath);
+    return fsPath ? [fsPath] : [];
+  });
+  const folderSignatures = new Set([...folders].map((folder) => fileSignature(folder)));
+  const files = extractFilesFromDataTransfer(dataTransfer).filter(
+    (file) => !folderSignatures.has(fileSignature(file as FileWithPath)),
+  );
+  return { folderPaths, files };
+}
+
 export async function readComposerAttachmentsFromFiles(
   files: readonly File[],
   existing: readonly ComposerAttachment[] = [],

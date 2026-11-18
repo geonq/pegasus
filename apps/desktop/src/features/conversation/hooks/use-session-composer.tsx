@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import {
+  type ComposerAttachment,
   type ComposerImageAttachment,
   type DesktopAppState,
   type SessionRecord,
@@ -15,9 +16,9 @@ import {
 import type { ClipboardImageRead } from "../../../../contracts/composer-attachments";
 import { updateSnapshot } from "../../../app/desktop-app-state";
 import {
-  extractFilesFromDataTransfer,
   extractImageFilesFromClipboardData,
   handleClipboardImageShortcut,
+  partitionDroppedFolders,
   readComposerAttachmentsFromFiles,
 } from "../composer-attachments";
 import { parseTreeComposerCommand } from "../composer-commands";
@@ -178,6 +179,39 @@ export function useSessionComposer(params: UseSessionComposerParams) {
     );
   };
 
+  /** Empties the composer once its draft is parked; attachments go one by one (no bulk clear IPC). */
+  const clearParkedDraft = () => {
+    setComposerDraft("");
+    if (!api) return;
+    const ids = composerAttachments.map((attachment) => attachment.id);
+    void (async () => {
+      for (const id of ids) {
+        await updateSnapshot(setSnapshot, () => api.removeComposerAttachment(id));
+      }
+    })().catch((error: unknown) => {
+      console.error("[renderer] removeComposerAttachment failed", error);
+    });
+  };
+
+  /** Adds a parked draft to what is typed now, so restoring never overwrites a new draft. */
+  const restoreParkedDraft = async (parked: {
+    readonly text: string;
+    readonly attachments: readonly ComposerAttachment[];
+  }) => {
+    if (!api) throw new Error("The app bridge is unavailable.");
+    if (parked.attachments.length) {
+      await updateSnapshot(setSnapshot, () => api.addComposerAttachments(parked.attachments));
+    }
+    setComposerDraft((current) =>
+      current.trim() && parked.text.trim()
+        ? `${current.replace(/\s+$/, "")}\n\n${parked.text}`
+        : current.trim()
+          ? current
+          : parked.text,
+    );
+    composerRef.current?.focus();
+  };
+
   const handleEditQueuedMessage = (messageId: string) => {
     if (!api) {
       return;
@@ -241,18 +275,6 @@ export function useSessionComposer(params: UseSessionComposerParams) {
     onFiles(files);
   };
 
-  const handleAttachmentDrop = (
-    event: DragEvent<HTMLDivElement>,
-    onFiles: (files: File[]) => void,
-  ) => {
-    event.preventDefault();
-    const files = extractFilesFromDataTransfer(event.dataTransfer);
-    if (files.length === 0) {
-      return;
-    }
-    onFiles(files);
-  };
-
   async function addAttachmentsToSessionComposer(files: File[]) {
     if (!api) {
       return;
@@ -281,11 +303,19 @@ export function useSessionComposer(params: UseSessionComposerParams) {
   };
 
   const handleComposerDrop = (event: DragEvent<HTMLDivElement>) => {
-    handleAttachmentDrop(event, (files) => {
-      void addAttachmentsToSessionComposer(files).catch((error: unknown) => {
-        setComposerLimitError(error);
-        console.error("[renderer] addAttachmentsToSessionComposer failed", error);
-      });
+    event.preventDefault();
+    const { folderPaths, files } = partitionDroppedFolders(event.dataTransfer);
+    if (folderPaths.length > 0 && api) {
+      void updateSnapshot(setSnapshot, () => api.attachComposerFolders(folderPaths)).catch(
+        (error: unknown) => {
+          console.error("[renderer] attachComposerFolders failed", error);
+        },
+      );
+    }
+    if (files.length === 0) return;
+    void addAttachmentsToSessionComposer(files).catch((error: unknown) => {
+      setComposerLimitError(error);
+      console.error("[renderer] addAttachmentsToSessionComposer failed", error);
     });
   };
 
@@ -401,5 +431,8 @@ export function useSessionComposer(params: UseSessionComposerParams) {
     handleComposerDrop,
     handlePastedClipboardImage,
     handleComposerKeyDown,
+    clearParkedDraft,
+    restoreParkedDraft,
+    setComposerLimitError,
   };
 }
