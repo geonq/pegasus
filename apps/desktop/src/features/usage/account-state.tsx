@@ -1,10 +1,11 @@
-import { isRunningLow, orderByTightestLimit } from "./limit-order";
+import { LOW_LIMIT_USED_PERCENT, isRunningLow, orderByTightestLimit } from "./limit-order";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type {
   AccountLimits,
   AccountStatus,
   ProviderState,
   SignInStatus,
+  UsageLimitWindow,
 } from "../../../contracts/usage";
 import { ProviderIcon } from "../../ui/icons";
 import { OPENSCALE_GRADIENT, brandOf, providerColor } from "./brand-color";
@@ -367,6 +368,47 @@ export function SignInNotice({ signIns }: { readonly signIns: readonly SignInSta
         </div>
       ))}
     </section>
+  );
+}
+
+/**
+ * Above the composer: the selected model's account is limited or has used at least 80 % of a plan
+ * window. Reads only the cached limits, so it never contacts a provider.
+ */
+export function ComposerUsageLimitNotice({ provider }: { readonly provider: string | undefined }) {
+  const statuses = useProviderStatuses();
+  const limits = useCachedLimits();
+  if (!provider) return null;
+  const account = limits.find((entry) => entry.id === provider);
+  const status = statuses.get(provider);
+  const tightest = account?.windows.reduce<UsageLimitWindow | undefined>(
+    (max, window) => (!max || window.usedPercent > max.usedPercent ? window : max),
+    undefined,
+  );
+  const limited = status?.state === "limited";
+  if (!limited && (!tightest || tightest.usedPercent < LOW_LIMIT_USED_PERCENT)) return null;
+  const name = account?.name ?? "This account";
+  const description = limited
+    ? status.until
+      ? `Limited until ${atLabel(status.until)}`
+      : "Limited for now"
+    : `${Math.round(tightest!.usedPercent)}% of the ${tightest!.label} window used${
+        tightest!.resetsAt ? ` · resets ${atLabel(tightest!.resetsAt)}` : ""
+      }`;
+  return (
+    <div
+      className="model-onboarding-notice composer-usage-limit"
+      data-state={limited ? "limited" : "low"}
+      data-testid="composer-usage-limit"
+      role="status"
+    >
+      <div className="model-onboarding-notice__body">
+        <span className="model-onboarding-notice__title">
+          {limited ? `${name} is limited` : `${name} is running low`}
+        </span>
+        <span className="model-onboarding-notice__description">{description}</span>
+      </div>
+    </div>
   );
 }
 

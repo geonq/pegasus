@@ -38,6 +38,7 @@ import { PermissionSelector, runtimeHasPermissions } from "./permission-selector
 import type { SessionPermission } from "../../../contracts/session-permission";
 import { ExtensionNotices } from "../extensions/extension-notices";
 import { ComposerStashMenu } from "./composer-stash-menu";
+import { ComposerUsageLimitNotice } from "../usage/account-state";
 import type { StashedDraft } from "./composer-stash";
 import { ExtensionFlagsBadge } from "../threads/extension-flags-selector";
 import type { ExtensionDockModel } from "../extensions/extension-session-ui";
@@ -192,10 +193,13 @@ export function ComposerPanel({
             activeSlashCommand={activeSlashCommand}
             activeSlashCommandMeta={activeSlashCommandMeta}
             topNotice={
-              <ModelOnboardingNoticeBanner
-                notice={modelOnboarding.notice}
-                onOpenSettings={onOpenModelSettings}
-              />
+              <>
+                <ModelOnboardingNoticeBanner
+                  notice={modelOnboarding.notice}
+                  onOpenSettings={onOpenModelSettings}
+                />
+                <ComposerUsageLimitNotice provider={provider} />
+              </>
             }
             composerDraft={composerDraft}
             setComposerDraft={setComposerDraft}
