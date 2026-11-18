@@ -44,6 +44,10 @@ const RANK: Record<string, number> = {
 const ACTIVE = new Set(["running", "waiting", "queued"]);
 const NEEDS_ATTENTION = new Set([...ACTIVE, "failed"]);
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+// A failure older than this no longer needs attention: it drops from Active into its project.
+const STALE_FAILURE_MS = 24 * 60 * 60 * 1000;
+/** "deepseek/deepseek-v4.1-flash" reads as "deepseek-v4.1-flash": the provider is noise here. */
+const shortModel = (model: string | undefined) => model?.split("/").pop();
 const ROLE = /\[(?:PI|HERMES)_CHILD_ROLE=(\w+)\]/i;
 const keyOf = (target: SessionTarget) => `${target.workspaceId}/${target.sessionId}`;
 
@@ -242,7 +246,11 @@ export function AgentsPanel({
   ];
   const trees = roots.map((root) => ({ root, members: subtree(root) }));
   const activeTrees = trees.filter(({ members }) =>
-    members.some((member) => NEEDS_ATTENTION.has(member.status)),
+    members.some(
+      (member) =>
+        ACTIVE.has(member.status) ||
+        (member.status === "failed" && now - member.updatedAt < STALE_FAILURE_MS),
+    ),
   );
   const finishedByProject = new Map<string, { root: AgentCard; newest: number }[]>();
   for (const { root, members } of trees) {
@@ -261,7 +269,7 @@ export function AgentsPanel({
     <div key={card.key}>
       <div
         className="agents-panel__card"
-        style={{ marginLeft: depth * 16 }}
+        data-depth={depth}
         data-testid="agents-panel-card"
         data-status={card.status}
       >
@@ -278,12 +286,20 @@ export function AgentsPanel({
             <span className="agents-panel__title" title={card.title}>
               {card.title}
             </span>
-            <span className="agents-panel__detail">
-              {[card.role, card.model, card.parentKey ? undefined : card.workspaceName]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
-            {card.step ? <span className="agents-panel__step">{card.step}</span> : null}
+            {ACTIVE.has(card.status) || !card.parentKey ? (
+              <span className="agents-panel__detail">
+                {[
+                  card.role,
+                  shortModel(card.model),
+                  card.parentKey ? undefined : card.workspaceName,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            ) : null}
+            {card.step && ACTIVE.has(card.status) ? (
+              <span className="agents-panel__step">{card.step}</span>
+            ) : null}
           </span>
           <span className="agents-panel__status">
             {STATUS_LABEL[card.status] ?? card.status}
@@ -301,13 +317,29 @@ export function AgentsPanel({
           </button>
         ) : null}
       </div>
-      {depth < 4 && childrenOf(card.key).length ? (
-        <div className="agents-panel__list">
-          {childrenOf(card.key).map((child) => renderCard(child, depth + 1))}
-        </div>
-      ) : null}
+      {depth < 4 ? renderChildren(card.key, depth + 1) : null}
     </div>
   );
+
+  // Children still working (or failed) stay in view; finished ones fold into one "N done" line,
+  // so a chat with many finished agents is one short block instead of a wall of rows.
+  const renderChildren = (key: string, depth: number) => {
+    const kids = childrenOf(key);
+    if (!kids.length) return null;
+    const open = kids.filter((kid) => NEEDS_ATTENTION.has(kid.status));
+    const done = kids.filter((kid) => !NEEDS_ATTENTION.has(kid.status));
+    return (
+      <div className="agents-panel__list agents-panel__children">
+        {open.map((kid) => renderCard(kid, depth))}
+        {done.length ? (
+          <details className="agents-panel__done agents-panel__done--nested">
+            <summary>{done.length} done</summary>
+            <div className="agents-panel__list">{done.map((kid) => renderCard(kid, depth))}</div>
+          </details>
+        ) : null}
+      </div>
+    );
+  };
 
   return (
     <div className="agents-panel">

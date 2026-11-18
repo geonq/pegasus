@@ -387,18 +387,34 @@
 
 .agents-panel__row {
   width: 100%;
-  min-height: 48px;
-  padding: var(--space-2) var(--space-2);
+  min-height: 32px;
+  padding: var(--space-1) var(--space-2);
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-2-5);
+  gap: var(--space-2);
   border-radius: var(--radius-md);
   text-align: left;
+  transition: background-color 120ms ease-out;
 }
 
-.agents-panel__row:hover {
-  background: var(--overlay-hover);
+@media (hover: hover) and (pointer: fine) {
+  .agents-panel__row:hover {
+    background: var(--overlay-hover);
+  }
+}
+
+/* Children hang off their parent with a thin guide line instead of a deep blank indent. */
+.agents-panel__children {
+  margin: 0 0 var(--space-1) var(--space-4);
+  padding-left: var(--space-1);
+  border-left: 1px solid var(--line);
+  gap: 0;
+}
+
+.agents-panel__done--nested > summary {
+  padding: var(--space-0-5) var(--space-2);
+  font-size: var(--text-xs);
 }
 
 .agents-panel__text {
@@ -409,8 +425,8 @@
 .agents-panel__title {
   overflow: hidden;
   color: var(--fg-strong);
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
+  font-size: var(--text-sm);
+  font-weight: var(--font-normal);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -418,8 +434,21 @@
 .agents-panel__detail,
 .agents-panel__status {
   color: var(--fg-muted);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   line-height: var(--leading-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.agents-panel__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Finished rows recede so the eye lands on what is still working. */
+.agents-panel__card[data-status="complete"] .agents-panel__title,
+.agents-panel__card[data-status="idle"] .agents-panel__title {
+  color: var(--fg-muted);
 }
 
 .agents-panel__dot {
@@ -476,7 +505,7 @@
 .agents-panel__step {
   overflow: hidden;
   color: var(--muted-strong);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

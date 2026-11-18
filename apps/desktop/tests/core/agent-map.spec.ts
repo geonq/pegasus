@@ -167,9 +167,11 @@ test("the Agents panel maps a chat's agents live, opens one, and stops one", asy
     const docsCard = cards.filter({ hasText: docs.title });
     await expect(docsCard).toContainText("implementer · slow");
     await expect(docsCard).toHaveAttribute("data-status", "running");
-    expect(
-      await docsCard.evaluate((element) => parseFloat(getComputedStyle(element).marginLeft)),
-    ).toBeGreaterThan(0);
+    await expect(docsCard).toHaveAttribute("data-depth", "1");
+    // Indented under the lead chat: the card starts right of the lead's card.
+    const leadBox = await cards.nth(0).boundingBox();
+    const docsBox = await docsCard.boundingBox();
+    expect(docsBox!.x).toBeGreaterThan(leadBox!.x);
     await window.screenshot({ path: test.info().outputPath("agents-panel.png") });
 
     // Clicking a card opens that agent's chat.
