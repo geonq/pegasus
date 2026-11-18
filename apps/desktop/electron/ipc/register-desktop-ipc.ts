@@ -36,6 +36,7 @@ import { registerExtensionViewRequests } from "./extension-view-requests";
 import { registerReviewRequests, type ReviewRequestsOwner } from "./review-requests";
 import { mainFrameHandler } from "./main-frame-ipc";
 import { assertComposerAttachmentPixels } from "./composer-attachment-pixels";
+import { readComposerFolderAttachments } from "../platform/files/composer-folders";
 import {
   expectAppView,
   expectBoolean,
@@ -878,6 +879,20 @@ export function registerDesktopIpc({
         expectComposerAttachments(rawAttachments),
       );
       assertComposerAttachmentPixels(attachments);
+      return run(event, () => owners.conversation.addComposerAttachments(target, attachments));
+    }),
+  );
+  ipcMain.handle(desktopIpc.attachComposerFolders, (event, rawPaths: unknown) =>
+    runCatchingLimits(event, async () => {
+      const target = windows.targetForSender(event.sender);
+      const folderPaths = expectStringArray(rawPaths, "folderPaths");
+      // A refused folder is shown above the composer like a refused image, not thrown at the drop.
+      const attachments = await readComposerFolderAttachments(folderPaths).catch(
+        (error: unknown) => error as Error,
+      );
+      if (attachments instanceof Error) {
+        return run(event, () => owners.conversation.withError(attachments));
+      }
       return run(event, () => owners.conversation.addComposerAttachments(target, attachments));
     }),
   );

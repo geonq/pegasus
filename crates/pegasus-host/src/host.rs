@@ -316,6 +316,12 @@ impl Host {
                 .await
                 .map_err(|e| HostError::new(ErrorCode::Internal, format!("usage task failed: {e}")))?
             }
+            "files.describe" => {
+                let p: pegasus_core::protocol::FilesDescribeParams = parse(params)?;
+                tokio::task::spawn_blocking(move || to_body(&crate::files::describe(p)?))
+                    .await
+                    .map_err(|e| HostError::new(ErrorCode::Internal, format!("files task failed: {e}")))?
+            }
             "remote.serve" => {
                 let p: pegasus_core::protocol::RemoteServeParams = parse(params)?;
                 self.remote.serve(self, p, conn.id).await?;

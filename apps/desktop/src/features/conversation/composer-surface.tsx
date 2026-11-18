@@ -22,6 +22,7 @@ import {
   CloseIcon,
   ExtensionIcon,
   FileIcon,
+  FolderIcon,
   ModelIcon,
   ReasoningIcon,
   SettingsIcon,
@@ -185,7 +186,7 @@ export function ComposerSurface({
     >
       {isDragActive ? (
         <div className="composer__drop-indicator" data-testid="composer-drop-indicator">
-          Drop images or files to attach
+          Drop images, files or folders to attach
         </div>
       ) : null}
       {activeSlashCommand ? (
@@ -234,7 +235,7 @@ export function ComposerSurface({
               ) : (
                 <>
                   <span className="composer-attachment__icon" aria-hidden="true">
-                    <FileIcon />
+                    {attachment.mimeType === "inode/directory" ? <FolderIcon /> : <FileIcon />}
                   </span>
                   <span className="composer-attachment__name">{attachment.name}</span>
                 </>

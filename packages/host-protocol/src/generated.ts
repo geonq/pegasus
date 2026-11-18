@@ -135,6 +135,30 @@ export type RemotePublishResult = { delivered: boolean, };
 
 export type SessionTranscriptDelta = { version: number, sequence: number, workspaceId: string, sessionId: string, patches: unknown[], };
 
+export type FilesDescribeParams = { 
+/**
+ * Absolute paths, e.g. folders dropped on the composer.
+ */
+paths: Array<string>, };
+
+export type FileKind = "file" | "directory" | "missing";
+
+export type FileDescription = { 
+/**
+ * The path as given.
+ */
+path: string, 
+/**
+ * Its last component.
+ */
+name: string, kind: FileKind, };
+
+export type FilesDescribeResult = { 
+/**
+ * One per requested path, in order.
+ */
+files: Array<FileDescription>, };
+
 export type HostEvent = { "event": "shuttingDown", "data": { reason: string, } } | { "event": "terminalData", "data": { id: string, data: string, } } | { "event": "terminalExit", "data": { id: string, exitCode: number | null, signal: string | null, } } | { "event": "remoteInvoke", "data": { requestId: number, clientId: string, method: string, args: unknown[], } };
 
 export type CoverageState = "complete" | "partial";
@@ -256,4 +280,5 @@ export interface HostMethods {
   "remote.publish": { params: RemotePublishParams; result: RemotePublishResult };
   "remote.stop": { params: Empty; result: Empty };
   "usage.scan": { params: Empty; result: UsageScan };
+  "files.describe": { params: FilesDescribeParams; result: FilesDescribeResult };
 }

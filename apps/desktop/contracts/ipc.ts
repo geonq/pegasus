@@ -226,6 +226,7 @@ export const desktopIpc = {
   pickComposerAttachments: "pi-gui:pick-composer-attachments",
   readClipboardImage: "pi-gui:read-clipboard-image",
   addComposerAttachments: "pi-gui:add-composer-attachments",
+  attachComposerFolders: "pi-gui:attach-composer-folders",
   removeComposerAttachment: "pi-gui:remove-composer-attachment",
   editQueuedComposerMessage: "pi-gui:edit-queued-composer-message",
   cancelQueuedComposerEdit: "pi-gui:cancel-queued-composer-edit",
@@ -922,6 +923,8 @@ export interface PiDesktopApi {
   pickComposerAttachments(): Promise<DesktopAppState>;
   readClipboardImage(): ClipboardImageRead;
   addComposerAttachments(attachments: readonly ComposerAttachment[]): Promise<DesktopAppState>;
+  /** Attaches dropped folders (absolute paths) as path references, after the host checks them. */
+  attachComposerFolders(folderPaths: readonly string[]): Promise<DesktopAppState>;
   removeComposerAttachment(attachmentId: string): Promise<DesktopAppState>;
   editQueuedComposerMessage(messageId: string, currentDraft?: string): Promise<DesktopAppState>;
   cancelQueuedComposerEdit(): Promise<DesktopAppState>;

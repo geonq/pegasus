@@ -621,6 +621,8 @@ const localPiDesktopApi = {
     ipcRenderer.sendSync(desktopIpc.readClipboardImage) as ClipboardImageRead,
   addComposerAttachments: (attachments: readonly ComposerAttachment[]) =>
     ipcRenderer.invoke(desktopIpc.addComposerAttachments, attachments) as Promise<DesktopAppState>,
+  attachComposerFolders: (folderPaths: readonly string[]) =>
+    ipcRenderer.invoke(desktopIpc.attachComposerFolders, folderPaths) as Promise<DesktopAppState>,
   removeComposerAttachment: (attachmentId: string) =>
     ipcRenderer.invoke(
       desktopIpc.removeComposerAttachment,

@@ -332,6 +332,41 @@ pub struct SessionTranscriptDelta {
     pub patches: Vec<serde_json::Value>,
 }
 
+/// Most paths one `files.describe` call takes.
+pub const DESCRIBE_MAX_PATHS: usize = 64;
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FilesDescribeParams {
+    /// Absolute paths, e.g. folders dropped on the composer.
+    pub paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum FileKind {
+    File,
+    Directory,
+    /// Gone, unreadable, or a folder that cannot be listed.
+    Missing,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct FileDescription {
+    /// The path as given.
+    pub path: String,
+    /// Its last component.
+    pub name: String,
+    pub kind: FileKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct FilesDescribeResult {
+    /// One per requested path, in order.
+    pub files: Vec<FileDescription>,
+}
+
 /// Host -> client pushes.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(tag = "event", content = "data", rename_all = "camelCase")]
@@ -394,6 +429,7 @@ methods! {
     "remote.publish" => RemotePublishParams => RemotePublishResult,
     "remote.stop" => Empty => Empty,
     "usage.scan" => Empty => crate::usage::UsageScan,
+    "files.describe" => FilesDescribeParams => FilesDescribeResult,
 }
 
 /// The whole generated TypeScript module.
@@ -432,6 +468,10 @@ pub fn ts_bindings() -> String {
         RemotePublishParams::decl(&cfg),
         RemotePublishResult::decl(&cfg),
         SessionTranscriptDelta::decl(&cfg),
+        FilesDescribeParams::decl(&cfg),
+        FileKind::decl(&cfg),
+        FileDescription::decl(&cfg),
+        FilesDescribeResult::decl(&cfg),
         HostEvent::decl(&cfg),
     ];
     use crate::review_types as rv;

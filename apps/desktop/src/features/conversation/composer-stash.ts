@@ -41,7 +41,11 @@ function readStore(): StashStore {
   }
 }
 
-/** False when the browser refuses the write (storage full or unavailable). */
+/**
+ * False when the browser refuses the write (storage full or unavailable).
+ * shortcut: images are kept inline as base64, so a few large ones can fill localStorage (~5 MB) and
+ * the park is refused with an error; move them to the app's attachment store if that happens often.
+ */
 function writeStore(store: StashStore): boolean {
   try {
     const entries = Object.entries(store).filter(([, list]) => list.length > 0);

@@ -16,9 +16,9 @@ import {
 import type { ClipboardImageRead } from "../../../../contracts/composer-attachments";
 import { updateSnapshot } from "../../../app/desktop-app-state";
 import {
-  extractFilesFromDataTransfer,
   extractImageFilesFromClipboardData,
   handleClipboardImageShortcut,
+  partitionDroppedFolders,
   readComposerAttachmentsFromFiles,
 } from "../composer-attachments";
 import { parseTreeComposerCommand } from "../composer-commands";
@@ -275,18 +275,6 @@ export function useSessionComposer(params: UseSessionComposerParams) {
     onFiles(files);
   };
 
-  const handleAttachmentDrop = (
-    event: DragEvent<HTMLDivElement>,
-    onFiles: (files: File[]) => void,
-  ) => {
-    event.preventDefault();
-    const files = extractFilesFromDataTransfer(event.dataTransfer);
-    if (files.length === 0) {
-      return;
-    }
-    onFiles(files);
-  };
-
   async function addAttachmentsToSessionComposer(files: File[]) {
     if (!api) {
       return;
@@ -315,11 +303,19 @@ export function useSessionComposer(params: UseSessionComposerParams) {
   };
 
   const handleComposerDrop = (event: DragEvent<HTMLDivElement>) => {
-    handleAttachmentDrop(event, (files) => {
-      void addAttachmentsToSessionComposer(files).catch((error: unknown) => {
-        setComposerLimitError(error);
-        console.error("[renderer] addAttachmentsToSessionComposer failed", error);
-      });
+    event.preventDefault();
+    const { folderPaths, files } = partitionDroppedFolders(event.dataTransfer);
+    if (folderPaths.length > 0 && api) {
+      void updateSnapshot(setSnapshot, () => api.attachComposerFolders(folderPaths)).catch(
+        (error: unknown) => {
+          console.error("[renderer] attachComposerFolders failed", error);
+        },
+      );
+    }
+    if (files.length === 0) return;
+    void addAttachmentsToSessionComposer(files).catch((error: unknown) => {
+      setComposerLimitError(error);
+      console.error("[renderer] addAttachmentsToSessionComposer failed", error);
     });
   };
 
