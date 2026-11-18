@@ -19,18 +19,21 @@ await test("Claude pickers keep the newest offered version per family and canoni
     ["claude-opus-5-5", "claude-haiku-5-5", "claude-fable-5-1"],
   );
 });
-await test("Codex retains precisely the requested version families across account aliases", () => {
+await test("Codex shows every current GPT generation, including ones released later", () => {
   const models = [
     "gpt-4o",
     "gpt-5.5",
     "gpt-5.6-luna",
     "gpt-6-astra",
     "gpt-6.1-sol",
+    "gpt-6.1-terra",
     "gpt-6.2-sol",
+    "gpt-7",
+    "codex-auto-review",
   ].map((id) => ({ provider: "openai-account-2", id }));
   assert.deepEqual(
     currentDesktopModels(models).map((x) => x.id),
-    ["gpt-5.6-luna", "gpt-6-astra", "gpt-6.1-sol"],
+    ["gpt-5.6-luna", "gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6.2-sol", "gpt-7"],
   );
 });
 await test("Other providers and model identities are preserved", () => {

@@ -36,6 +36,20 @@ export function currentDesktopModels<T extends CatalogModel>(models: readonly T[
   return models.filter((model) =>
     claude.test(model.provider)
       ? claudeKeys.has(`${model.provider}:${model.id}`)
-      : !openai.test(model.provider) || /^gpt-(?:5\.6|6\.1|6)(?:-|$)/.test(model.id),
+      : !openai.test(model.provider) || isCurrentOpenAiModel(model.id),
   );
+}
+
+/** Oldest GPT generation the picker still offers; everything the runtime knows from here on shows. */
+const OPENAI_FLOOR = 5_006;
+
+/**
+ * A GPT model the picker shows: any `gpt-<major>[.<minor>]` at or above GPT-5.6, so a new family
+ * (GPT-6.2, GPT-7, a new codename) appears as soon as the runtime's catalog has it, with no code
+ * change. Anything else (gpt-4o, o-series, codex-auto-review) stays hidden.
+ */
+function isCurrentOpenAiModel(id: string): boolean {
+  const match = /^gpt-(\d+)(?:\.(\d{1,3}))?(?:-|$)/.exec(id);
+  if (!match) return false;
+  return Number(match[1]) * 1000 + Number(match[2] ?? 0) >= OPENAI_FLOOR;
 }
