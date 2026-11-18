@@ -37,11 +37,18 @@ import { ModelSelector } from "./model-selector";
 import { PermissionSelector, runtimeHasPermissions } from "./permission-selector";
 import type { SessionPermission } from "../../../contracts/session-permission";
 import { ExtensionNotices } from "../extensions/extension-notices";
+import { ComposerStashMenu } from "./composer-stash-menu";
+import type { StashedDraft } from "./composer-stash";
 import { ExtensionFlagsBadge } from "../threads/extension-flags-selector";
 import type { ExtensionDockModel } from "../extensions/extension-session-ui";
 
 interface ComposerPanelProps {
   readonly preparingTaskDraft?: boolean;
+  /** Parked drafts are kept per chat under this key. */
+  readonly chatKey: string;
+  readonly onParkedDraft: () => void;
+  readonly onRestoreParkedDraft: (draft: StashedDraft) => Promise<void>;
+  readonly onComposerError: (message: string) => void;
   readonly selectedSession: SessionRecord;
   readonly lastError?: string;
   readonly runtime?: RuntimeSnapshot;
@@ -105,6 +112,10 @@ interface ComposerPanelProps {
 
 export function ComposerPanel({
   preparingTaskDraft = false,
+  chatKey,
+  onParkedDraft,
+  onRestoreParkedDraft,
+  onComposerError,
   selectedSession,
   lastError,
   runtime,
@@ -252,6 +263,14 @@ export function ComposerPanel({
                     <ContextMeter usage={usage} />
                   </div>
                   <div className="composer__actions">
+                    <ComposerStashMenu
+                      chatKey={chatKey}
+                      draft={composerDraft}
+                      attachments={attachments}
+                      onParked={onParkedDraft}
+                      onRestore={onRestoreParkedDraft}
+                      onError={onComposerError}
+                    />
                     <button
                       aria-label="Attach files"
                       className="icon-button composer__attach"

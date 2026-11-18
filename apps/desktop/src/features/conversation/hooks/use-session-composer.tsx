@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import {
+  type ComposerAttachment,
   type ComposerImageAttachment,
   type DesktopAppState,
   type SessionRecord,
@@ -176,6 +177,39 @@ export function useSessionComposer(params: UseSessionComposerParams) {
         console.error("[renderer] removeComposerAttachment failed", error);
       },
     );
+  };
+
+  /** Empties the composer once its draft is parked; attachments go one by one (no bulk clear IPC). */
+  const clearParkedDraft = () => {
+    setComposerDraft("");
+    if (!api) return;
+    const ids = composerAttachments.map((attachment) => attachment.id);
+    void (async () => {
+      for (const id of ids) {
+        await updateSnapshot(setSnapshot, () => api.removeComposerAttachment(id));
+      }
+    })().catch((error: unknown) => {
+      console.error("[renderer] removeComposerAttachment failed", error);
+    });
+  };
+
+  /** Adds a parked draft to what is typed now, so restoring never overwrites a new draft. */
+  const restoreParkedDraft = async (parked: {
+    readonly text: string;
+    readonly attachments: readonly ComposerAttachment[];
+  }) => {
+    if (!api) throw new Error("The app bridge is unavailable.");
+    if (parked.attachments.length) {
+      await updateSnapshot(setSnapshot, () => api.addComposerAttachments(parked.attachments));
+    }
+    setComposerDraft((current) =>
+      current.trim() && parked.text.trim()
+        ? `${current.replace(/\s+$/, "")}\n\n${parked.text}`
+        : current.trim()
+          ? current
+          : parked.text,
+    );
+    composerRef.current?.focus();
   };
 
   const handleEditQueuedMessage = (messageId: string) => {
@@ -401,5 +435,8 @@ export function useSessionComposer(params: UseSessionComposerParams) {
     handleComposerDrop,
     handlePastedClipboardImage,
     handleComposerKeyDown,
+    clearParkedDraft,
+    restoreParkedDraft,
+    setComposerLimitError,
   };
 }

@@ -1014,6 +1014,12 @@ export default function App() {
     handlePastedClipboardImage,
 
     handleComposerKeyDown,
+
+    clearParkedDraft,
+
+    restoreParkedDraft,
+
+    setComposerLimitError,
   } = useSessionComposer({
     api,
 
@@ -1809,6 +1815,10 @@ export default function App() {
 
               <ComposerPanel
                 key={selectedSessionKey}
+                chatKey={selectedSessionKey}
+                onParkedDraft={clearParkedDraft}
+                onRestoreParkedDraft={restoreParkedDraft}
+                onComposerError={setComposerLimitError}
                 preparingTaskDraft={extensionHostActions.preparingTaskDraft}
                 activeSlashCommand={slashMenu.activeSlashFlow?.command}
                 activeSlashCommandMeta={slashMenu.activeSlashFlow?.command?.description}
