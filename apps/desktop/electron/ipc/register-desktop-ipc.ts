@@ -16,6 +16,7 @@ import {
   type ChangedFilesResult,
   type CustomProviderProbeInput,
   type CustomProviderProbeResult,
+  type HostConnectionStatus,
 } from "../../contracts/ipc";
 import type {
   AccountLimits,
@@ -228,6 +229,7 @@ export interface DesktopIpcCapabilities {
   readonly getAccountStates: () => Promise<readonly AccountStatus[]>;
   readonly getAccountLimits: (cachedOnly: boolean) => Promise<readonly AccountLimits[]>;
   readonly getClaudeSlots: () => Promise<readonly ClaudeSlot[]>;
+  readonly getHostStatus: () => Promise<HostConnectionStatus>;
   readonly getPhoneAccess: () => Promise<PhoneAccessState>;
   readonly pairPhone: (label: string) => Promise<PhonePairing>;
   readonly revokePhone: (phoneId: string) => Promise<void>;
@@ -1236,6 +1238,10 @@ function registerWorkspaceFileIpc(
   ipcMain.handle(desktopIpc.getClaudeSlots, async (event) => {
     windows.windowForSender(event.sender);
     return capabilities.getClaudeSlots();
+  });
+  ipcMain.handle(desktopIpc.getHostStatus, async (event) => {
+    windows.windowForSender(event.sender);
+    return capabilities.getHostStatus();
   });
   ipcMain.handle(desktopIpc.getPhoneAccess, async (event) => {
     windows.windowForSender(event.sender);

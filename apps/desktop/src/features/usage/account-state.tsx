@@ -168,6 +168,11 @@ const useAccounts = polledStore(readAccounts, NO_ACCOUNTS, 5_000);
 const useSignInList = polledStore<readonly SignInStatus[]>(readSignIns, NONE, 60_000);
 const useCachedLimits = polledStore<readonly AccountLimits[]>(readCachedLimits, NONE, 60_000);
 
+/** The last plan windows the main process read (never contacts a provider). */
+export function useCachedAccountLimits(): readonly AccountLimits[] {
+  return useCachedLimits();
+}
+
 /** The hourly sign-in check (memory read in the main process). */
 export function useSignIns(): readonly SignInStatus[] {
   return useSignInList();

@@ -1929,6 +1929,13 @@ app
         getAccountLimits: (cachedOnly) =>
           readAccountLimits(path.join(path.dirname(resolveAgentDir()), "claude"), { cachedOnly }),
         getClaudeSlots: () => readClaudeSlots(path.join(path.dirname(resolveAgentDir()), "claude")),
+        getHostStatus: async () => {
+          if (process.env.PEGASUS_HOST === "0") return { state: "off" };
+          const status = await (await sharedHost())?.call("status", {}).catch(() => undefined);
+          return status
+            ? { state: "connected", version: status.hostVersion }
+            : { state: "unavailable" };
+        },
         getPhoneAccess: () => readPhoneAccess(phoneAccessOptions()),
         pairPhone: (label) => pairPhone(phoneAccessOptions(), label),
         revokePhone: (phoneId) => revokePhone(phoneAccessOptions(), phoneId),

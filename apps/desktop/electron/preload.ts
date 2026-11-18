@@ -23,6 +23,7 @@ import {
   type ChangedFilesResult,
   type DesktopNotificationPermissionStatus,
   type WorkspaceFilePreview,
+  type HostConnectionStatus,
   type PiDesktopCommand,
   type QuickCommand,
   type QuickCommandInput,
@@ -696,6 +697,8 @@ const localPiDesktopApi = {
     ipcRenderer.invoke(desktopIpc.getAccountLimits, options) as Promise<readonly AccountLimits[]>,
   getClaudeSlots: () =>
     ipcRenderer.invoke(desktopIpc.getClaudeSlots) as Promise<readonly ClaudeSlot[]>,
+  getHostStatus: () =>
+    ipcRenderer.invoke(desktopIpc.getHostStatus) as Promise<HostConnectionStatus>,
   getPhoneAccess: () => ipcRenderer.invoke(desktopIpc.getPhoneAccess) as Promise<PhoneAccessState>,
   pairPhone: (label: string) =>
     ipcRenderer.invoke(desktopIpc.pairPhone, label) as Promise<PhonePairing>,
