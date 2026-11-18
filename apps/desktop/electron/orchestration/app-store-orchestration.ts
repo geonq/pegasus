@@ -437,7 +437,7 @@ async function sendChildThreadFollowUp(
   }
 
   await store.submitComposerToSession(childRef, text, [], {
-    deliverAs: "followUp",
+    deliverAs: "steer",
     allowCommands: false,
   });
   updateChildSupervisionLoop(
@@ -681,8 +681,10 @@ async function sendMessageToThreadToolResult(
     );
   }
 
+  // A parent's message steers a running child at its next step instead of waiting for the whole
+  // turn to end (owner, 2026-11-14); an idle child just starts a turn with it.
   await store.submitComposerToSession(target.sessionRef, input.message, [], {
-    deliverAs: "followUp",
+    deliverAs: "steer",
     allowCommands: false,
   });
   if (target.child) {
