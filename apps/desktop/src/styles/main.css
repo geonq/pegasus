@@ -1939,13 +1939,6 @@
   line-height: 1.4;
 }
 
-.enable-transparency .tree-modal,
-.enable-transparency .extension-dialog,
-.enable-transparency .slash-menu,
-.enable-transparency .mention-menu {
-  backdrop-filter: var(--glass-blur) var(--glass-saturation);
-}
-
 /* Glass covers every surface: each column paints one glass layer and bars sit
    on it instead of painting their own. */
 .enable-transparency .topbar,

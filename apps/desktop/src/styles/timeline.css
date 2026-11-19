@@ -92,11 +92,6 @@
   font-weight: var(--font-semibold);
 }
 
-/* It floats over the transcript, so it reads as glass like the other floating chips. */
-.enable-transparency .timeline-jump {
-  backdrop-filter: var(--glass-blur) var(--glass-saturation);
-}
-
 /* ---- Entrance / streaming motion --------------------------------------- */
 
 @keyframes timeline-enter {

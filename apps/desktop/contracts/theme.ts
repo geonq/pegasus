@@ -233,6 +233,8 @@ export function deriveThemeTokens(seedValue: ThemeSeed, variant: ResolvedTheme):
     "--main-glass": alpha(main, 0.5),
     "--surface": elevated,
     "--surface-glass": alpha(elevated, 0.8),
+    // Menus, tooltips, toasts and dialogs: translucent over a backdrop blur (polish.css).
+    "--surface-float": alpha(elevated, 0.78),
     "--surface-muted": surfaceMuted,
     "--surface-muted-glass": alpha(surfaceMuted, 0.7),
     "--line": line,

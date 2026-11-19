@@ -83,6 +83,11 @@ button {
     backdrop-filter: none !important;
   }
 
+  /* Floating surfaces turn solid: without the blur, text behind them would show through. */
+  :root {
+    --surface-float: var(--surface) !important;
+  }
+
   .enable-transparency .topbar {
     background: var(--main) !important;
   }
@@ -198,7 +203,6 @@ select:open::picker-icon {
   background: var(--surface);
   color: var(--fg-strong);
   box-shadow: var(--elevation-menu);
-  backdrop-filter: var(--glass-blur) var(--glass-saturation);
 }
 
 option {
@@ -264,9 +268,9 @@ option:disabled {
   rotate: 180deg;
 }
 
-/* Liquid glass for controls (iOS/macOS): translucent fill, strong blur and
-   saturation, bright 1px inner top highlight, faint inner bottom shade, hairline
-   rim and a soft lift. White light reads as glass in both themes. */
+/* Liquid glass for controls (iOS/macOS): translucent fill, bright 1px inner top
+   highlight, faint inner bottom shade, hairline rim and a soft lift. White light
+   reads as glass in both themes. */
 /* Controls are denser than the window glass so they always read as objects on it. */
 .enable-transparency {
   --liquid-fill: rgb(36 36 36 / 0.72);
@@ -284,31 +288,44 @@ option:disabled {
   --liquid-lift: 0 12px 32px -12px rgb(0 0 0 / 0.18);
 }
 
-.enable-transparency
-  :is(.composer__surface, .new-thread__workspace, .model-selector__dropdown, .workspace-menu),
-.enable-transparency ::picker(select) {
+/* No backdrop-filter here: these controls sit over empty window glass, and a backdrop-filter on
+   the composer made it the backdrop root of its menus, so their blur never reached the transcript. */
+.enable-transparency :is(.composer__surface, .new-thread__workspace) {
   border-color: var(--liquid-rim);
   background: var(--liquid-fill);
-  backdrop-filter: blur(24px) saturate(180%);
   box-shadow:
     inset 0 1px 0 var(--liquid-highlight),
     inset 0 -1px 0 var(--liquid-shade),
     var(--liquid-lift);
 }
 
-/* Floating overlays sit over text. On the Windows glass window the backdrop blur does not reach
-   the transcript, so at 72-80% glass the text behind read straight through menus and tooltips.
-   They take the solid main fill instead (even 6% show-through left ghost text). */
-.enable-transparency
-  :is(
-    .slash-menu,
-    .mention-menu,
-    .model-selector__dropdown,
-    .workspace-menu,
-    .shortcut-tooltip,
-    .context-meter__card
-  ) {
-  background: var(--main);
+/* One glass for everything drawn over other content: menus, tooltips, hover cards, toasts and
+   dialogs. The blur keeps text behind unreadable (measured in tests/core/floating-glass.spec.ts).
+   No ancestor of these may set backdrop-filter, filter, opacity or mask: that would make it their
+   backdrop root and the blur would stop at it. */
+:is(
+  .slash-menu,
+  .mention-menu,
+  .model-selector__dropdown,
+  .workspace-menu,
+  .shortcut-tooltip,
+  .context-meter__card,
+  .thread-hover-card,
+  .attention-toast,
+  .undo-toast,
+  .timeline-jump,
+  .command-palette,
+  .thread-switcher__panel,
+  .tree-modal,
+  .extension-dialog,
+  .scheduled-editor,
+  .annotation-editor,
+  .annotation-chip__list,
+  .chart-tooltip-panel
+),
+::picker(select) {
+  background: var(--surface-float);
+  backdrop-filter: var(--glass-blur) var(--glass-saturation);
 }
 
 /* Shared activity canvases crossfade in fixed bounds, never remount the surrounding status row. */
