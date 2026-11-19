@@ -14,8 +14,42 @@
   --float-shadow:
     0 1px 2px color-mix(in srgb, #000 18%, transparent),
     0 12px 32px -8px color-mix(in srgb, #000 28%, transparent);
+  /* Both cards share one fill; only their fill, border and shadow set them apart. */
+  --float-fill: var(--sidebar);
   padding: var(--float-gap) 0 var(--float-gap) var(--float-gap);
   column-gap: var(--float-gap);
+  /* One background for the window and the chat column, so the column has no edge of its own. */
+  background: var(--main);
+}
+
+.enable-transparency .shell {
+  --float-fill: var(--sidebar-glass);
+  background: var(--main-glass);
+}
+
+.shell > .main {
+  background: transparent;
+}
+
+/* No rule under the header running into the cards and the window edge. */
+.shell > .main > .topbar {
+  border-bottom-color: transparent;
+}
+
+.shell > .sidebar,
+.main--with-side-panel > .side-panel {
+  background: var(--float-fill);
+}
+
+.side-panel > .workbench__tabbar {
+  background: transparent;
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .enable-transparency .shell {
+    --float-fill: var(--sidebar);
+    background: var(--main);
+  }
 }
 
 .shell--sidebar-collapsed,
