@@ -29,12 +29,12 @@ test("the status bar shows the model's plan usage and the host, and opens Usage"
       timeout: 15_000,
     });
 
-    // Full width along the bottom edge, below the floating sidebar card.
+    // Along the bottom edge, below the floating sidebar card, inside the cards' 8 px gutters.
     const view = await window.evaluate(() => ({ width: innerWidth, height: innerHeight }));
     const barBox = (await bar.boundingBox())!;
     const sidebarBox = (await window.locator("#primary-sidebar").boundingBox())!;
-    expect(barBox.x).toBeLessThanOrEqual(1);
-    expect(Math.round(barBox.width)).toBeGreaterThanOrEqual(view.width - 1);
+    expect(Math.round(barBox.x)).toBe(Math.round(sidebarBox.x));
+    expect(Math.round(view.width - (barBox.x + barBox.width))).toBe(0);
     expect(Math.round(barBox.y + barBox.height)).toBe(view.height);
     expect(sidebarBox.y + sidebarBox.height).toBeLessThanOrEqual(barBox.y - 4);
 
