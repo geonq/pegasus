@@ -16,11 +16,100 @@
   background: var(--main);
 }
 
-/* Windows draws minimize/maximize/close over the window's top-right corner
-   (titleBarOverlay in electron/main.ts); keep whichever bar sits there clear of them. */
+/* Windows: the app's own minimize/maximize/close (features/window-controls) sit in the window's
+   top-right corner; whichever bar reaches that corner keeps clear of them. */
+[data-platform="win32"] {
+  --window-controls-width: calc(3 * 46px);
+}
+
 [data-platform="win32"] .main:not(.main--with-side-panel) .topbar,
-[data-platform="win32"] .workbench__tabbar {
-  padding-right: calc(138px + 8px);
+[data-platform="win32"] .secondary-surface__content {
+  padding-right: calc(var(--window-controls-width) + var(--space-2));
+}
+
+.window-controls {
+  -webkit-app-region: no-drag;
+  position: fixed;
+  top: 0;
+  right: 0;
+  /* Above the header and the sidebar toggle, below the palette and dialogs. */
+  z-index: 85;
+  display: flex;
+  height: var(--chrome-bar-height);
+}
+
+.window-controls__button {
+  width: 46px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: 0;
+  color: var(--fg-muted);
+  transition:
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+/* The glyph presses in, the 46 px target stays put so neighbours never shift. */
+.window-controls__button svg {
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+button.window-controls__button:not(:disabled):active {
+  transform: none;
+}
+
+.window-controls__button:active svg {
+  transform: scale(0.9);
+}
+
+.window-controls__button:active {
+  background: var(--overlay-active);
+  color: var(--fg-strong);
+}
+
+.window-controls__button--close:active {
+  background: color-mix(in srgb, #c42b1c 82%, #000);
+  color: #fff;
+}
+
+.window-controls__button:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .window-controls__button:hover {
+    background: var(--overlay-hover);
+    color: var(--fg-strong);
+  }
+
+  .window-controls__button--close:hover {
+    background: #c42b1c;
+    color: #fff;
+  }
+}
+
+/* The corner is too close to the window edge to centre a tooltip under its button. */
+.window-controls__tooltip {
+  left: auto;
+  right: var(--space-1);
+  transform: translateY(-2px);
+}
+
+.window-controls__wrap:has(:focus-visible) .window-controls__tooltip {
+  transform: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .window-controls__wrap:hover .window-controls__tooltip {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .window-controls__button:active svg {
+    transform: none;
+  }
 }
 
 .topbar__title {

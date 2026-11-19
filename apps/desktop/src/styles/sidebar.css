@@ -1389,10 +1389,6 @@
   }
 }
 
-.enable-transparency .attention-toast {
-  backdrop-filter: var(--glass-blur) var(--glass-saturation);
-}
-
 .attention-toast__dot {
   flex: none;
   width: 8px;

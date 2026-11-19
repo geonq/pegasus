@@ -14,8 +14,42 @@
   --float-shadow:
     0 1px 2px color-mix(in srgb, #000 18%, transparent),
     0 12px 32px -8px color-mix(in srgb, #000 28%, transparent);
+  /* Both cards share one fill; only their fill, border and shadow set them apart. */
+  --float-fill: var(--sidebar);
   padding: var(--float-gap) 0 var(--float-gap) var(--float-gap);
   column-gap: var(--float-gap);
+  /* One background for the window and the chat column, so the column has no edge of its own. */
+  background: var(--main);
+}
+
+.enable-transparency .shell {
+  --float-fill: var(--sidebar-glass);
+  background: var(--main-glass);
+}
+
+.shell > .main {
+  background: transparent;
+}
+
+/* No rule under the header running into the cards and the window edge. */
+.shell > .main > .topbar {
+  border-bottom-color: transparent;
+}
+
+.shell > .sidebar,
+.main--with-side-panel > .side-panel {
+  background: var(--float-fill);
+}
+
+.side-panel > .workbench__tabbar {
+  background: transparent;
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .enable-transparency .shell {
+    --float-fill: var(--sidebar);
+    background: var(--main);
+  }
 }
 
 .shell--sidebar-collapsed,
@@ -102,21 +136,40 @@
   border-top-right-radius: var(--float-radius);
 }
 
-/* Windows draws its caption buttons over the window's top-right corner. The floating panel no
-   longer reaches that corner, so the main top bar always keeps their space instead. */
-[data-platform="win32"] .main--with-side-panel .topbar {
-  padding-right: calc(138px + 8px);
+/* Windows: the app's window controls fill a strip from the window's top edge, as tall as the chrome
+   bar (topbar.css). The chat column's header starts at the same top edge, so its buttons share the
+   window controls' centre line. */
+[data-platform="win32"] .shell > .main {
+  margin-top: calc(-1 * var(--float-gap));
+}
+
+[data-platform="win32"] .sidebar-toggle {
+  top: calc((var(--chrome-bar-height) - var(--titlebar-toggle-size)) / 2);
 }
 
 [data-platform="win32"] .side-panel > .workbench__tabbar {
   padding-right: var(--space-2);
 }
 
+/* The empty strip above the side panel card moves the window like the header beside it. */
+[data-platform="win32"] .main--with-side-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: calc(min(var(--workbench-width, 440px), 65%) + var(--float-gap));
+  height: var(--chrome-bar-height);
+  -webkit-app-region: drag;
+}
+
 [data-platform="win32"] .main--with-side-panel > .side-panel {
-  /* Start below the caption buttons so they never cover the panel's tabs. */
-  margin-top: calc(var(--chrome-bar-height) - var(--float-gap));
-  height: min(var(--workbench-height, 100%), calc(100% - var(--chrome-bar-height)));
-  max-height: calc(100% - var(--chrome-bar-height));
+  /* Below the window controls' strip with the same gap the cards keep everywhere else. */
+  margin-top: calc(var(--chrome-bar-height) + var(--float-gap));
+  height: min(
+    var(--workbench-height, 100%),
+    calc(100% - var(--chrome-bar-height) - 2 * var(--float-gap))
+  );
+  max-height: calc(100% - var(--chrome-bar-height) - 2 * var(--float-gap));
 }
 
 /* Narrow windows already show the side panel as an overlay; keep it a floating card there too. */

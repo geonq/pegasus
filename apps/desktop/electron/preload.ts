@@ -728,6 +728,16 @@ const localPiDesktopApi = {
       stagingSourcePath,
     ) as Promise<void>,
   toggleWindowMaximize: () => ipcRenderer.invoke(desktopIpc.toggleWindowMaximize) as Promise<void>,
+  minimizeWindow: () => ipcRenderer.invoke(desktopIpc.minimizeWindow) as Promise<void>,
+  closeWindow: () => ipcRenderer.invoke(desktopIpc.closeWindow) as Promise<void>,
+  isWindowMaximized: () => ipcRenderer.invoke(desktopIpc.isWindowMaximized) as Promise<boolean>,
+  onWindowMaximizedChanged: (listener: (maximized: boolean) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, maximized: boolean) => listener(maximized);
+    ipcRenderer.on(desktopIpc.windowMaximizedChanged, handler);
+    return () => {
+      ipcRenderer.removeListener(desktopIpc.windowMaximizedChanged, handler);
+    };
+  },
   openExternal: (url: string) => ipcRenderer.invoke(desktopIpc.openExternal, url) as Promise<void>,
   getThemeMode: () =>
     ipcRenderer.invoke(desktopIpc.getThemeMode) as Promise<"system" | "light" | "dark">,

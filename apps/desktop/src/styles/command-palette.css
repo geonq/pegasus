@@ -24,10 +24,6 @@
   overflow: hidden;
 }
 
-.enable-transparency .command-palette {
-  backdrop-filter: var(--glass-blur) var(--glass-saturation);
-}
-
 .command-palette__search {
   display: flex;
   align-items: center;
