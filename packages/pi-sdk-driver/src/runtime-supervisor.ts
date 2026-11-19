@@ -228,6 +228,8 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     workspaces: readonly WorkspaceRef[],
   ): Promise<void> {
     const global = await this.ensureContext(this.globalWorkspace());
+    // Another project's switch may have written the user settings since this context read them.
+    await global.settingsManager.reload();
     const target = resourceTarget(kind, path);
     const globalEntries = readResourceEntries(global.settingsManager.getGlobalSettings(), kind);
     const keptGlobal = withoutResource(globalEntries, target, this.agentDir);
@@ -240,13 +242,14 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     await global.settingsManager.flush();
     throwGlobalSettingsError(global.settingsManager.drainErrors());
 
+    // "Every project" keeps a project's own "off"; it only drops the entries that loaded it there.
     const chosen = new Set(placement.global ? [] : placement.workspaceIds);
     for (const workspace of workspaces) {
       await this.writeProjectResourceState(
         workspace,
         kind,
         target,
-        chosen.has(workspace.workspaceId) ? "on" : "inherit",
+        chosen.has(workspace.workspaceId) ? "on" : placement.global ? "drop-on" : "inherit",
       );
     }
   }
@@ -283,15 +286,19 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     workspace: WorkspaceRef,
     kind: ToggleableResourceKind,
     target: string,
-    state: "inherit" | "on" | "off",
+    state: "inherit" | "on" | "off" | "drop-on",
   ): Promise<void> {
     const settingsManager = SettingsManager.create(workspace.path, this.agentDir);
     const baseDir = join(workspace.path, ".pi");
     const entries = readResourceEntries(settingsManager.getProjectSettings(), kind);
     const kept = withoutResource(entries, target, baseDir);
+    const ownEntries = entries.filter((entry) => !kept.includes(entry));
+    if (state === "drop-on" && ownEntries.some((entry) => entry.startsWith("-"))) return;
     const pattern = settingsPathFor(target, baseDir);
     const next =
-      state === "inherit" ? kept : [...kept, pattern, ...(state === "off" ? [`-${pattern}`] : [])];
+      state === "inherit" || state === "drop-on"
+        ? kept
+        : [...kept, pattern, ...(state === "off" ? [`-${pattern}`] : [])];
     if (next.length === entries.length && next.every((entry, index) => entry === entries[index])) {
       return;
     }

@@ -97,6 +97,16 @@ await test("a global skill turned off in one project stays on in the others", as
     "-../../agent/skills/everywhere",
   ]);
 
+  // Choosing "Every project" later keeps A's own "off".
+  await supervisor.setResourcePlacement(
+    "skill",
+    file,
+    { global: true, workspaceIds: [] },
+    workspaces,
+  );
+  assert.equal(enabledSkill(await supervisor.refreshRuntime(a!), "everywhere"), false);
+  assert.equal(enabledSkill(await supervisor.refreshRuntime(b!), "everywhere"), true);
+
   const onInA = await supervisor.setProjectResourceEnabled(a!, "skill", file, true);
   assert.equal(enabledSkill(onInA, "everywhere"), true);
   assert.deepEqual(await skillsIn(join(a!.path, ".pi", "settings.json")), []);

@@ -92,7 +92,8 @@ export function placementSummary(
     return placement.global ? "Every project" : "Off everywhere";
   const names = placement.enabledIn.map(projectName);
   const listed = names.length <= 2 ? names.join(" and ") : `${names.length} projects`;
+  const offCount = projectCount - names.length;
   return placement.global
-    ? `Every project except ${projectCount - names.length}`
+    ? `Every project, off in ${offCount} ${offCount === 1 ? "project" : "projects"}`
     : `Only in ${listed}`;
 }
