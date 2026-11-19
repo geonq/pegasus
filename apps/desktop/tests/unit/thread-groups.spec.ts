@@ -13,7 +13,6 @@ import {
   sessionThreadKey,
   threadHistoryPreview,
   visibleThreadShortcutOrder,
-  visibleWorkspaceGroups,
   workspaceHistoryExpansionKey,
 } from "../../src/features/threads/thread-groups";
 
@@ -171,7 +170,7 @@ test("excludes archived threads from recencyOrder and date buckets", () => {
   expect(model.recencySections[0]?.threads.map((thread) => thread.session.title)).toEqual(["Live"]);
 });
 
-test("Chats hides empty and archived-only folders while Folders keeps every folder", () => {
+test("Folders keeps every folder, empty and archived-only ones included", () => {
   const model = buildThreadSidebarModel(
     state([
       workspace("active", "Active", [session("live", "Live", { updatedAt: isoDaysAgo(0) })]),
@@ -186,10 +185,7 @@ test("Chats hides empty and archived-only folders while Folders keeps every fold
     nowMs,
   );
 
-  expect(visibleWorkspaceGroups(model, "time").map((group) => group.workspace.id)).toEqual([
-    "active",
-  ]);
-  expect(visibleWorkspaceGroups(model, "workspace").map((group) => group.workspace.id)).toEqual([
+  expect(model.workspaceGroups.map((group) => group.workspace.id)).toEqual([
     "active",
     "archived",
     "empty",

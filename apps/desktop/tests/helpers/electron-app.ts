@@ -2070,6 +2070,8 @@ export async function chooseThreadGrouping(
     .getByRole("button", { name: grouping === "time" ? "Chats" : "Folders", exact: true })
     .click();
   await expectThreadGrouping(window, grouping);
+  // The list we left fades out for a moment, still mounted; wait so its rows are not counted twice.
+  await expect(window.locator(".workspace-list[data-swap-leaving]")).toHaveCount(0);
 }
 
 export async function expectThreadGrouping(

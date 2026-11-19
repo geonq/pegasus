@@ -126,16 +126,6 @@ export function sessionNeedsOwner(session: SessionRecord): boolean {
   return session.status === "failed" || (session.status !== "running" && session.hasUnseenUpdate);
 }
 
-/** Folder rows in Chats mode exist only for folders with an active chat. */
-export function visibleWorkspaceGroups(
-  model: Pick<ThreadSidebarModel, "workspaceGroups" | "recencyOrder">,
-  grouping: ThreadGrouping,
-): readonly WorkspaceThreadGroup[] {
-  if (grouping === "workspace") return model.workspaceGroups;
-  const activeFolderIds = new Set(model.recencyOrder.map((thread) => thread.folderId));
-  return model.workspaceGroups.filter((group) => activeFolderIds.has(group.workspace.id));
-}
-
 export function buildThreadSidebarModel(
   state: DesktopAppState,
   nowMs: number = Date.now(),

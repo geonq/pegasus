@@ -50,16 +50,16 @@ test("folds a folder group from its row and keeps it folded across restart", asy
       .toEqual([workspaceId]);
     expect((await getDesktopState(window)).selectedSessionId).toBe(selectedBefore);
 
-    // A folder with no threads has nothing to fold, so its row still selects it.
+    // A folder with no chats folds too; it shows a "No chats yet" line while open.
     const empty = await waitForWorkspaceByPath(window, emptyPath);
     const emptyRow = window.locator(
       `.workspace-group[data-workspace-id=${JSON.stringify(empty.id)}] .workspace-row__select`,
     );
-    await expect(emptyRow).not.toHaveAttribute("aria-expanded", /.*/);
+    await expect(emptyRow).toHaveAttribute("aria-expanded", "true");
     await emptyRow.click();
-    await expect
-      .poll(async () => (await getDesktopState(window)).selectedWorkspaceId)
-      .toBe(empty.id);
+    await expect(emptyRow).toHaveAttribute("aria-expanded", "false");
+    await emptyRow.click();
+    await expect(emptyRow).toHaveAttribute("aria-expanded", "true");
   } finally {
     await firstRun.close();
   }
@@ -109,7 +109,7 @@ test("folds a folder group from its row and keeps it folded across restart", asy
       },
       { workspaceId, sessionId: alphaThread!.id },
     );
-    await expect(folderRow).not.toHaveAttribute("aria-expanded", /.*/);
+    await expect(folderRow).toHaveAttribute("aria-expanded", "false");
     await group.getByRole("button", { name: /^New chat in / }).click();
     await expect
       .poll(async () => (await getDesktopState(window)).collapsedWorkspaceIds)

@@ -307,6 +307,13 @@
   cursor: grabbing;
 }
 
+.workspace-group__empty {
+  margin: 0;
+  padding: var(--space-0-5) var(--space-2) var(--space-0-5) var(--space-6);
+  color: var(--fg-soft);
+  font-size: var(--text-xs);
+}
+
 .workspace-group--dragging {
   opacity: 0.3;
 }
@@ -1256,7 +1263,13 @@
   color: var(--fg-strong);
 }
 
-.attention-group__head--button:hover {
+@media (hover: hover) and (pointer: fine) {
+  .attention-group__head--button:hover {
+    background: var(--overlay-hover);
+  }
+}
+
+.attention-group__head--button:active {
   background: var(--overlay-hover);
 }
 
@@ -1538,4 +1551,75 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
+}
+
+/* Chats / Folders tab switch: the list we left fades and slides out toward the tab we left, the
+   new one in from the other side. The outgoing copy is overlaid, so nothing reflows. */
+.sidebar__section {
+  position: relative;
+}
+
+.workspace-list[data-swap],
+.workspace-list[data-swap-leaving] {
+  --swap-x: 10px;
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+
+.workspace-list[data-swap="to-folders"] {
+  @starting-style {
+    opacity: 0;
+    transform: translateX(var(--swap-x));
+  }
+}
+
+.workspace-list[data-swap="to-chats"] {
+  @starting-style {
+    opacity: 0;
+    transform: translateX(calc(var(--swap-x) * -1));
+  }
+}
+
+.workspace-list[data-swap-leaving] {
+  position: absolute;
+  inset: 0 0 auto 0;
+  pointer-events: none;
+  animation: workspace-list-leave 200ms var(--ease-out) forwards;
+}
+
+@keyframes workspace-list-leave {
+  to {
+    opacity: 0;
+    transform: translateX(var(--leave-x));
+  }
+}
+
+.workspace-list[data-swap-leaving="to-folders"] {
+  --leave-x: -10px;
+}
+
+.workspace-list[data-swap-leaving="to-chats"] {
+  --leave-x: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-list[data-swap],
+  .workspace-list[data-swap-leaving] {
+    transition-duration: 120ms;
+    animation-duration: 120ms;
+  }
+
+  .workspace-list[data-swap] {
+    @starting-style {
+      transform: none;
+    }
+  }
+
+  @keyframes workspace-list-leave {
+    to {
+      opacity: 0;
+      transform: none;
+    }
+  }
 }

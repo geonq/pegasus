@@ -43,8 +43,8 @@ test("caps each time bucket at five and hides workspace headers", async () => {
     const today = recencySection(window, "Today");
     await expect(today).toBeVisible();
     await expect(today.locator(".session-row")).toHaveCount(5);
-    // Chats keeps one folder row per folder that has a chat, with no threads nested under it.
-    await expect(window.locator(".workspace-row")).toHaveCount(2);
+    // Chats lists no folder rows; folders live in the Folders view.
+    await expect(window.locator(".workspace-row")).toHaveCount(0);
     await expect(window.locator(".workspace-group .session-row")).toHaveCount(0);
     await today.getByRole("button", { name: "Show more Today" }).click();
     await expect(today.locator(".session-row")).toHaveCount(8);
@@ -431,7 +431,7 @@ test("caps a long Last 7 Days bucket and sorts the folder by last send", async (
       "Week 3",
       "Week 2",
     ]);
-    await expect(window.locator(".workspace-row")).toHaveCount(1);
+    await expect(window.locator(".workspace-row")).toHaveCount(0);
     await week.getByRole("button", { name: "Show more Last 7 Days" }).click();
     await expect(week.locator(".session-row__title")).toHaveText([
       "Sent later",
