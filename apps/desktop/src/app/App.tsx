@@ -129,6 +129,7 @@ import { useThreadSwitcher } from "../features/threads/hooks/use-thread-switcher
 import { SidebarToggleButton } from "../features/threads/sidebar-toggle-button";
 
 import { Topbar } from "./topbar";
+import { WindowControls } from "../features/window-controls/window-controls";
 
 import { ActivityIndicator, StateOrb } from "./activity-indicator";
 
@@ -1261,13 +1262,20 @@ export default function App() {
 
   const [projectFileTabs, setProjectFileTabs] = useState<Record<string, FileWorkbenchTabs>>({});
 
+  // Windows has no native caption buttons (electron/main.ts); every surface draws them last, so
+  // they sit above the drag regions (Windows applies those in document order).
+  const windowControls = api?.platform === "win32" ? <WindowControls api={api} /> : null;
+
   if (!api || desktop.view.kind !== "ready" || !snapshot) {
     return (
-      <DesktopStartupSurface
-        state={toStartupSurfaceState(desktop.view)}
-        onRetry={desktop.retry}
-        onRelaunch={desktop.canRelaunch ? desktop.relaunch : undefined}
-      />
+      <>
+        <DesktopStartupSurface
+          state={toStartupSurfaceState(desktop.view)}
+          onRetry={desktop.retry}
+          onRelaunch={desktop.canRelaunch ? desktop.relaunch : undefined}
+        />
+        {windowControls}
+      </>
     );
   }
 
@@ -1523,6 +1531,7 @@ export default function App() {
         />
 
         {commandPalette}
+        {windowControls}
       </>
     );
   }
@@ -2187,6 +2196,7 @@ export default function App() {
       ) : null}
 
       {commandPalette}
+      {windowControls}
     </div>
   );
 }

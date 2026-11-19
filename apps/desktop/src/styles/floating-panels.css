@@ -136,10 +136,9 @@
   border-top-right-radius: var(--float-radius);
 }
 
-/* Windows draws its caption buttons in a strip from the window's top edge, as tall as the chrome
-   bar (titleBarOverlay in electron/main.ts). The chat column's header starts at the same top edge,
-   so its buttons share the caption buttons' centre line. They stay native: Windows 11 snap layouts
-   only open on a maximize button that answers WM_NCHITTEST with HTMAXBUTTON. */
+/* Windows: the app's window controls fill a strip from the window's top edge, as tall as the chrome
+   bar (topbar.css). The chat column's header starts at the same top edge, so its buttons share the
+   window controls' centre line. */
 [data-platform="win32"] .shell > .main {
   margin-top: calc(-1 * var(--float-gap));
 }
@@ -152,7 +151,7 @@
   padding-right: var(--space-2);
 }
 
-/* The empty caption strip above the side panel card moves the window like the header beside it. */
+/* The empty strip above the side panel card moves the window like the header beside it. */
 [data-platform="win32"] .main--with-side-panel::before {
   content: "";
   position: absolute;
@@ -164,7 +163,7 @@
 }
 
 [data-platform="win32"] .main--with-side-panel > .side-panel {
-  /* Below the caption strip with the same gap the cards keep everywhere else. */
+  /* Below the window controls' strip with the same gap the cards keep everywhere else. */
   margin-top: calc(var(--chrome-bar-height) + var(--float-gap));
   height: min(
     var(--workbench-height, 100%),

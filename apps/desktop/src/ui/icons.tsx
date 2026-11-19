@@ -813,3 +813,57 @@ export function MinusIcon() {
     </Icon>
   );
 }
+
+/* Windows caption glyphs: drawn at 10 px inside the 20 px icon box, like the system's. */
+export function WindowMinimizeIcon() {
+  return (
+    <Icon>
+      <path d="M5 10h10" stroke="currentColor" strokeWidth="1.2" />
+    </Icon>
+  );
+}
+
+export function WindowMaximizeIcon() {
+  return (
+    <Icon>
+      <rect
+        x="5.1"
+        y="5.1"
+        width="9.8"
+        height="9.8"
+        rx="1"
+        stroke="currentColor"
+        strokeWidth="1.2"
+      />
+    </Icon>
+  );
+}
+
+export function WindowRestoreIcon() {
+  return (
+    <Icon>
+      <rect
+        x="5.1"
+        y="7.1"
+        width="7.8"
+        height="7.8"
+        rx="1"
+        stroke="currentColor"
+        strokeWidth="1.2"
+      />
+      <path
+        d="M7.1 7.1V6.1a1 1 0 0 1 1-1h5.8a1 1 0 0 1 1 1v5.8a1 1 0 0 1-1 1h-1"
+        stroke="currentColor"
+        strokeWidth="1.2"
+      />
+    </Icon>
+  );
+}
+
+export function WindowCloseIcon() {
+  return (
+    <Icon>
+      <path d="m5.5 5.5 9 9M14.5 5.5l-9 9" stroke="currentColor" strokeWidth="1.2" />
+    </Icon>
+  );
+}

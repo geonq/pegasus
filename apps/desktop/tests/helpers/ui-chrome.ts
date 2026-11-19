@@ -47,9 +47,31 @@ export function spreadContrast(png: Buffer): number {
 /** Win32 WM_NCHITTEST results: what Windows does with a click at each client point. */
 export const HT = { client: 1, caption: 2, maxButton: 9, close: 20 } as const;
 
+/** Win32 window style bits that Aero snap (dragging to an edge) and Win+Z rely on. */
+export const WS = { thickFrame: 0x40000, maximizeBox: 0x10000 } as const;
+
+/** GetWindowLong(GWL_STYLE) of the app's first window. */
+export async function windowsStyle(harness: DesktopHarness): Promise<number> {
+  const [style] = await runWin32(harness, () => ["[H]::GetWindowLong($h, -16)"]);
+  return style!;
+}
+
 export async function windowsHitTest(
   harness: DesktopHarness,
   points: readonly { readonly x: number; readonly y: number }[],
+): Promise<number[]> {
+  return runWin32(harness, (info) =>
+    points.map(({ x, y }) => {
+      const sx = Math.round((info.bounds.x + x) * info.scale);
+      const sy = Math.round((info.bounds.y + y) * info.scale);
+      return `[H]::SendMessage($h, 0x84, [IntPtr]::Zero, [IntPtr]::new((${sy} -shl 16) -bor (${sx} -band 0xffff))).ToInt64()`;
+    }),
+  );
+}
+
+async function runWin32(
+  harness: DesktopHarness,
+  calls: (info: { bounds: { x: number; y: number }; scale: number }) => string[],
 ): Promise<number[]> {
   const info = await harness.electronApp.evaluate(({ BrowserWindow, screen }) => {
     const win = BrowserWindow.getAllWindows()[0]!;
@@ -64,18 +86,13 @@ export async function windowsHitTest(
       scale: screen.getDisplayMatching(bounds).scaleFactor,
     };
   });
-  const calls = points.map(({ x, y }) => {
-    const sx = Math.round((info.bounds.x + x) * info.scale);
-    const sy = Math.round((info.bounds.y + y) * info.scale);
-    return `[H]::SendMessage($h, 0x84, [IntPtr]::Zero, [IntPtr]::new((${sy} -shl 16) -bor (${sx} -band 0xffff))).ToInt64()`;
-  });
   const script = [
     'Add-Type -TypeDefinition @"',
     "using System; using System.Runtime.InteropServices;",
-    'public static class H { [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, IntPtr l); }',
+    'public static class H { [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr h, uint m, IntPtr w, IntPtr l); [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h, int i); }',
     '"@',
     `$h = [IntPtr]::new([Int64]${info.hwnd})`,
-    ...calls,
+    ...calls(info),
   ].join("\n");
   const out = execFileSync(
     "powershell.exe",

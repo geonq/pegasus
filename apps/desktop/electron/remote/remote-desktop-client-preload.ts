@@ -108,6 +108,10 @@ const LOCAL_METHODS = new Set<PropertyKey>([
   "onThemeChanged",
   "onWindowFocused",
   "toggleWindowMaximize",
+  "minimizeWindow",
+  "closeWindow",
+  "isWindowMaximized",
+  "onWindowMaximizedChanged",
   "openExternal",
   "relaunchApplication",
   // Each app updates itself; the Mac reads its host's version in main, not through the renderer.

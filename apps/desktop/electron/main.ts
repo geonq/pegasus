@@ -746,21 +746,10 @@ function refreshWindowBackgrounds(): void {
     if (!window.isDestroyed()) window.setBackgroundColor(color);
   }
   if (process.platform === "win32") {
-    // Only app windows have a title bar overlay; sign-in and other popups throw "Titlebar overlay is not enabled".
     for (const window of overlayAppWindows) {
-      if (!window.isDestroyed()) {
-        window.setTitleBarOverlay(windowsTitleBarOverlay());
-        setWindowTransparency(window, nativeWindowTransparencyEnabled());
-      }
+      if (!window.isDestroyed()) setWindowTransparency(window, nativeWindowTransparencyEnabled());
     }
   }
-}
-
-// The hidden Windows title bar keeps its caption buttons as an overlay at the
-// topbar's height; their glyphs follow the theme, their background stays clear.
-function windowsTitleBarOverlay(): Electron.TitleBarOverlayOptions {
-  const dark = themeManager.getResolvedTheme() === "dark";
-  return { color: "#00000000", symbolColor: dark ? "#ffffffd9" : "#000000d9", height: 48 };
 }
 
 function supportsNativeWindowGlass(): boolean {
@@ -812,8 +801,10 @@ function createWindow({ deferContent = false }: { deferContent?: boolean } = {})
     vibrancy: macVibrancyEnabled ? "under-window" : undefined,
     visualEffectState: macVibrancyEnabled ? "followWindow" : undefined,
     backgroundMaterial: windowsGlassMaterial,
+    // Windows: a hidden title bar without the caption-button overlay. The window keeps its resize
+    // frame and maximize box, so Aero snap by dragging and Win+Z still work; the app header draws
+    // minimize / maximize / close (features/window-controls).
     titleBarStyle: process.platform === "win32" ? "hidden" : "hiddenInset",
-    titleBarOverlay: process.platform === "win32" ? windowsTitleBarOverlay() : undefined,
     autoHideMenuBar: process.platform !== "darwin",
     backgroundColor: nativeGlassEnabled ? "#00000000" : currentWindowBackground(),
     trafficLightPosition: { x: 18, y: 18 },
@@ -837,6 +828,14 @@ function createWindow({ deferContent = false }: { deferContent?: boolean } = {})
     window.on("maximize", restoreMaterial);
     window.on("unmaximize", restoreMaterial);
     window.on("restore", restoreMaterial);
+    // The header's maximize button swaps to restore, however the window got maximized.
+    const sendMaximized = () => {
+      if (!window.isDestroyed())
+        window.webContents.send(desktopIpc.windowMaximizedChanged, window.isMaximized());
+    };
+    for (const name of ["maximize", "unmaximize", "restore", "resized"] as const) {
+      window.on(name as "maximize", sendMaximized);
+    }
   }
 
   if (!appTestMode) trackWindowState(window, configuredUserDataDir);

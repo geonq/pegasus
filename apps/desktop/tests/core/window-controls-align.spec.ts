@@ -6,11 +6,11 @@ import {
   makeWorkspace,
   selectSidePanel,
 } from "../helpers/electron-app";
-import { captureProof, HT, rect, windowsHitTest } from "../helpers/ui-chrome";
+import { captureProof, HT, rect, windowsHitTest, windowsStyle, WS } from "../helpers/ui-chrome";
 
-test.skip(process.platform !== "win32", "Windows caption buttons only");
+test.skip(process.platform !== "win32", "Windows window controls only");
 
-test("header buttons share the caption buttons' centre line and the side panel lines up under them", async () => {
+test("the app draws its own window controls on the header's centre line and they drive the window", async () => {
   test.setTimeout(90_000);
   const harness = await launchDesktop(await makeUserDataDir(), {
     initialWorkspaces: [await makeWorkspace("window-controls-workspace")],
@@ -19,24 +19,40 @@ test("header buttons share the caption buttons' centre line and the side panel l
   try {
     const window = await harness.firstWindow();
     await createNamedThread(window, "Window controls thread");
+    const view = await window.evaluate(() => ({
+      width: innerWidth,
+      overlay: (navigator as Navigator & { windowControlsOverlay?: { visible: boolean } })
+        .windowControlsOverlay?.visible,
+    }));
+    // No native caption-button overlay any more, but the window keeps the resize frame and maximize
+    // box, which Aero snap by dragging and Win+Z need.
+    expect(view.overlay ?? false).toBe(false);
+    const style = await windowsStyle(harness);
+    expect(style & WS.thickFrame).toBe(WS.thickFrame);
+    expect(style & WS.maximizeBox).toBe(WS.maximizeBox);
 
-    // The caption strip as Chromium reports it: everything left of the native buttons.
-    const strip = await window.evaluate(() => {
-      const overlay = (
-        navigator as Navigator & {
-          windowControlsOverlay?: { visible: boolean; getTitlebarAreaRect(): DOMRect };
-        }
-      ).windowControlsOverlay;
-      const area = overlay?.getTitlebarAreaRect();
-      return {
-        visible: overlay?.visible ?? false,
-        height: area?.height ?? 0,
-        right: area?.right ?? 0,
-        vw: innerWidth,
-      };
-    });
-    expect(strip.visible).toBe(true);
-    const captionCentre = strip.height / 2;
+    const minimize = window.getByTestId("window-minimize");
+    const maximize = window.getByTestId("window-maximize");
+    const close = window.getByTestId("window-close");
+    for (const [button, label] of [
+      [minimize, "Minimize"],
+      [maximize, "Maximize"],
+      [close, "Close"],
+    ] as const) {
+      await expect(button).toHaveAttribute("aria-label", label);
+      expect(await button.getAttribute("title")).toBeNull();
+    }
+
+    // 46 px targets as tall as the header, flush with the top-right corner.
+    const boxes = [await rect(minimize), await rect(maximize), await rect(close)];
+    const header = await rect(window.getByTestId("topbar"));
+    for (const box of boxes) {
+      expect(Math.round(box.width)).toBe(46);
+      expect(Math.round(box.y)).toBe(0);
+      expect(Math.round(box.height)).toBe(Math.round(header.height));
+    }
+    expect(Math.round(boxes[2]!.x + boxes[2]!.width)).toBe(view.width);
+    const centreLine = boxes[0]!.y + boxes[0]!.height / 2;
 
     const centre = async (selector: string) => {
       const box = await rect(window.locator(selector).first());
@@ -48,36 +64,80 @@ test("header buttons share the caption buttons' centre line and the side panel l
       '[data-testid="thread-header-menu"]',
       ".chat-header__status",
       ".sidebar-toggle__button",
+      '[data-testid="window-maximize"] svg',
     ]) {
-      expect(Math.abs((await centre(selector)) - captionCentre), selector).toBeLessThanOrEqual(1);
+      expect(Math.abs((await centre(selector)) - centreLine), selector).toBeLessThanOrEqual(1);
     }
+    // Header buttons stay clear of the window controls.
+    const toggle = await rect(window.getByTestId("toggle-side-panel"));
+    expect(toggle.x + toggle.width).toBeLessThanOrEqual(boxes[0]!.x - 8);
 
-    // Windows still owns the buttons (snap layouts need HTMAXBUTTON) and the empty header drags.
-    const header = await rect(window.getByTestId("topbar"));
-    const button = await rect(window.getByTestId("toggle-side-panel"));
-    const buttonWidth = (strip.vw - strip.right) / 3;
+    // Empty header space moves the window; the buttons are ordinary clickable content.
     const codes = await windowsHitTest(harness, [
-      { x: strip.vw - buttonWidth * 1.5, y: captionCentre },
-      { x: strip.vw - buttonWidth * 0.5, y: captionCentre },
-      { x: header.x + 360, y: captionCentre },
-      { x: button.x + button.width / 2, y: button.y + button.height / 2 },
+      { x: header.x + 360, y: centreLine },
+      { x: boxes[1]!.x + 23, y: centreLine },
+      { x: toggle.x + toggle.width / 2, y: centreLine },
     ]);
-    expect(codes).toEqual([HT.maxButton, HT.close, HT.caption, HT.client]);
-    // Header buttons stay clear of the caption buttons.
-    expect(button.x + button.width).toBeLessThanOrEqual(strip.right - 8);
-    await captureProof(window, "03-header-centre-line.png");
+    expect(codes).toEqual([HT.caption, HT.client, HT.client]);
 
-    // The side panel card starts one gap below the caption strip and keeps the gap to the right edge.
+    // Close hover is the Windows red with a white glyph; custom tooltip, no native title.
+    await close.hover();
+    await expect
+      .poll(() => close.evaluate((node) => getComputedStyle(node).backgroundColor))
+      .toBe("rgb(196, 43, 28)");
+    expect(await close.evaluate((node) => getComputedStyle(node).color)).toBe("rgb(255, 255, 255)");
+    await expect(window.locator(".window-controls__wrap:hover [role=tooltip]")).toHaveText("Close");
+    await captureProof(window, "03-window-controls-close-hover.png");
+
+    // Maximize toggles the real window and swaps to Restore; the event also follows a toggle from main.
+    const isMaximized = () =>
+      harness.electronApp.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0]!.isMaximized(),
+      );
+    expect(await isMaximized()).toBe(false);
+    await maximize.click();
+    await expect.poll(isMaximized).toBe(true);
+    await expect(maximize).toHaveAttribute("aria-label", "Restore");
+    await expect(maximize.locator("path")).toHaveCount(1);
+    await harness.electronApp.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0]!.unmaximize(),
+    );
+    await expect(maximize).toHaveAttribute("aria-label", "Maximize");
+    await expect(maximize.locator("path")).toHaveCount(0);
+
+    // Minimize reaches BrowserWindow.minimize.
+    await harness.electronApp.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0]!;
+      const original = win.minimize.bind(win);
+      (globalThis as { minimizeCalls?: number }).minimizeCalls = 0;
+      win.minimize = () => {
+        (globalThis as { minimizeCalls?: number }).minimizeCalls! += 1;
+        original();
+      };
+    });
+    await minimize.click();
+    await expect
+      .poll(() =>
+        harness.electronApp.evaluate(
+          () => (globalThis as { minimizeCalls?: number }).minimizeCalls,
+        ),
+      )
+      .toBe(1);
+    await harness.electronApp.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0]!.restore(),
+    );
+
+    // The side panel card sits one gap below the header and keeps the 8 px right gap.
     await selectSidePanel(window, "Review");
     const panel = await rect(window.getByTestId("workbench"));
-    expect(Math.round(panel.y)).toBe(Math.round(strip.height + 8));
-    expect(Math.round(strip.vw - (panel.x + panel.width))).toBe(8);
-    const toggle = await centre('[data-testid="thread-header-menu"]');
-    expect(Math.abs(toggle - captionCentre)).toBeLessThanOrEqual(1);
-    // The empty strip above the panel, left of the caption buttons, still moves the window.
-    const [aboveCard] = await windowsHitTest(harness, [{ x: panel.x + 40, y: captionCentre }]);
+    expect(Math.round(panel.y)).toBe(Math.round(header.height + 8));
+    expect(Math.round(view.width - (panel.x + panel.width))).toBe(8);
+    expect(
+      Math.abs((await centre('[data-testid="thread-header-menu"]')) - centreLine),
+    ).toBeLessThanOrEqual(1);
+    const [aboveCard] = await windowsHitTest(harness, [{ x: panel.x + 40, y: centreLine }]);
     expect(aboveCard).toBe(HT.caption);
-    await captureProof(window, "03-side-panel-under-caption.png");
+    await captureProof(window, "03-side-panel-under-controls.png");
   } finally {
     await harness.close();
   }

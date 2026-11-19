@@ -244,6 +244,10 @@ export const desktopIpc = {
   getSessionTree: "pi-gui:get-session-tree",
   navigateSessionTree: "pi-gui:navigate-session-tree",
   toggleWindowMaximize: "pi-gui:toggle-window-maximize",
+  minimizeWindow: "pi-gui:minimize-window",
+  closeWindow: "pi-gui:close-window",
+  isWindowMaximized: "pi-gui:is-window-maximized",
+  windowMaximizedChanged: "pi-gui:window-maximized-changed",
   listWorkspaceFiles: "pi-gui:list-workspace-files",
   readWorkspaceFile: "pi-gui:read-workspace-file",
   listWorkspaceFolderRoots: "pi-gui:list-workspace-folder-roots",
@@ -1033,6 +1037,11 @@ export interface PiDesktopApi {
   /** Sends diff comments to the chat as one message; the composer draft and attachments stay as they are. */
   sendReviewComments(input: SendReviewCommentsInput): Promise<SendReviewCommentsResult>;
   toggleWindowMaximize(): Promise<void>;
+  /** Windows draws its own caption buttons in the app header; these forward to the window. */
+  minimizeWindow(): Promise<void>;
+  closeWindow(): Promise<void>;
+  isWindowMaximized(): Promise<boolean>;
+  onWindowMaximizedChanged(listener: (maximized: boolean) => void): () => void;
   openExternal(url: string): Promise<void>;
   getThemeMode(): Promise<"system" | "light" | "dark">;
   getResolvedTheme(): Promise<"light" | "dark">;
