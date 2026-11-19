@@ -153,8 +153,9 @@ test("firing a due existing-thread task labels the user bubble and shows a chip"
       panel.boundingBox(),
       window.locator(".main").boundingBox(),
     ]);
+    // The floating card keeps its 8 px gap above the window's bottom row (floating-panels.css).
     expect(Math.round(panelBox!.y + panelBox!.height)).toBe(
-      Math.round(mainBox!.y + mainBox!.height),
+      Math.round(mainBox!.y + mainBox!.height) - 8,
     );
     if (process.env.PI_APP_SHOT_DIR) {
       await window.screenshot({ path: join(process.env.PI_APP_SHOT_DIR, "chip-side-panel.png") });

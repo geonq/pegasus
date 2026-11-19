@@ -136,10 +136,16 @@
   border-top-right-radius: var(--float-radius);
 }
 
-/* Windows draws its caption buttons over the window's top-right corner. The floating panel no
-   longer reaches that corner, so the main top bar always keeps their space instead. */
-[data-platform="win32"] .main--with-side-panel .topbar {
-  padding-right: calc(138px + 8px);
+/* Windows draws its caption buttons in a strip from the window's top edge, as tall as the chrome
+   bar (titleBarOverlay in electron/main.ts). The chat column's header starts at the same top edge,
+   so its buttons share the caption buttons' centre line. They stay native: Windows 11 snap layouts
+   only open on a maximize button that answers WM_NCHITTEST with HTMAXBUTTON. */
+[data-platform="win32"] .shell > .main {
+  margin-top: calc(-1 * var(--float-gap));
+}
+
+[data-platform="win32"] .sidebar-toggle {
+  top: calc((var(--chrome-bar-height) - var(--titlebar-toggle-size)) / 2);
 }
 
 [data-platform="win32"] .side-panel > .workbench__tabbar {
@@ -147,10 +153,13 @@
 }
 
 [data-platform="win32"] .main--with-side-panel > .side-panel {
-  /* Start below the caption buttons so they never cover the panel's tabs. */
-  margin-top: calc(var(--chrome-bar-height) - var(--float-gap));
-  height: min(var(--workbench-height, 100%), calc(100% - var(--chrome-bar-height)));
-  max-height: calc(100% - var(--chrome-bar-height));
+  /* Below the caption strip with the same gap the cards keep everywhere else. */
+  margin-top: calc(var(--chrome-bar-height) + var(--float-gap));
+  height: min(
+    var(--workbench-height, 100%),
+    calc(100% - var(--chrome-bar-height) - 2 * var(--float-gap))
+  );
+  max-height: calc(100% - var(--chrome-bar-height) - 2 * var(--float-gap));
 }
 
 /* Narrow windows already show the side panel as an overlay; keep it a floating card there too. */
