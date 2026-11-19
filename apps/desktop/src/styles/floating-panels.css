@@ -152,6 +152,17 @@
   padding-right: var(--space-2);
 }
 
+/* The empty caption strip above the side panel card moves the window like the header beside it. */
+[data-platform="win32"] .main--with-side-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: calc(min(var(--workbench-width, 440px), 65%) + var(--float-gap));
+  height: var(--chrome-bar-height);
+  -webkit-app-region: drag;
+}
+
 [data-platform="win32"] .main--with-side-panel > .side-panel {
   /* Below the caption strip with the same gap the cards keep everywhere else. */
   margin-top: calc(var(--chrome-bar-height) + var(--float-gap));

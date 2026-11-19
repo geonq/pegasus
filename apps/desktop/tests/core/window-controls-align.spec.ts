@@ -74,6 +74,9 @@ test("header buttons share the caption buttons' centre line and the side panel l
     expect(Math.round(strip.vw - (panel.x + panel.width))).toBe(8);
     const toggle = await centre('[data-testid="thread-header-menu"]');
     expect(Math.abs(toggle - captionCentre)).toBeLessThanOrEqual(1);
+    // The empty strip above the panel, left of the caption buttons, still moves the window.
+    const [aboveCard] = await windowsHitTest(harness, [{ x: panel.x + 40, y: captionCentre }]);
+    expect(aboveCard).toBe(HT.caption);
     await captureProof(window, "03-side-panel-under-caption.png");
   } finally {
     await harness.close();
