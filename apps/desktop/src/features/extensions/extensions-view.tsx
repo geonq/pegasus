@@ -13,13 +13,16 @@ import {
   PI_GUI_TOOLS_LABEL,
   SCOPE_GROUP_ORDER,
 } from "./extension-display";
+import { findPlacement, PlacementControl, type ScopeContext } from "./placement-control";
 import { displayPath, ResourceDetail } from "./resource-detail";
 import { ResourceEmptyState, ResourceList, type ResourceListGroup } from "./resource-list";
 
 const GROUP_ORDER = [...SCOPE_GROUP_ORDER, PI_ADDONS_LABEL, PI_GUI_TOOLS_LABEL];
 
 interface ExtensionsTabProps {
-  readonly workspace: WorkspaceRecord;
+  /** The open project, or undefined on the Global view. */
+  readonly workspace?: WorkspaceRecord;
+  readonly scope: ScopeContext;
   readonly extensions: readonly RuntimeExtensionRecord[];
   readonly commandCompatibility: readonly ExtensionCommandCompatibilityRecord[];
   readonly searching: boolean;
@@ -32,6 +35,7 @@ interface ExtensionsTabProps {
 
 export function ExtensionsTab({
   workspace,
+  scope,
   extensions,
   commandCompatibility,
   searching,
@@ -40,6 +44,13 @@ export function ExtensionsTab({
   onToggleExtension,
   onOpenExtensionFolder,
 }: ExtensionsTabProps) {
+  // A global extension's switch on a project page turns it on or off for that project only.
+  const toggle = (path: string, enabled: boolean) =>
+    !scope.globalView && findPlacement(scope, "extension", path)
+      ? scope.onSetProjectEnabled("extension", path, enabled)
+      : scope.globalView && findPlacement(scope, "extension", path)
+        ? scope.onSetPlacement("extension", path, enabled, [])
+        : onToggleExtension(path, enabled);
   // The list stays mounted under an open detail so expanded groups, scroll and focus survive.
   const list =
     extensions.length === 0 ? (
@@ -48,13 +59,15 @@ export function ExtensionsTab({
         body={
           searching
             ? "Try another name, command or tool."
-            : "Extensions are discovered in this workspace and your user extension folders. Refresh after adding one."
+            : scope.globalView
+              ? "Global extensions come from your extensions folder and load in every project. Refresh after adding one."
+              : "This project has no extensions of its own. Add one to its .pi/extensions, or refresh after adding one."
         }
       />
     ) : (
       <ResourceList
         expanded={searching}
-        groups={groupExtensions(extensions, onToggleExtension)}
+        groups={groupExtensions(extensions, scope, toggle)}
         icon={<ExtensionIcon />}
         testId="extensions-list"
         onOpen={onSelect}
@@ -66,11 +79,12 @@ export function ExtensionsTab({
       {selected ? (
         <ExtensionDetail
           commandCompatibility={commandCompatibility}
+          scope={scope}
           selected={selected}
           workspace={workspace}
           onOpenExtensionFolder={onOpenExtensionFolder}
           onSelect={onSelect}
-          onToggleExtension={onToggleExtension}
+          onToggleExtension={toggle}
         />
       ) : null}
       <div hidden={Boolean(selected)}>{list}</div>
@@ -81,6 +95,7 @@ export function ExtensionsTab({
 function ExtensionDetail({
   selected,
   workspace,
+  scope,
   commandCompatibility,
   onSelect,
   onToggleExtension,
@@ -89,6 +104,7 @@ function ExtensionDetail({
   readonly selected: RuntimeExtensionRecord;
 }) {
   const hasFolder = isFolderExtension(selected);
+  const placement = findPlacement(scope, "extension", selected.path);
   const compatibilityRecords = commandCompatibility
     .filter((record) => record.extensionPath === selected.path)
     .sort((left, right) => left.commandName.localeCompare(right.commandName));
@@ -106,7 +122,7 @@ function ExtensionDetail({
         ) : null
       }
       backLabel="All extensions"
-      enabled={selected.enabled}
+      enabled={scope.globalView && placement ? placement.global : selected.enabled}
       icon={<ExtensionIcon />}
       subtitle={selected.sourceInfo.source}
       title={selected.displayName}
@@ -121,6 +137,7 @@ function ExtensionDetail({
         <p className="resource-detail__description">{selected.description}</p>
       ) : null}
       <SettingsGroup>
+        {placement ? <PlacementControl placement={placement} scope={scope} /> : null}
         <SettingsRow
           title="Source"
           description={
@@ -131,12 +148,14 @@ function ExtensionDetail({
                 : "Loaded from a file"
           }
         >
-          <span className="settings-row__value">{extensionGroupLabel(selected)}</span>
+          <span className="settings-row__value">
+            {extensionGroupLabel(selected, scope.globalView, Boolean(placement))}
+          </span>
         </SettingsRow>
         {isPiGuiBuiltinExtension(selected) || isPiAddonExtension(selected) ? null : (
           <SettingsRow title="Location">
             <code className="resource-detail__code" title={selected.path}>
-              {displayPath(selected.path, workspace.path)}
+              {workspace ? displayPath(selected.path, workspace.path) : selected.path}
             </code>
           </SettingsRow>
         )}
@@ -157,21 +176,37 @@ function ExtensionDetail({
 
 function groupExtensions(
   extensions: readonly RuntimeExtensionRecord[],
+  scope: ScopeContext,
   onToggleExtension: (path: string, enabled: boolean) => void,
 ): readonly ResourceListGroup[] {
+  const nameOf = (id: string) => scope.projects.find((project) => project.id === id)?.name ?? id;
+  const labelOf = (extension: RuntimeExtensionRecord) =>
+    extensionGroupLabel(
+      extension,
+      scope.globalView,
+      Boolean(findPlacement(scope, "extension", extension.path)),
+    );
   return GROUP_ORDER.map((label) => ({
     label,
     items: extensions
-      .filter((extension) => extensionGroupLabel(extension) === label)
-      .map((extension) => ({
+      .filter((extension) => labelOf(extension) === label)
+      .map((extension) => {
+        const placement = findPlacement(scope, "extension", extension.path);
+        const onlyIn =
+          scope.globalView && placement && !placement.global && placement.enabledIn.length > 0
+            ? `Only in ${placement.enabledIn.map(nameOf).join(", ")}`
+            : undefined;
+        return {
         id: extension.path,
         title: extension.displayName,
         description: describeExtension(extension),
-        enabled: extension.enabled,
+        ...(onlyIn ? { badge: onlyIn } : {}),
+        enabled: scope.globalView && placement ? placement.global : extension.enabled,
         onToggle: isToggleableExtension(extension)
           ? (enabled: boolean) => onToggleExtension(extension.path, enabled)
           : undefined,
-      })),
+        };
+      }),
   })).filter((group) => group.items.length > 0);
 }
 

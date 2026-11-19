@@ -3,12 +3,20 @@ import type { WorkspaceRecord } from "../../../contracts/desktop-state";
 import { titleCase } from "../../lib/string-utils";
 import { SkillIcon } from "../../ui/icons";
 import { SettingsGroup, SettingsRow } from "../settings/settings-utils";
-import { SCOPE_GROUP_ORDER, sourceScopeGroupLabel } from "./extension-display";
+import {
+  GLOBAL_LABEL,
+  projectGroupLabel,
+  SCOPE_GROUP_ORDER,
+  sourceScopeGroupLabel,
+} from "./extension-display";
+import { findPlacement, PlacementControl, type ScopeContext } from "./placement-control";
 import { displayPath, ResourceDetail } from "./resource-detail";
 import { ResourceEmptyState, ResourceList, type ResourceListGroup } from "./resource-list";
 
 interface SkillsTabProps {
-  readonly workspace: WorkspaceRecord;
+  /** The open project, or undefined on the Global view. */
+  readonly workspace?: WorkspaceRecord;
+  readonly scope: ScopeContext;
   readonly skills: readonly RuntimeSkillRecord[];
   readonly searching: boolean;
   /** The skill whose detail page is open, looked up in the unfiltered list. */
@@ -21,6 +29,7 @@ interface SkillsTabProps {
 
 export function SkillsTab({
   workspace,
+  scope,
   skills,
   searching,
   selected,
@@ -29,6 +38,11 @@ export function SkillsTab({
   onOpenSkillFolder,
   onTrySkill,
 }: SkillsTabProps) {
+  // A global skill's switch on a project page turns it on or off for that project only.
+  const toggle = (skill: RuntimeSkillRecord, enabled: boolean) =>
+    !scope.globalView && findPlacement(scope, "skill", skill.filePath)
+      ? scope.onSetProjectEnabled("skill", skill.filePath, enabled)
+      : onToggleSkill(skill.filePath, enabled);
   // The list stays mounted under an open detail so expanded groups, scroll and focus survive.
   const list =
     skills.length === 0 ? (
@@ -37,18 +51,21 @@ export function SkillsTab({
         body={
           searching
             ? "Try another name, description or slash command."
-            : "Global skills load in every project; project skills come from this folder's .pi/skills. Create one, or refresh after adding one."
+            : scope.globalView
+              ? "Global skills come from your skills folders and load in every project. Create one, or refresh after adding one."
+              : "This project has no skills of its own and turns every global one off. Add one to its .pi/skills, or turn a global one back on."
         }
       />
     ) : (
       <ResourceList
         expanded={searching}
-        groups={groupSkills(skills, onToggleSkill)}
+        groups={groupSkills(skills, scope, toggle)}
         icon={<SkillIcon />}
         testId="skills-list"
         onOpen={onSelect}
       />
     );
+  const placement = selected ? findPlacement(scope, "skill", selected.filePath) : undefined;
 
   return (
     <>
@@ -63,13 +80,15 @@ export function SkillsTab({
               >
                 Open folder
               </button>
-              <button
-                className="button button--primary"
-                type="button"
-                onClick={() => onTrySkill(selected)}
-              >
-                Try
-              </button>
+              {workspace ? (
+                <button
+                  className="button button--primary"
+                  type="button"
+                  onClick={() => onTrySkill(selected)}
+                >
+                  Try
+                </button>
+              ) : null}
             </>
           }
           backLabel="All skills"
@@ -78,10 +97,11 @@ export function SkillsTab({
           subtitle={selected.slashCommand}
           title={titleCase(selected.name)}
           onBack={() => onSelect(undefined)}
-          onToggle={(enabled) => onToggleSkill(selected.filePath, enabled)}
+          onToggle={(enabled) => toggle(selected, enabled)}
         >
           <p className="resource-detail__description">{selected.description}</p>
           <SettingsGroup>
+            {placement ? <PlacementControl placement={placement} scope={scope} /> : null}
             <SettingsRow
               title="Slash command"
               description="Type it in the composer to run the skill."
@@ -100,9 +120,12 @@ export function SkillsTab({
                 {selected.disableModelInvocation ? "Slash command only" : "Automatic"}
               </span>
             </SettingsRow>
-            <SettingsRow title="Location" description={sourceScopeGroupLabel(selected.scope)}>
+            <SettingsRow
+              title="Location"
+              description={placement ? "Global" : sourceScopeGroupLabel(selected.scope)}
+            >
               <code className="resource-detail__code" title={selected.filePath}>
-                {displayPath(selected.filePath, workspace.path)}
+                {workspace ? displayPath(selected.filePath, workspace.path) : selected.filePath}
               </code>
             </SettingsRow>
           </SettingsGroup>
@@ -115,18 +138,35 @@ export function SkillsTab({
 
 function groupSkills(
   skills: readonly RuntimeSkillRecord[],
-  onToggleSkill: (filePath: string, enabled: boolean) => void,
+  scope: ScopeContext,
+  toggle: (skill: RuntimeSkillRecord, enabled: boolean) => void,
 ): readonly ResourceListGroup[] {
+  const nameOf = (id: string) => scope.projects.find((project) => project.id === id)?.name ?? id;
+  const labelOf = (skill: RuntimeSkillRecord) =>
+    scope.globalView
+      ? GLOBAL_LABEL
+      : projectGroupLabel(skill.scope, Boolean(findPlacement(scope, "skill", skill.filePath)));
   return SCOPE_GROUP_ORDER.map((label) => ({
     label,
     items: skills
-      .filter((skill) => sourceScopeGroupLabel(skill.scope) === label)
-      .map((skill) => ({
-        id: skill.filePath,
-        title: titleCase(skill.name),
-        description: skill.description,
-        enabled: skill.enabled,
-        onToggle: (enabled: boolean) => onToggleSkill(skill.filePath, enabled),
-      })),
+      .filter((skill) => labelOf(skill) === label)
+      .map((skill) => {
+        const placement = findPlacement(scope, "skill", skill.filePath);
+        const onlyIn =
+          scope.globalView && placement && !placement.global && placement.enabledIn.length > 0
+            ? `Only in ${placement.enabledIn.map(nameOf).join(", ")}`
+            : undefined;
+        return {
+          id: skill.filePath,
+          title: titleCase(skill.name),
+          description: skill.description,
+          ...(onlyIn ? { badge: onlyIn } : {}),
+          enabled: scope.globalView && placement ? placement.global : skill.enabled,
+          onToggle: (enabled: boolean) =>
+            scope.globalView && placement
+              ? scope.onSetPlacement("skill", skill.filePath, enabled, [])
+              : toggle(skill, enabled),
+        };
+      }),
   })).filter((group) => group.items.length > 0);
 }

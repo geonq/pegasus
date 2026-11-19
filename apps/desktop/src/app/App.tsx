@@ -1091,11 +1091,6 @@ export default function App() {
   useEffect(() => {
     if (rootWorkspaceOptions.length === 0) {
       setSettingsWorkspaceId("");
-
-      setSkillsWorkspaceId("");
-
-      setExtensionsWorkspaceId("");
-
       return;
     }
 
@@ -1105,17 +1100,11 @@ export default function App() {
         : current || rootWorkspaceOptions[0]?.id || "",
     );
 
-    setSkillsWorkspaceId((current) =>
-      rootWorkspaceOptions.some((workspace) => workspace.id === current)
-        ? current
-        : current || rootWorkspaceOptions[0]?.id || "",
-    );
-
-    setExtensionsWorkspaceId((current) =>
-      rootWorkspaceOptions.some((workspace) => workspace.id === current)
-        ? current
-        : current || rootWorkspaceOptions[0]?.id || "",
-    );
+    // "" is the Global view; a removed project falls back to it.
+    const keepProject = (current: string) =>
+      rootWorkspaceOptions.some((workspace) => workspace.id === current) ? current : "";
+    setSkillsWorkspaceId(keepProject);
+    setExtensionsWorkspaceId(keepProject);
   }, [rootWorkspaceOptions]);
 
   const primarySidebarToggleVisible = canTogglePrimarySidebar(snapshot?.activeView);
@@ -1134,29 +1123,14 @@ export default function App() {
     );
   };
 
-  const openSkills = (workspaceId?: string) => {
-    const nextWorkspaceId =
-      workspaceId && rootWorkspaceOptions.some((workspace) => workspace.id === workspaceId)
-        ? workspaceId
-        : skillsWorkspaceId || rootWorkspaceOptions[0]?.id || "";
-
-    if (nextWorkspaceId) {
-      setSkillsWorkspaceId(nextWorkspaceId);
-    }
-
+  // The page opens on Global (""), the view of what loads everywhere; the picker opens a project.
+  const openSkills = () => {
+    setSkillsWorkspaceId("");
     setActiveView("skills");
   };
 
-  const openExtensions = (workspaceId?: string) => {
-    const nextWorkspaceId =
-      workspaceId && rootWorkspaceOptions.some((workspace) => workspace.id === workspaceId)
-        ? workspaceId
-        : extensionsWorkspaceId || rootWorkspaceOptions[0]?.id || "";
-
-    if (nextWorkspaceId) {
-      setExtensionsWorkspaceId(nextWorkspaceId);
-    }
-
+  const openExtensions = () => {
+    setExtensionsWorkspaceId("");
     setActiveView("extensions");
   };
 

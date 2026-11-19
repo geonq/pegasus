@@ -1805,9 +1805,7 @@ export class DesktopAppStore {
     return this.withErrorHandling(async () => {
       await change();
       await this.recordSettingsSelfWrite();
-      await this.loadGlobalRuntime(true);
-      const snapshot = this.runtimeByWorkspace.get(GLOBAL_RUNTIME_WORKSPACE_ID)!;
-      await this.refreshRuntimeForAllWorkspaces(GLOBAL_RUNTIME_WORKSPACE_ID, snapshot);
+      await this.refreshRuntimeForAllWorkspaces(GLOBAL_RUNTIME_WORKSPACE_ID);
       const reloaded = await this.reloadOpenSessions(
         this.state.workspaces.map((workspace) => workspace.id),
       );
@@ -2176,7 +2174,10 @@ export class DesktopAppStore {
     enabled: boolean,
   ): Promise<DesktopAppState> {
     await this.initialize();
-    const ws = this.workspaceRefFromState(workspaceId);
+    const ws =
+      workspaceId === GLOBAL_RUNTIME_WORKSPACE_ID
+        ? this.driver.runtimeSupervisor.globalWorkspace()
+        : this.workspaceRefFromState(workspaceId);
     if (!ws) {
       return this.withError(`Unknown workspace: ${workspaceId}`);
     }
@@ -2381,9 +2382,11 @@ export class DesktopAppStore {
 
   private async refreshRuntimeForAllWorkspaces(
     updatedWorkspaceId: string,
-    updatedSnapshot: RuntimeSnapshot,
+    updatedSnapshot?: RuntimeSnapshot,
   ): Promise<void> {
-    this.runtimeByWorkspace.set(updatedWorkspaceId, updatedSnapshot);
+    if (updatedSnapshot && updatedWorkspaceId !== GLOBAL_RUNTIME_WORKSPACE_ID) {
+      this.runtimeByWorkspace.set(updatedWorkspaceId, updatedSnapshot);
+    }
     const workspacesToRefresh = this.state.workspaces.filter(
       (workspace) => workspace.id !== updatedWorkspaceId,
     );
@@ -2409,6 +2412,13 @@ export class DesktopAppStore {
         }`,
       );
     });
+    // The Global page shows where things load, so it rereads after any global change.
+    if (
+      updatedWorkspaceId === GLOBAL_RUNTIME_WORKSPACE_ID ||
+      this.runtimeByWorkspace.has(GLOBAL_RUNTIME_WORKSPACE_ID)
+    ) {
+      await this.loadGlobalRuntime(true);
+    }
   }
 
   private async refreshSessionCommandsForAllWorkspaces(): Promise<void> {

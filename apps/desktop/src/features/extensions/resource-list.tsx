@@ -6,6 +6,8 @@ export interface ResourceListItem {
   readonly title: string;
   readonly description: string;
   readonly enabled: boolean;
+  /** Short scope note shown next to the title, such as "Only in Uni". */
+  readonly badge?: string;
   /** Undefined when pi cannot change this item, such as a built-in extension. */
   readonly onToggle?: (enabled: boolean) => void;
 }
@@ -80,7 +82,10 @@ function ResourceGroup({
                 {icon}
               </span>
               <span className="resource-row__text">
-                <span className="resource-row__title">{item.title}</span>
+                <span className="resource-row__title">
+                  {item.title}
+                  {item.badge ? <span className="resource-row__badge">{item.badge}</span> : null}
+                </span>
                 <span className="resource-row__description">{item.description}</span>
               </span>
             </button>
