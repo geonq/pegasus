@@ -38,7 +38,12 @@ export const GLOBAL_INHERITED_LABEL = "Global (inherited)";
 export const GLOBAL_LABEL = "Global";
 
 /** In a project: its own items, then the global ones it inherits, then one-session ones. */
-export const SCOPE_GROUP_ORDER = [PROJECT_ONLY_LABEL, GLOBAL_INHERITED_LABEL, GLOBAL_LABEL, "This session"];
+export const SCOPE_GROUP_ORDER = [
+  PROJECT_ONLY_LABEL,
+  GLOBAL_INHERITED_LABEL,
+  GLOBAL_LABEL,
+  "This session",
+];
 
 /** Group heading for where a skill or extension was discovered. */
 export function sourceScopeGroupLabel(scope: RuntimeSourceScope): string {
@@ -83,8 +88,11 @@ export function placementSummary(
 ): string {
   if (!placement) return "";
   if (placement.global && placement.enabledIn.length === projectCount) return "Every project";
-  if (placement.enabledIn.length === 0) return placement.global ? "Every project" : "Off everywhere";
+  if (placement.enabledIn.length === 0)
+    return placement.global ? "Every project" : "Off everywhere";
   const names = placement.enabledIn.map(projectName);
   const listed = names.length <= 2 ? names.join(" and ") : `${names.length} projects`;
-  return placement.global ? `Every project except ${projectCount - names.length}` : `Only in ${listed}`;
+  return placement.global
+    ? `Every project except ${projectCount - names.length}`
+    : `Only in ${listed}`;
 }

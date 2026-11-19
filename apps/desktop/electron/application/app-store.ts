@@ -1800,7 +1800,9 @@ export class DesktopAppStore {
   }
 
   /** A global change reaches every project: reload all runtimes and open threads. */
-  private async applyGlobalResourceChange(change: () => Promise<unknown>): Promise<DesktopAppState> {
+  private async applyGlobalResourceChange(
+    change: () => Promise<unknown>,
+  ): Promise<DesktopAppState> {
     await this.initialize();
     return this.withErrorHandling(async () => {
       await change();

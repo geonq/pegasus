@@ -197,14 +197,14 @@ function groupExtensions(
             ? `Only in ${placement.enabledIn.map(nameOf).join(", ")}`
             : undefined;
         return {
-        id: extension.path,
-        title: extension.displayName,
-        description: describeExtension(extension),
-        ...(onlyIn ? { badge: onlyIn } : {}),
-        enabled: scope.globalView && placement ? placement.global : extension.enabled,
-        onToggle: isToggleableExtension(extension)
-          ? (enabled: boolean) => onToggleExtension(extension.path, enabled)
-          : undefined,
+          id: extension.path,
+          title: extension.displayName,
+          description: describeExtension(extension),
+          ...(onlyIn ? { badge: onlyIn } : {}),
+          enabled: scope.globalView && placement ? placement.global : extension.enabled,
+          onToggle: isToggleableExtension(extension)
+            ? (enabled: boolean) => onToggleExtension(extension.path, enabled)
+            : undefined,
         };
       }),
   })).filter((group) => group.items.length > 0);

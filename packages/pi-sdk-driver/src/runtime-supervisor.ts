@@ -235,9 +235,7 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
       global.settingsManager,
       "user",
       kind,
-      placement.global
-        ? keptGlobal
-        : [...keptGlobal, `-${settingsPathFor(target, this.agentDir)}`],
+      placement.global ? keptGlobal : [...keptGlobal, `-${settingsPathFor(target, this.agentDir)}`],
     );
     await global.settingsManager.flush();
     throwGlobalSettingsError(global.settingsManager.drainErrors());
@@ -270,7 +268,11 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     if (enabled) {
       const resolved = await this.resolveWorkspacePaths(workspace);
       const entries = kind === "skill" ? resolved.skills : resolved.extensions;
-      if (!entries.some((entry) => entry.enabled && samePath(resourceTarget(kind, entry.path), target))) {
+      if (
+        !entries.some(
+          (entry) => entry.enabled && samePath(resourceTarget(kind, entry.path), target),
+        )
+      ) {
         await this.writeProjectResourceState(workspace, kind, target, "on");
       }
     }
@@ -1439,7 +1441,9 @@ function withSharedSkillDirs(
         };
       }
       const value = Reflect.get(target, property, target) as unknown;
-      return typeof value === "function" ? value.bind(target) : value;
+      return typeof value === "function"
+        ? (value as (...args: unknown[]) => unknown).bind(target)
+        : value;
     },
   });
 }
