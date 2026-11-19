@@ -224,8 +224,9 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  width: min(768px, calc(100% - 48px));
-  margin: 0 auto var(--space-2-5);
+  /* The transcript's column and its row gap (TIMELINE_GAP, timeline-layout.ts) above it. */
+  width: min(var(--transcript-measure, 768px), calc(100% - 2 * var(--space-6)));
+  margin: var(--space-4) auto var(--space-2-5);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
