@@ -9,6 +9,7 @@ import {
   makeUserDataDir,
   makeWorkspace,
   seedAgentDir,
+  showResourcesFor,
   writeProjectExtension,
 } from "../helpers/electron-app";
 
@@ -500,6 +501,8 @@ test("manages extensions and prefers runtime commands over colliding host action
 
     await window.getByRole("button", { name: "Extensions", exact: true }).click();
     await expect(window.getByTestId("extensions-surface")).toBeVisible();
+    // The page opens on Global; this extension lives in the project's .pi/extensions.
+    await showResourcesFor(window, workspacePath);
     const extensionsList = window.getByTestId("extensions-list");
     const extensionCard = extensionsList.getByRole("button", { name: /demo-extension/i });
     await expect(extensionCard).toBeVisible();
@@ -520,6 +523,7 @@ test("manages extensions and prefers runtime commands over colliding host action
     await window.getByRole("button", { name: "Back to app", exact: true }).click();
 
     await window.getByRole("button", { name: "Extensions", exact: true }).click();
+    await showResourcesFor(window, workspacePath);
     await extensionCard.click();
     await expect(enabledSwitch).not.toBeChecked();
     await enabledSwitch.click();
