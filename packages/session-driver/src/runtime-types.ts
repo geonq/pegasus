@@ -124,6 +124,19 @@ export interface ModelSettingsSnapshot {
   readonly enabledModelPatterns: readonly string[];
 }
 
+/**
+ * Where one skill or extension loads, read from pi's `skills`/`extensions` settings: the user
+ * settings decide "every project", each project's `.pi/settings.json` adds or removes it there.
+ */
+export interface RuntimeResourcePlacement {
+  readonly kind: "skill" | "extension";
+  readonly path: string;
+  /** On in every project unless a project turns it off. */
+  readonly global: boolean;
+  /** Workspace ids where it is on, from each project's own resolution. */
+  readonly enabledIn: readonly string[];
+}
+
 export interface RuntimeSnapshot {
   readonly workspace: WorkspaceRef;
   readonly providers: readonly RuntimeProviderRecord[];
@@ -131,6 +144,17 @@ export interface RuntimeSnapshot {
   readonly skills: readonly RuntimeSkillRecord[];
   readonly extensions: readonly RuntimeExtensionRecord[];
   readonly settings: RuntimeSettingsSnapshot;
+  /** Only on the global snapshot: where each global skill and extension loads. */
+  readonly placements?: readonly RuntimeResourcePlacement[];
+}
+
+/** The runtime of no project: what pi loads from the user settings and folders alone. */
+export const GLOBAL_RUNTIME_WORKSPACE_ID = "pegasus-global";
+
+/** "Every project", or exactly the listed workspaces. */
+export interface RuntimeResourcePlacementInput {
+  readonly global: boolean;
+  readonly workspaceIds: readonly string[];
 }
 
 export interface RuntimeLoginAuthInfo {
