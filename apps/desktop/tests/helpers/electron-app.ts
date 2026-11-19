@@ -3,7 +3,7 @@ import { copyFile, mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs
 import { createServer } from "node:http";
 import type { AddressInfo, Socket } from "node:net";
 import { createRequire } from "node:module";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { expect, type Page } from "@playwright/test";
@@ -1130,6 +1130,12 @@ export async function writeTinyPng(filePath: string): Promise<void> {
 
 export async function writeTextFile(filePath: string, contents: string): Promise<void> {
   await writeFile(filePath, contents, "utf8");
+}
+
+/** Skills and extensions open on Global; show one project's own items instead. */
+export async function showResourcesFor(window: Page, workspacePath: string): Promise<void> {
+  await window.getByRole("button", { name: "Show skills and extensions for" }).click();
+  await window.getByRole("menuitemradio", { name: basename(workspacePath), exact: true }).click();
 }
 
 export async function getDesktopState(window: Page): Promise<DesktopAppState> {

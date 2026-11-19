@@ -20,6 +20,9 @@ interface ReviewMenuProps {
   readonly details?: readonly string[];
   /** The current choice, shown on the button and announced alongside its label. */
   readonly value?: string;
+  /** Checkable items that stay open between picks, for choosing several. */
+  readonly multiple?: boolean;
+  readonly popoverClassName?: string;
 }
 
 /** A small single-choice popover menu for the Review toolbar. */
@@ -32,6 +35,8 @@ export function ReviewMenu({
   onSelect,
   details,
   value,
+  multiple = false,
+  popoverClassName = "",
 }: ReviewMenuProps) {
   const valueId = useId();
   const [open, setOpen] = useState(false);
@@ -79,7 +84,7 @@ export function ReviewMenu({
       </button>
       {open ? (
         <div
-          className={`workspace-menu review-menu__popover review-menu__popover--${align}`}
+          className={`workspace-menu review-menu__popover review-menu__popover--${align} ${popoverClassName}`}
           role="menu"
           aria-label={label}
         >
@@ -98,11 +103,11 @@ export function ReviewMenu({
               <button
                 className="workspace-menu__item review-menu__item"
                 type="button"
-                role="menuitemradio"
+                role={multiple ? "menuitemcheckbox" : "menuitemradio"}
                 aria-checked={option.checked}
                 data-option-id={option.id}
                 onClick={() => {
-                  setOpen(false);
+                  if (!multiple) setOpen(false);
                   onSelect(option.id);
                 }}
               >

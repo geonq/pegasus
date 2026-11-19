@@ -4,6 +4,7 @@ import { sessionKey } from "@pi-gui/session-driver";
 import type { ExtensionFlagValues, SessionSchemaInfo } from "@pi-gui/session-driver";
 import type { BrowserWindow } from "electron";
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { homedir, hostname } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
@@ -39,9 +40,11 @@ import type {
   ModelSettingsSnapshot,
   RuntimeCommandRecord,
   RuntimeLoginCallbacks,
+  RuntimeResourcePlacementInput,
   RuntimeSettingsSnapshot,
   RuntimeSnapshot,
 } from "@pi-gui/session-driver/runtime-types";
+import { GLOBAL_RUNTIME_WORKSPACE_ID } from "@pi-gui/session-driver/runtime-types";
 import {
   type AppView,
   type ComposerAttachment,
@@ -316,8 +319,11 @@ export class DesktopAppStore {
   constructor(options: DesktopAppStoreOptions) {
     const catalogFilePath = join(options.userDataDir, "catalogs.json");
     this.catalogStore = new JsonCatalogStore({ catalogFilePath });
+    // Pegasus's synced skills folder sits next to pi's agent folder (`.state/skills`).
+    const sharedSkillDir = join(dirname(resolveAgentDir()), "skills");
     const driverOptions: PiSdkDriverConfig = {
       catalogStorage: this.catalogStore,
+      ...(existsSync(sharedSkillDir) ? { sharedSkillDirs: [sharedSkillDir] } : {}),
       ...(options.driverOptions ?? {}),
       isBuiltinExtensionEnabled: (name) => !this.disabledBuiltinExtensions.has(name),
       extensionFlagValuesForSession: (sessionRef) =>
@@ -1744,12 +1750,17 @@ export class DesktopAppStore {
     options: { readonly refresh?: boolean } = {},
   ): Promise<DesktopAppState> {
     await this.initialize();
-    const workspace = this.workspaceRefFromState(workspaceId);
+    const workspace =
+      workspaceId === GLOBAL_RUNTIME_WORKSPACE_ID
+        ? this.driver.runtimeSupervisor.globalWorkspace()
+        : this.workspaceRefFromState(workspaceId);
     if (!workspace) {
       throw new Error("Workspace not found.");
     }
 
-    if (options.refresh) {
+    if (workspaceId === GLOBAL_RUNTIME_WORKSPACE_ID) {
+      await this.loadGlobalRuntime(options.refresh);
+    } else if (options.refresh) {
       this.runtimeByWorkspace.set(
         workspaceId,
         await this.driver.runtimeSupervisor.refreshRuntime(workspace),
@@ -1767,8 +1778,101 @@ export class DesktopAppStore {
     return this.emit();
   }
 
+  /** Projects a skill or extension can be placed in: each root folder, not its worktrees. */
+  private placementWorkspaces(): WorkspaceRef[] {
+    return this.state.workspaces
+      .filter((workspace) => workspace.kind === "primary")
+      .map((workspace) => ({
+        workspaceId: workspace.id,
+        path: workspace.path,
+        displayName: workspace.name,
+      }));
+  }
+
+  private async loadGlobalRuntime(refresh = false): Promise<void> {
+    this.runtimeByWorkspace.set(
+      GLOBAL_RUNTIME_WORKSPACE_ID,
+      await this.driver.runtimeSupervisor.getGlobalRuntimeSnapshot(
+        this.placementWorkspaces(),
+        refresh,
+      ),
+    );
+  }
+
+  /** A global change reaches every project: reload all runtimes and open threads. */
+  private async applyGlobalResourceChange(
+    change: () => Promise<unknown>,
+  ): Promise<DesktopAppState> {
+    await this.initialize();
+    return this.withErrorHandling(async () => {
+      await change();
+      await this.recordSettingsSelfWrite();
+      await this.refreshRuntimeForAllWorkspaces(GLOBAL_RUNTIME_WORKSPACE_ID);
+      const reloaded = await this.reloadOpenSessions(
+        this.state.workspaces.map((workspace) => workspace.id),
+      );
+      await this.refreshSessionCommandsForAllWorkspaces();
+      const state = await this.refreshState({ clearLastError: true });
+      return reloaded
+        ? state
+        : this.withError(
+            "Some open threads could not reload; they pick up the change when reopened.",
+          );
+    });
+  }
+
+  /** Load a global skill or extension everywhere, or only in the chosen projects. */
+  async setResourcePlacement(
+    kind: "skill" | "extension",
+    path: string,
+    placement: RuntimeResourcePlacementInput,
+  ): Promise<DesktopAppState> {
+    const known = this.runtimeByWorkspace
+      .get(GLOBAL_RUNTIME_WORKSPACE_ID)
+      ?.placements?.some((entry) => entry.kind === kind && entry.path === path);
+    if (!known) return this.withError(`Unknown global ${kind}: ${path}`);
+    const workspaces = this.placementWorkspaces();
+    const ids = new Set(workspaces.map((workspace) => workspace.workspaceId));
+    if (placement.workspaceIds.some((id) => !ids.has(id))) {
+      return this.withError("Choose projects from the list.");
+    }
+    return this.applyGlobalResourceChange(() =>
+      this.driver.runtimeSupervisor.setResourcePlacement(kind, path, placement, workspaces),
+    );
+  }
+
+  /** Turn a global skill or extension on or off for one project only. */
+  async setProjectResourceEnabled(
+    workspaceId: string,
+    kind: "skill" | "extension",
+    path: string,
+    enabled: boolean,
+  ): Promise<DesktopAppState> {
+    const known = this.runtimeByWorkspace
+      .get(GLOBAL_RUNTIME_WORKSPACE_ID)
+      ?.placements?.some((entry) => entry.kind === kind && entry.path === path);
+    if (!known) return this.withError(`Unknown global ${kind}: ${path}`);
+    return this.withRuntimeUpdate(
+      workspaceId,
+      async (ws) => {
+        const snapshot = await this.driver.runtimeSupervisor.setProjectResourceEnabled(
+          ws,
+          kind,
+          path,
+          enabled,
+        );
+        await this.loadGlobalRuntime();
+        return snapshot;
+      },
+      { reloadSessions: true },
+    );
+  }
+
   async refreshRuntime(workspaceId?: string): Promise<DesktopAppState> {
     await this.initialize();
+    if (workspaceId === GLOBAL_RUNTIME_WORKSPACE_ID) {
+      return this.applyGlobalResourceChange(async () => undefined);
+    }
     const resolvedWorkspaceId = workspaceId || this.state.selectedWorkspaceId;
     const ws = this.workspaceRefFromState(resolvedWorkspaceId);
     if (!ws) {
@@ -2027,6 +2131,12 @@ export class DesktopAppStore {
     filePath: string,
     enabled: boolean,
   ): Promise<DesktopAppState> {
+    if (workspaceId === GLOBAL_RUNTIME_WORKSPACE_ID) {
+      const ws = this.driver.runtimeSupervisor.globalWorkspace();
+      return this.applyGlobalResourceChange(() =>
+        this.driver.runtimeSupervisor.setSkillEnabled(ws, filePath, enabled),
+      );
+    }
     return this.withRuntimeUpdate(
       workspaceId,
       (ws) => this.driver.runtimeSupervisor.setSkillEnabled(ws, filePath, enabled),
@@ -2042,6 +2152,12 @@ export class DesktopAppStore {
     const builtinName = this.driver.runtimeSupervisor.builtinExtensionName(filePath);
     if (builtinName) {
       return this.setBuiltinExtensionEnabled(workspaceId, builtinName, enabled);
+    }
+    if (workspaceId === GLOBAL_RUNTIME_WORKSPACE_ID) {
+      const ws = this.driver.runtimeSupervisor.globalWorkspace();
+      return this.applyGlobalResourceChange(() =>
+        this.driver.runtimeSupervisor.setExtensionEnabled(ws, filePath, enabled),
+      );
     }
     // pi's own add-ons (`builtin:mcp` …) are switched in pi's global settings, so every
     // workspace's runtime and threads pick the change up.
@@ -2060,7 +2176,10 @@ export class DesktopAppStore {
     enabled: boolean,
   ): Promise<DesktopAppState> {
     await this.initialize();
-    const ws = this.workspaceRefFromState(workspaceId);
+    const ws =
+      workspaceId === GLOBAL_RUNTIME_WORKSPACE_ID
+        ? this.driver.runtimeSupervisor.globalWorkspace()
+        : this.workspaceRefFromState(workspaceId);
     if (!ws) {
       return this.withError(`Unknown workspace: ${workspaceId}`);
     }
@@ -2265,9 +2384,11 @@ export class DesktopAppStore {
 
   private async refreshRuntimeForAllWorkspaces(
     updatedWorkspaceId: string,
-    updatedSnapshot: RuntimeSnapshot,
+    updatedSnapshot?: RuntimeSnapshot,
   ): Promise<void> {
-    this.runtimeByWorkspace.set(updatedWorkspaceId, updatedSnapshot);
+    if (updatedSnapshot && updatedWorkspaceId !== GLOBAL_RUNTIME_WORKSPACE_ID) {
+      this.runtimeByWorkspace.set(updatedWorkspaceId, updatedSnapshot);
+    }
     const workspacesToRefresh = this.state.workspaces.filter(
       (workspace) => workspace.id !== updatedWorkspaceId,
     );
@@ -2293,6 +2414,13 @@ export class DesktopAppStore {
         }`,
       );
     });
+    // The Global page shows where things load, so it rereads after any global change.
+    if (
+      updatedWorkspaceId === GLOBAL_RUNTIME_WORKSPACE_ID ||
+      this.runtimeByWorkspace.has(GLOBAL_RUNTIME_WORKSPACE_ID)
+    ) {
+      await this.loadGlobalRuntime(true);
+    }
   }
 
   private async refreshSessionCommandsForAllWorkspaces(): Promise<void> {
@@ -2805,7 +2933,7 @@ export class DesktopAppStore {
       );
       const liveWorkspaceIds = new Set(workspaces.map((w) => w.id));
       for (const wsId of this.runtimeByWorkspace.keys()) {
-        if (!liveWorkspaceIds.has(wsId)) {
+        if (!liveWorkspaceIds.has(wsId) && wsId !== GLOBAL_RUNTIME_WORKSPACE_ID) {
           this.runtimeByWorkspace.delete(wsId);
         }
       }

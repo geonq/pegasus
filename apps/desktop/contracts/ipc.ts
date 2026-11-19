@@ -195,6 +195,8 @@ export const desktopIpc = {
   setScopedModelPatterns: "pi-gui:set-scoped-model-patterns",
   setSkillEnabled: "pi-gui:set-skill-enabled",
   setExtensionEnabled: "pi-gui:set-extension-enabled",
+  setResourcePlacement: "pi-gui:set-resource-placement",
+  setProjectResourceEnabled: "pi-gui:set-project-resource-enabled",
   listMcpServers: "pi-gui:list-mcp-servers",
   addMcpServer: "pi-gui:add-mcp-server",
   removeMcpServer: "pi-gui:remove-mcp-server",
@@ -882,6 +884,19 @@ export interface PiDesktopApi {
   setExtensionEnabled(
     workspaceId: string,
     filePath: string,
+    enabled: boolean,
+  ): Promise<DesktopAppState>;
+  /** Load a global skill or extension in every project, or only in the chosen ones. */
+  setResourcePlacement(
+    kind: "skill" | "extension",
+    path: string,
+    placement: { readonly global: boolean; readonly workspaceIds: readonly string[] },
+  ): Promise<DesktopAppState>;
+  /** Turn a global skill or extension on or off in one project only. */
+  setProjectResourceEnabled(
+    workspaceId: string,
+    kind: "skill" | "extension",
+    path: string,
     enabled: boolean,
   ): Promise<DesktopAppState>;
   listMcpServers(workspaceId: string): Promise<McpServersSnapshot>;

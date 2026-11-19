@@ -33,8 +33,17 @@ export function extensionScopeLabel(extension: RuntimeExtensionRecord): string {
   return extension.sourceInfo.scope;
 }
 
-/** Global (every project) first, then this project, then anything loaded for one session. */
-export const SCOPE_GROUP_ORDER = ["Global", "Project", "This session"];
+export const PROJECT_ONLY_LABEL = "This project only";
+export const GLOBAL_INHERITED_LABEL = "Global (inherited)";
+export const GLOBAL_LABEL = "Global";
+
+/** In a project: its own items, then the global ones it inherits, then one-session ones. */
+export const SCOPE_GROUP_ORDER = [
+  PROJECT_ONLY_LABEL,
+  GLOBAL_INHERITED_LABEL,
+  GLOBAL_LABEL,
+  "This session",
+];
 
 /** Group heading for where a skill or extension was discovered. */
 export function sourceScopeGroupLabel(scope: RuntimeSourceScope): string {
@@ -48,8 +57,43 @@ export function sourceScopeGroupLabel(scope: RuntimeSourceScope): string {
   }
 }
 
-export function extensionGroupLabel(extension: RuntimeExtensionRecord): string {
+/**
+ * Which group a project-view item belongs in. A global item a project turns on or off is still
+ * the global item (`isGlobal`): pi reports it at project scope only because the project's
+ * settings name it.
+ */
+export function projectGroupLabel(scope: RuntimeSourceScope, isGlobal: boolean): string {
+  if (isGlobal) return GLOBAL_INHERITED_LABEL;
+  if (scope === "project") return PROJECT_ONLY_LABEL;
+  if (scope === "user") return GLOBAL_INHERITED_LABEL;
+  return "This session";
+}
+
+export function extensionGroupLabel(
+  extension: RuntimeExtensionRecord,
+  globalView = false,
+  isGlobal = false,
+): string {
   if (isPiGuiBuiltinExtension(extension)) return PI_GUI_TOOLS_LABEL;
   if (isPiAddonExtension(extension)) return PI_ADDONS_LABEL;
-  return sourceScopeGroupLabel(extension.sourceInfo.scope);
+  if (globalView) return GLOBAL_LABEL;
+  return projectGroupLabel(extension.sourceInfo.scope, isGlobal);
+}
+
+/** "Every project", "Only in Uni", "Only in Uni and Notes", or "Off everywhere". */
+export function placementSummary(
+  placement: { readonly global: boolean; readonly enabledIn: readonly string[] } | undefined,
+  projectName: (id: string) => string,
+  projectCount: number,
+): string {
+  if (!placement) return "";
+  if (placement.global && placement.enabledIn.length === projectCount) return "Every project";
+  if (placement.enabledIn.length === 0)
+    return placement.global ? "Every project" : "Off everywhere";
+  const names = placement.enabledIn.map(projectName);
+  const listed = names.length <= 2 ? names.join(" and ") : `${names.length} projects`;
+  const offCount = projectCount - names.length;
+  return placement.global
+    ? `Every project, off in ${offCount} ${offCount === 1 ? "project" : "projects"}`
+    : `Only in ${listed}`;
 }

@@ -93,6 +93,13 @@ export function expectBoolean(value: unknown, name: string): boolean {
   return value;
 }
 
+export function expectResourceKind(value: unknown): "skill" | "extension" {
+  if (value !== "skill" && value !== "extension") {
+    throw new TypeError("kind must be skill or extension");
+  }
+  return value;
+}
+
 function expectOptionalBoolean(value: unknown, name: string): boolean | undefined {
   return value === undefined ? undefined : expectBoolean(value, name);
 }

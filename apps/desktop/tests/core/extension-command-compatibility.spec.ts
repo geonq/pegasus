@@ -7,6 +7,7 @@ import {
   makeUserDataDir,
   makeWorkspace,
   selectSession,
+  showResourcesFor,
   waitForSessionByTitle,
   waitForWorkspaceByPath,
   writeProjectExtension,
@@ -128,6 +129,7 @@ test("fails fast for unsupported handoff-like commands and learns terminal-only 
 
     await window.getByRole("button", { name: "Extensions", exact: true }).click();
     await expect(window.getByTestId("extensions-surface")).toBeVisible();
+    await showResourcesFor(window, workspacePath);
     await window
       .getByTestId("extensions-list")
       .getByRole("button", { name: /compatibility-extension/i })

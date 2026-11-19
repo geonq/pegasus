@@ -8,6 +8,7 @@ import {
   makeUserDataDir,
   makeWorkspace,
   seedAgentDir,
+  showResourcesFor,
 } from "../helpers/electron-app";
 
 test("shows skills and settings surfaces from runtime data", async () => {
@@ -40,6 +41,7 @@ Use this skill when the user wants a short demo workflow.
 
     await window.getByRole("button", { name: "Skills", exact: true }).click();
     await expect(window.getByTestId("skills-surface")).toBeVisible();
+    await showResourcesFor(window, workspacePath);
     await expect(window.getByTestId("skills-list")).toContainText("Demo Skill");
     await window.getByRole("button", { name: /Demo Skill/i }).click();
     await expect(window.locator(".skill-detail")).toContainText("/skill:demo-skill");
@@ -107,8 +109,9 @@ test("skills and extensions live inside settings as one tabbed page", async () =
       "aria-selected",
       "true",
     );
+    await showResourcesFor(window, workspacePath);
     const list = window.getByTestId("skills-list");
-    await expect(list.getByRole("heading", { name: /Project/ })).toBeVisible();
+    await expect(list.getByRole("heading", { name: /This project only/ })).toBeVisible();
 
     const rowSwitch = list.getByRole("switch", { name: "Enable Demo Skill" });
     await expect(rowSwitch).toBeChecked();
@@ -221,17 +224,22 @@ test("skills selection loads shared and project resources for each project", asy
     await expect(surface).toBeVisible();
 
     const list = surface.getByTestId("skills-list");
+    // Global lists only what loads everywhere; each project adds its own.
+    await expect(list).toContainText("Global guide");
+    await expect(list).not.toContainText("Alpha only");
+    await expect(list).not.toContainText("Beta only");
+
+    await showResourcesFor(window, alphaPath);
     await expect(list).toContainText("Global guide");
     await expect(list).toContainText("Alpha only");
     await expect(list).not.toContainText("Beta only");
 
-    const workspace = surface.getByRole("combobox", { name: "Workspace" });
-    await workspace.selectOption({ label: "skills-runtime-beta" });
+    await showResourcesFor(window, betaPath);
     await expect(list).toContainText("Global guide");
     await expect(list).toContainText("Beta only");
     await expect(list).not.toContainText("Alpha only");
 
-    await workspace.selectOption({ label: "skills-runtime-alpha" });
+    await showResourcesFor(window, alphaPath);
     await expect(list).toContainText("Global guide");
     await expect(list).toContainText("Alpha only");
     await expect(list).not.toContainText("Beta only");

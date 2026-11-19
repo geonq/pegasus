@@ -63,6 +63,7 @@ import {
   expectSaveTaskWorkbenchTemplateInput,
   expectSessionTarget,
   expectRecord,
+  expectResourceKind,
   expectSetChildSupervisionLoopInput,
   expectStartThreadInput,
   expectCreateScheduledTaskInput,
@@ -172,6 +173,8 @@ type SettingsOwner = Pick<
   | "setScopedModelPatterns"
   | "setSkillEnabled"
   | "setExtensionEnabled"
+  | "setResourcePlacement"
+  | "setProjectResourceEnabled"
   | "listMcpServers"
   | "addMcpServer"
   | "removeMcpServer"
@@ -669,6 +672,33 @@ export function registerDesktopIpc({
         owners.settings.setExtensionEnabled(
           expectNonEmptyString(rawWorkspaceId, "workspaceId"),
           expectNonEmptyString(rawFilePath, "filePath"),
+          expectBoolean(rawEnabled, "enabled"),
+        ),
+      ),
+  );
+  ipcMain.handle(
+    desktopIpc.setResourcePlacement,
+    (event, rawKind: unknown, rawPath: unknown, rawPlacement: unknown) =>
+      run(event, () => {
+        const placement = expectRecord(rawPlacement, "placement");
+        return owners.settings.setResourcePlacement(
+          expectResourceKind(rawKind),
+          expectNonEmptyString(rawPath, "path"),
+          {
+            global: expectBoolean(placement.global, "placement.global"),
+            workspaceIds: expectStringArray(placement.workspaceIds, "placement.workspaceIds"),
+          },
+        );
+      }),
+  );
+  ipcMain.handle(
+    desktopIpc.setProjectResourceEnabled,
+    (event, rawWorkspaceId: unknown, rawKind: unknown, rawPath: unknown, rawEnabled: unknown) =>
+      run(event, () =>
+        owners.settings.setProjectResourceEnabled(
+          expectNonEmptyString(rawWorkspaceId, "workspaceId"),
+          expectResourceKind(rawKind),
+          expectNonEmptyString(rawPath, "path"),
           expectBoolean(rawEnabled, "enabled"),
         ),
       ),

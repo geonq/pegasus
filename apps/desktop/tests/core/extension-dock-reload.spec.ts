@@ -4,6 +4,7 @@ import {
   launchDesktop,
   makeUserDataDir,
   makeWorkspace,
+  showResourcesFor,
 } from "../helpers/electron-app";
 import { expect, test } from "@playwright/test";
 
@@ -71,6 +72,7 @@ test("resets dock expansion on /reload and extension enable or disable transitio
     await expect(dockBody).toHaveCount(0);
 
     await window.getByRole("button", { name: "Extensions", exact: true }).click();
+    await showResourcesFor(window, workspacePath);
     const extensionCard = window
       .getByTestId("extensions-list")
       .getByRole("button", { name: /reload-dock-extension/i });
@@ -81,6 +83,7 @@ test("resets dock expansion on /reload and extension enable or disable transitio
     await expect(window.getByTestId("extension-dock")).toHaveCount(0);
 
     await window.getByRole("button", { name: "Extensions", exact: true }).click();
+    await showResourcesFor(window, workspacePath);
     await extensionCard.click();
     await window.getByRole("switch", { name: "Enabled", exact: true }).click();
     await expect(window.getByRole("switch", { name: "Enabled", exact: true })).toBeChecked();

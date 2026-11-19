@@ -6,7 +6,12 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import type { RuntimeSnapshot } from "@pi-gui/session-driver/runtime-types";
+import {
+  GLOBAL_RUNTIME_WORKSPACE_ID,
+  type RuntimeSnapshot,
+} from "@pi-gui/session-driver/runtime-types";
+import type { ScopeContext } from "../features/extensions/placement-control";
+import { ReviewMenu } from "../features/workbench/review-menu";
 import type { AppView, DesktopAppState, WorkspaceRecord } from "../../contracts/desktop-state";
 import { updateSnapshot } from "./desktop-app-state";
 import { getEffectiveModelRuntime } from "../features/settings/model-settings";
@@ -83,16 +88,16 @@ export function SecondarySurfaces({
     : undefined;
   const customizeTab = activeView === "settings" ? undefined : activeView;
   const customizeWorkspace = customizeTab === "extensions" ? extensionsWorkspace : skillsWorkspace;
+  // Without a project the page shows the global runtime: what loads in every project.
+  const skillsRuntimeId = skillsWorkspace?.id ?? GLOBAL_RUNTIME_WORKSPACE_ID;
+  const extensionsRuntimeId = extensionsWorkspace?.id ?? GLOBAL_RUNTIME_WORKSPACE_ID;
+  const globalRuntime = snapshot.runtimeByWorkspace[GLOBAL_RUNTIME_WORKSPACE_ID];
   const providerWorkspace =
     rootWorkspaceOptions.find((workspace) => workspace.id === snapshot.selectedWorkspaceId) ??
     rootWorkspaceOptions[0];
   const providerPageActive = activeView === "settings" && settingsSection === "providers";
-  const skillsRuntime = skillsWorkspace
-    ? snapshot.runtimeByWorkspace[skillsWorkspace.id]
-    : undefined;
-  const extensionsRuntime = extensionsWorkspace
-    ? snapshot.runtimeByWorkspace[extensionsWorkspace.id]
-    : undefined;
+  const skillsRuntime = snapshot.runtimeByWorkspace[skillsRuntimeId];
+  const extensionsRuntime = snapshot.runtimeByWorkspace[extensionsRuntimeId];
   const providerModelRuntime = getEffectiveModelRuntime(snapshot, providerWorkspace);
   const settingsRuntime = settingsWorkspace
     ? snapshot.runtimeByWorkspace[settingsWorkspace.id]
@@ -104,9 +109,9 @@ export function SecondarySurfaces({
 
   const runtimeWorkspaceId =
     customizeTab === "skills"
-      ? skillsWorkspace?.id
+      ? skillsRuntimeId
       : customizeTab === "extensions"
-        ? extensionsWorkspace?.id
+        ? extensionsRuntimeId
         : providerPageActive
           ? providerWorkspace?.id
           : undefined;
@@ -339,41 +344,29 @@ export function SecondarySurfaces({
   };
 
   const handleToggleSkill = (filePath: string, enabled: boolean) => {
-    if (!skillsWorkspace) {
-      return;
-    }
     void updateSnapshot(setSnapshot, () =>
-      api.setSkillEnabled(skillsWorkspace.id, filePath, enabled),
+      api.setSkillEnabled(skillsRuntimeId, filePath, enabled),
     ).catch((error: unknown) => {
       console.error("[renderer] setSkillEnabled failed", error);
     });
   };
 
   const handleOpenSkillFolder = (filePath: string) => {
-    if (!skillsWorkspace) {
-      return;
-    }
-    void api.openSkillInFinder(skillsWorkspace.id, filePath).catch((error: unknown) => {
+    void api.openSkillInFinder(skillsRuntimeId, filePath).catch((error: unknown) => {
       console.error("[renderer] openSkillInFinder failed", error);
     });
   };
 
   const handleToggleExtension = (filePath: string, enabled: boolean) => {
-    if (!extensionsWorkspace) {
-      return;
-    }
     void updateSnapshot(setSnapshot, () =>
-      api.setExtensionEnabled(extensionsWorkspace.id, filePath, enabled),
+      api.setExtensionEnabled(extensionsRuntimeId, filePath, enabled),
     ).catch((error: unknown) => {
       console.error("[renderer] setExtensionEnabled failed", error);
     });
   };
 
   const handleOpenExtensionFolder = (filePath: string) => {
-    if (!extensionsWorkspace) {
-      return;
-    }
-    void api.openExtensionInFinder(extensionsWorkspace.id, filePath).catch((error: unknown) => {
+    void api.openExtensionInFinder(extensionsRuntimeId, filePath).catch((error: unknown) => {
       console.error("[renderer] openExtensionInFinder failed", error);
     });
   };
@@ -443,6 +436,64 @@ export function SecondarySurfaces({
       });
   };
 
+  const projectOptions = rootWorkspaceOptions.filter((workspace) => workspace.kind === "primary");
+  const scope: ScopeContext = {
+    globalView: !customizeWorkspace,
+    placements: globalRuntime?.placements ?? [],
+    projects: projectOptions,
+    onSetPlacement: (kind, path, global, workspaceIds) => {
+      void updateSnapshot(setSnapshot, () =>
+        api.setResourcePlacement(kind, path, { global, workspaceIds }),
+      ).catch((error: unknown) => {
+        console.error("[renderer] setResourcePlacement failed", error);
+      });
+    },
+    onSetProjectEnabled: (kind, path, enabled) => {
+      if (!customizeWorkspace) return;
+      const workspaceId = customizeWorkspace.id;
+      void updateSnapshot(setSnapshot, () =>
+        api.setProjectResourceEnabled(workspaceId, kind, path, enabled),
+      ).catch((error: unknown) => {
+        console.error("[renderer] setProjectResourceEnabled failed", error);
+      });
+    },
+  };
+  // A project page needs the global placements to tell inherited items from its own.
+  const needsGlobalRuntime = Boolean(customizeTab && customizeWorkspace && !globalRuntime);
+  useEffect(() => {
+    if (!needsGlobalRuntime) return;
+    void updateSnapshot(setSnapshot, () =>
+      api.loadWorkspaceRuntime(GLOBAL_RUNTIME_WORKSPACE_ID),
+    ).catch((error: unknown) => {
+      console.error("[renderer] loading the global runtime failed", error);
+    });
+  }, [api, needsGlobalRuntime, setSnapshot]);
+
+  /** Global first, then each project: what the Skills and extensions page lists. */
+  const scopePicker = (
+    value: WorkspaceRecord | undefined,
+    onChange: (workspaceId: string) => void,
+  ) => (
+    <ReviewMenu
+      align="end"
+      buttonClassName="scope-picker__button"
+      buttonContent={<span aria-hidden="true">▾</span>}
+      label="Show skills and extensions for"
+      options={[
+        { id: "", label: "Global", checked: !value },
+        ...projectOptions.map((workspace, index) => ({
+          id: workspace.id,
+          label: workspace.name,
+          checked: value?.id === workspace.id,
+          startsGroup: index === 0,
+        })),
+      ]}
+      popoverClassName="glass-popover"
+      value={value?.name ?? "Global"}
+      onSelect={onChange}
+    />
+  );
+
   const workspacePicker = (
     value: WorkspaceRecord | undefined,
     onChange: (workspaceId: string) => void,
@@ -483,20 +534,20 @@ export function SecondarySurfaces({
           extensionsRuntime={extensionsRuntime}
           runtimeLoadStatus={runtimeLoadStatus}
           skillsRuntime={skillsRuntime}
+          scope={scope}
           tab={customizeTab}
           workspace={customizeWorkspace}
           workspacePicker={
             customizeTab === "extensions"
-              ? workspacePicker(extensionsWorkspace, onSelectExtensionsWorkspace)
-              : workspacePicker(skillsWorkspace, onSelectSkillsWorkspace)
+              ? scopePicker(extensionsWorkspace, onSelectExtensionsWorkspace)
+              : scopePicker(skillsWorkspace, onSelectSkillsWorkspace)
           }
           onOpenExtensionFolder={handleOpenExtensionFolder}
           onOpenSkillFolder={handleOpenSkillFolder}
           onRefresh={() => {
-            if (!customizeWorkspace) return;
             // The explicit Refresh also reloads open threads (when idle), so edited extensions
             // and skills take effect; opening a settings page only reloads the runtime.
-            const workspaceId = customizeWorkspace.id;
+            const workspaceId = customizeWorkspace?.id ?? GLOBAL_RUNTIME_WORKSPACE_ID;
             void updateSnapshot(setSnapshot, () => api.refreshRuntime(workspaceId)).catch(
               (error: unknown) => {
                 console.error("[renderer] refreshRuntime failed", error);

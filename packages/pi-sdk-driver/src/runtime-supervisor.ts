@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { providerAccountLabel } from "./provider-account-label.js";
 import { currentDesktopModels } from "./current-model-catalog.js";
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import {
   CredentialSynchronizationError,
   DefaultPackageManager,
@@ -27,10 +27,13 @@ import type {
   RuntimeProviderRecord,
   RuntimeResourceDriver,
   RuntimeSettingsSnapshot,
+  RuntimeResourcePlacement,
+  RuntimeResourcePlacementInput,
   RuntimeSkillRecord,
   RuntimeSourceInfo,
   RuntimeSnapshot,
 } from "@pi-gui/session-driver/runtime-types";
+import { GLOBAL_RUNTIME_WORKSPACE_ID } from "@pi-gui/session-driver/runtime-types";
 import type { WorkspaceRef } from "@pi-gui/session-driver";
 import { createRuntimeDependencies } from "./runtime-deps.js";
 import {
@@ -128,6 +131,12 @@ export interface RuntimeSupervisorOptions {
   readonly builtinExtensions?: readonly BuiltinExtension[];
   readonly isBuiltinExtensionEnabled?: BuiltinExtensionEnabled;
   readonly customProviderStore?: CustomProviderStore;
+  /**
+   * Skill folders shared by every project but not in pi's own discovery (Pegasus's synced
+   * skills folder). pi resolves them as if user settings listed them, so the same settings
+   * patterns decide where they load; sessions read them through the Pegasus skill catalog.
+   */
+  readonly sharedSkillDirs?: readonly string[];
 }
 
 type ResourceScope = "user" | "project";
@@ -145,6 +154,7 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
   private readonly builtinExtensions: readonly BuiltinExtension[];
   private readonly isBuiltinExtensionEnabled: BuiltinExtensionEnabled;
   private readonly customProviderStore: CustomProviderStore;
+  private readonly sharedSkillDirs: readonly string[];
   private readonly contexts = new Map<string, RuntimeContext>();
 
   constructor(options: RuntimeSupervisorOptions = {}) {
@@ -155,6 +165,163 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     this.builtinExtensions = options.builtinExtensions ?? [];
     this.isBuiltinExtensionEnabled = options.isBuiltinExtensionEnabled ?? (() => true);
     this.customProviderStore = deps.customProviderStore;
+    this.sharedSkillDirs = (options.sharedSkillDirs ?? []).map((dir) => resolve(dir));
+  }
+
+  /** What loads with no project open: pi's user settings and folders, plus the shared skills. */
+  globalWorkspace(): WorkspaceRef {
+    return { workspaceId: GLOBAL_RUNTIME_WORKSPACE_ID, path: this.agentDir, displayName: "Global" };
+  }
+
+  /**
+   * The global snapshot, with where each global skill and extension loads across `workspaces`.
+   * Each project is resolved by pi's own package manager, so the answer is what pi will load.
+   */
+  async getGlobalRuntimeSnapshot(
+    workspaces: readonly WorkspaceRef[],
+    refresh = false,
+  ): Promise<RuntimeSnapshot> {
+    const snapshot = refresh
+      ? await this.refreshRuntime(this.globalWorkspace())
+      : await this.getRuntimeSnapshot(this.globalWorkspace());
+    const resolvedByWorkspace = await Promise.all(
+      workspaces.map(async (workspace) => ({
+        workspaceId: workspace.workspaceId,
+        resolved: await this.resolveWorkspacePaths(workspace).catch(() => undefined),
+      })),
+    );
+    const enabledIn = (kind: "skills" | "extensions", path: string) =>
+      resolvedByWorkspace
+        .filter(({ resolved }) =>
+          resolved?.[kind].some((entry) => entry.enabled && samePath(entry.path, path)),
+        )
+        .map(({ workspaceId }) => workspaceId);
+    const placements: RuntimeResourcePlacement[] = [
+      ...snapshot.skills.map((skill) => ({
+        kind: "skill" as const,
+        path: skill.filePath,
+        global: skill.enabled,
+        enabledIn: enabledIn("skills", skill.filePath),
+      })),
+      ...snapshot.extensions
+        .filter((extension) => isPlaceableExtension(extension))
+        .map((extension) => ({
+          kind: "extension" as const,
+          path: extension.path,
+          global: extension.enabled,
+          enabledIn: enabledIn("extensions", extension.path),
+        })),
+    ];
+    return { ...snapshot, placements };
+  }
+
+  /**
+   * Make a global skill or extension load in every project, or only in `workspaceIds`.
+   * Written as pi's own settings patterns: `-<path>` in the user `skills`/`extensions` list turns
+   * it off everywhere, and a plain `<path>` entry in a project's `.pi/settings.json` loads it
+   * there (project entries resolve before user ones). Nothing is copied or moved.
+   */
+  async setResourcePlacement(
+    kind: ToggleableResourceKind,
+    path: string,
+    placement: RuntimeResourcePlacementInput,
+    workspaces: readonly WorkspaceRef[],
+  ): Promise<void> {
+    const global = await this.ensureContext(this.globalWorkspace());
+    // Another project's switch may have written the user settings since this context read them.
+    await global.settingsManager.reload();
+    const target = resourceTarget(kind, path);
+    const globalEntries = readResourceEntries(global.settingsManager.getGlobalSettings(), kind);
+    const keptGlobal = withoutResource(globalEntries, target, this.agentDir);
+    this.setTopLevelResourcePaths(
+      global.settingsManager,
+      "user",
+      kind,
+      placement.global ? keptGlobal : [...keptGlobal, `-${settingsPathFor(target, this.agentDir)}`],
+    );
+    await global.settingsManager.flush();
+    throwGlobalSettingsError(global.settingsManager.drainErrors());
+
+    // "Every project" keeps a project's own "off"; it only drops the entries that loaded it there.
+    const chosen = new Set(placement.global ? [] : placement.workspaceIds);
+    for (const workspace of workspaces) {
+      await this.writeProjectResourceState(
+        workspace,
+        kind,
+        target,
+        chosen.has(workspace.workspaceId) ? "on" : placement.global ? "drop-on" : "inherit",
+      );
+    }
+  }
+
+  /**
+   * Turn a skill or extension that lives outside `workspace` on or off for that project only.
+   * Off is `[<path>, -<path>]` in `.pi/settings.json`: the plain entry makes the project own the
+   * resource, which pi resolves before the user entry, and `-` disables it. On drops the
+   * project's entries, and adds a plain one only when the user settings leave it off.
+   */
+  async setProjectResourceEnabled(
+    workspace: WorkspaceRef,
+    kind: ToggleableResourceKind,
+    path: string,
+    enabled: boolean,
+  ): Promise<RuntimeSnapshot> {
+    const target = resourceTarget(kind, path);
+    await this.writeProjectResourceState(workspace, kind, target, enabled ? "inherit" : "off");
+    if (enabled) {
+      const resolved = await this.resolveWorkspacePaths(workspace);
+      const entries = kind === "skill" ? resolved.skills : resolved.extensions;
+      if (
+        !entries.some(
+          (entry) => entry.enabled && samePath(resourceTarget(kind, entry.path), target),
+        )
+      ) {
+        await this.writeProjectResourceState(workspace, kind, target, "on");
+      }
+    }
+    return this.refreshRuntime(workspace);
+  }
+
+  private async writeProjectResourceState(
+    workspace: WorkspaceRef,
+    kind: ToggleableResourceKind,
+    target: string,
+    state: "inherit" | "on" | "off" | "drop-on",
+  ): Promise<void> {
+    const settingsManager = SettingsManager.create(workspace.path, this.agentDir);
+    const baseDir = join(workspace.path, ".pi");
+    const entries = readResourceEntries(settingsManager.getProjectSettings(), kind);
+    const kept = withoutResource(entries, target, baseDir);
+    const ownEntries = entries.filter((entry) => !kept.includes(entry));
+    if (state === "drop-on" && ownEntries.some((entry) => entry.startsWith("-"))) return;
+    const pattern = settingsPathFor(target, baseDir);
+    const next =
+      state === "inherit" || state === "drop-on"
+        ? kept
+        : [...kept, pattern, ...(state === "off" ? [`-${pattern}`] : [])];
+    if (next.length === entries.length && next.every((entry, index) => entry === entries[index])) {
+      return;
+    }
+    this.setTopLevelResourcePaths(settingsManager, "project", kind, next);
+    await settingsManager.flush();
+    const failure = settingsManager.drainErrors()[0];
+    if (failure) throw failure.error;
+  }
+
+  /** pi's resolution for one project, without loading its extensions. */
+  private async resolveWorkspacePaths(workspace: WorkspaceRef): Promise<ResolvedPaths> {
+    const settingsManager = SettingsManager.create(workspace.path, this.agentDir);
+    try {
+      return await this.createPackageManager(workspace.path, settingsManager).resolve(
+        async () => "skip",
+      );
+    } catch (error) {
+      const fallback = isGlobalNpmLookupError(error)
+        ? createSettingsManagerWithoutNpmPackages(settingsManager)
+        : null;
+      if (!fallback) throw error;
+      return this.createPackageManager(workspace.path, fallback).resolve(async () => "skip");
+    }
   }
 
   async getRuntimeSnapshot(workspace: WorkspaceRef): Promise<RuntimeSnapshot> {
@@ -544,7 +711,7 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     return new DefaultPackageManager({
       cwd,
       agentDir: this.agentDir,
-      settingsManager,
+      settingsManager: withSharedSkillDirs(settingsManager, this.sharedSkillDirs),
       builtinExtensions: [...PI_ADDON_EXTENSION_NAMES],
     });
   }
@@ -1206,6 +1373,86 @@ function isCodemodeToolEntry(entry: string): boolean {
 /** `builtin:<name>` names one of pi's add-ons, not a file, so it is compared as is. */
 function extensionPathKey(path: string): string {
   return isBuiltinExtensionPath(path) ? path : resolve(path);
+}
+
+function samePath(left: string, right: string): boolean {
+  const key = (path: string) => {
+    const resolved = extensionPathKey(path);
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  };
+  return key(left) === key(right);
+}
+
+/** Extensions from pi's user files or settings; packages and add-ons have their own switches. */
+function isPlaceableExtension(extension: RuntimeExtensionRecord): boolean {
+  return (
+    extension.sourceInfo.scope === "user" &&
+    extension.sourceInfo.origin === "top-level" &&
+    extension.sourceInfo.source !== "builtin"
+  );
+}
+
+/** A skill is named by its folder (pi matches `SKILL.md`'s folder), an extension by its file. */
+function resourceTarget(kind: ToggleableResourceKind, path: string): string {
+  const resolved = resolve(path);
+  return kind === "skill" && basename(resolved).toLowerCase() === "skill.md"
+    ? dirname(resolved)
+    : resolved;
+}
+
+function readResourceEntries(
+  settings: { readonly skills?: unknown; readonly extensions?: unknown },
+  kind: ToggleableResourceKind,
+): string[] {
+  const entries = kind === "skill" ? settings.skills : settings.extensions;
+  return Array.isArray(entries)
+    ? entries.filter((entry): entry is string => typeof entry === "string")
+    : [];
+}
+
+/** Entries (plain or `+`/`-`/`!`) that name exactly `target`, read from `baseDir`. */
+function withoutResource(entries: readonly string[], target: string, baseDir: string): string[] {
+  return entries.filter((entry) => {
+    const value = stripPrefix(entry);
+    if (/[*?]/.test(value) || isBuiltinExtensionPath(value)) return true;
+    const resolved = resolve(baseDir, value);
+    return !samePath(resolved, target) && !samePath(dirname(resolved), target);
+  });
+}
+
+/**
+ * How a settings file at `baseDir` names `target`: relative with `/`, so the same text holds on
+ * Windows and macOS when both keep the same folder layout; absolute across drives.
+ */
+function settingsPathFor(target: string, baseDir: string): string {
+  const path = relative(baseDir, target);
+  return path && !/^[a-zA-Z]:/.test(path) ? path.split(sep).join("/") : target;
+}
+
+/**
+ * pi's settings with `dirs` added to the user `skills` list, so pi's resolver treats the shared
+ * skills folder like any user skill and its `+`/`-` patterns apply. Read-only view; writes and
+ * every other call go to the real manager.
+ */
+function withSharedSkillDirs(
+  settingsManager: SettingsManager,
+  dirs: readonly string[],
+): SettingsManager {
+  if (dirs.length === 0) return settingsManager;
+  return new Proxy(settingsManager, {
+    get(target, property) {
+      if (property === "getGlobalSettings") {
+        return () => {
+          const settings = target.getGlobalSettings();
+          return { ...settings, skills: [...dirs, ...(settings.skills ?? [])] };
+        };
+      }
+      const value = Reflect.get(target, property, target) as unknown;
+      return typeof value === "function"
+        ? (value as (...args: unknown[]) => unknown).bind(target)
+        : value;
+    },
+  });
 }
 
 function replaceResourcePattern(

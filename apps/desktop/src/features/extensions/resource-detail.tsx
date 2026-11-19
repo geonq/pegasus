@@ -36,7 +36,12 @@ export function ResourceDetail({
     // Capture phase, so Escape returns to the list before the settings surface closes.
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
-      if (document.querySelector("[aria-modal='true'], .extension-dialog-backdrop")) return;
+      // An open dialog or menu (such as "Where it loads") closes first.
+      if (
+        document.querySelector("[aria-modal='true'], .extension-dialog-backdrop, [role='menu']")
+      ) {
+        return;
+      }
       event.preventDefault();
       backRef.current();
     };

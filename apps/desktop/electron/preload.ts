@@ -477,6 +477,30 @@ const localPiDesktopApi = {
       filePath,
       enabled,
     ) as Promise<DesktopAppState>,
+  setResourcePlacement: (
+    kind: "skill" | "extension",
+    path: string,
+    placement: { readonly global: boolean; readonly workspaceIds: readonly string[] },
+  ) =>
+    ipcRenderer.invoke(
+      desktopIpc.setResourcePlacement,
+      kind,
+      path,
+      placement,
+    ) as Promise<DesktopAppState>,
+  setProjectResourceEnabled: (
+    workspaceId: string,
+    kind: "skill" | "extension",
+    path: string,
+    enabled: boolean,
+  ) =>
+    ipcRenderer.invoke(
+      desktopIpc.setProjectResourceEnabled,
+      workspaceId,
+      kind,
+      path,
+      enabled,
+    ) as Promise<DesktopAppState>,
   listMcpServers: (workspaceId: string) =>
     ipcRenderer.invoke(desktopIpc.listMcpServers, workspaceId) as Promise<McpServersSnapshot>,
   addMcpServer: (workspaceId: string, server: NewMcpServerInput) =>

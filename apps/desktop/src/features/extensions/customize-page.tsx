@@ -11,6 +11,7 @@ import type {
 import { RefreshIcon, SearchIcon } from "../../ui/icons";
 import { extensionScopeLabel } from "./extension-display";
 import { ExtensionsTab } from "./extensions-view";
+import type { ScopeContext } from "./placement-control";
 import { SkillsTab } from "./skills-view";
 
 export type CustomizeTab = "skills" | "extensions";
@@ -18,8 +19,9 @@ export type CustomizeTab = "skills" | "extensions";
 interface CustomizePageProps {
   readonly tab: CustomizeTab;
   readonly onSelectTab: (tab: CustomizeTab) => void;
-  /** The workspace the current tab lists; each tab remembers its own. */
+  /** The project the current tab lists, or undefined on the Global view. */
   readonly workspace?: WorkspaceRecord;
+  readonly scope: ScopeContext;
   readonly workspacePicker: ReactNode;
   readonly skillsRuntime?: RuntimeSnapshot;
   readonly extensionsRuntime?: RuntimeSnapshot;
@@ -41,6 +43,7 @@ export function CustomizePage({
   tab,
   onSelectTab,
   workspace,
+  scope,
   workspacePicker,
   skillsRuntime,
   extensionsRuntime,
@@ -57,7 +60,7 @@ export function CustomizePage({
   const [selectedId, setSelectedId] = useState<string | undefined>();
   // The palette and the workspace picker change what is listed without going through the tabs,
   // so a search or open detail from the previous list must not carry over.
-  const listKey = `${tab}:${workspace?.id ?? ""}`;
+  const listKey = `${tab}:${workspace?.id ?? "global"}`;
   const [shownListKey, setShownListKey] = useState(listKey);
   if (shownListKey !== listKey) {
     setShownListKey(listKey);
@@ -106,15 +109,15 @@ export function CustomizePage({
           <div>
             <h1 className="view-header__title">Skills and extensions</h1>
             <p className="view-header__body">
-              {tab === "skills" ? (
+              {workspace ? (
                 <>
-                  <strong>Global</strong> skills load in every project. <strong>Project</strong>{" "}
-                  skills load only in {workspace?.name ?? "the selected project"}.
+                  What loads in <strong>{workspace.name}</strong>: its own {tab}, and the global
+                  ones it inherits. A switch on a global item changes this project only.
                 </>
               ) : (
                 <>
-                  <strong>Global</strong> extensions load in every project. <strong>Project</strong>{" "}
-                  extensions load only in {workspace?.name ?? "the selected project"}.
+                  <strong>Global</strong> {tab} load in every project. Open one to choose where it
+                  loads, or pick a project above to see what loads there.
                 </>
               )}
             </p>
@@ -130,7 +133,7 @@ export function CustomizePage({
             >
               <RefreshIcon />
             </button>
-            {tab === "skills" && workspace ? (
+            {tab === "skills" ? (
               <button
                 className="button button--primary"
                 type="button"
@@ -150,14 +153,14 @@ export function CustomizePage({
             onKeyDown={handleTabKeyDown}
           >
             <ResourceTab
-              count={resourceCount(workspace, runtimeLoadStatus, skills.length)}
+              count={resourceCount(runtimeLoadStatus, skills.length)}
               label="Skills"
               selected={tab === "skills"}
               tab="skills"
               onSelect={() => onSelectTab("skills")}
             />
             <ResourceTab
-              count={resourceCount(workspace, runtimeLoadStatus, extensions.length)}
+              count={resourceCount(runtimeLoadStatus, extensions.length)}
               label="Extensions"
               selected={tab === "extensions"}
               tab="extensions"
@@ -187,18 +190,13 @@ export function CustomizePage({
           ref={panelRef}
           role="tabpanel"
         >
-          {!workspace ? (
-            <div className="settings-group resource-empty">
-              <div className="resource-empty__title">Open a folder first</div>
-              <p className="resource-empty__body">
-                Global skills and extensions load everywhere; project ones come from each folder.
-              </p>
-            </div>
-          ) : runtimeLoadStatus === "loading" ? (
+          {runtimeLoadStatus === "loading" ? (
             <div className="settings-group resource-empty" role="status">
               <div className="resource-empty__title">Loading {tab}…</div>
               <p className="resource-empty__body">
-                Reading global and project resources for {workspace.name}.
+                {workspace
+                  ? `Reading global and project ${tab} for ${workspace.name}.`
+                  : `Reading global ${tab} and where each one loads.`}
               </p>
             </div>
           ) : runtimeLoadStatus === "error" ? (
@@ -210,6 +208,7 @@ export function CustomizePage({
             </div>
           ) : tab === "skills" ? (
             <SkillsTab
+              scope={scope}
               searching={normalizedQuery.length > 0}
               selected={skills.find((skill) => skill.filePath === selectedId)}
               skills={filteredSkills}
@@ -223,6 +222,7 @@ export function CustomizePage({
             <ExtensionsTab
               commandCompatibility={commandCompatibility}
               extensions={filteredExtensions}
+              scope={scope}
               searching={normalizedQuery.length > 0}
               selected={extensions.find((extension) => extension.path === selectedId)}
               workspace={workspace}
@@ -243,12 +243,7 @@ function tabId(tab: CustomizeTab): string {
   return `customize-tab-${tab}`;
 }
 
-function resourceCount(
-  workspace: WorkspaceRecord | undefined,
-  status: "loading" | "error" | "ready",
-  count: number,
-): number | string {
-  if (!workspace) return "—";
+function resourceCount(status: "loading" | "error" | "ready", count: number): number | string {
   if (status === "loading") return "…";
   if (status === "error") return "!";
   return count;
