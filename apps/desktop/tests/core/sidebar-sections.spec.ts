@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import {
+  chooseThreadGrouping,
   createSessionViaIpc,
   emitTestSessionEvent,
   getDesktopState,
@@ -60,10 +61,7 @@ test("Chats view lifts failed and running chats into Needs you and Working, and 
       await createSessionViaIpc(window, workspace.id, title);
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
-    await window
-      .getByRole("group", { name: "Sidebar view" })
-      .getByRole("button", { name: "Chats", exact: true })
-      .click();
+    await chooseThreadGrouping(window, "time");
 
     await expect(window.getByRole("region", { name: "Needs you" })).toHaveCount(0);
     await expect(window.getByRole("region", { name: "Working" })).toHaveCount(0);
@@ -133,10 +131,7 @@ test("Needs you and Working head the Chats list, and Archive takes a real click 
     );
     await new Promise((resolve) => setTimeout(resolve, 25));
     await createSessionViaIpc(window, workspaces[1]!.id, "Builds");
-    await window
-      .getByRole("group", { name: "Sidebar view" })
-      .getByRole("button", { name: "Chats", exact: true })
-      .click();
+    await chooseThreadGrouping(window, "time");
     await setStatus(
       harness,
       window,
@@ -149,12 +144,8 @@ test("Needs you and Working head the Chats list, and Archive takes a real click 
     const working = window.getByRole("region", { name: "Working" });
     await expect(needsYou.locator(".session-row")).toHaveCount(1);
     await expect(working.locator(".session-row")).toHaveCount(1);
-    // Both sit above the Projects section, so many projects never push them off screen.
-    const firstFolder = (await window
-      .getByRole("region", { name: "Projects", exact: true })
-      .boundingBox())!;
-    expect((await needsYou.boundingBox())!.y).toBeLessThan(firstFolder.y);
-    expect((await working.boundingBox())!.y).toBeLessThan(firstFolder.y);
+    // Chats lists no folder rows at all.
+    await expect(window.locator(".workspace-row")).toHaveCount(0);
 
     const handle = window.getByRole("separator", { name: "Sidebar width" });
     const box = (await handle.boundingBox())!;
@@ -198,10 +189,7 @@ test("snoozing moves a chat into Snoozed with Undo, and it wakes unread when its
     await new Promise((resolve) => setTimeout(resolve, 25));
     // The open chat counts as read, so look at another one while "Later" sleeps.
     await createSessionViaIpc(window, workspace.id, "Meanwhile");
-    await window
-      .getByRole("group", { name: "Sidebar view" })
-      .getByRole("button", { name: "Chats", exact: true })
-      .click();
+    await chooseThreadGrouping(window, "time");
     const today = window.getByRole("region", { name: "Today" });
     await expect(today).toContainText("Later");
 

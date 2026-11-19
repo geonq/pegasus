@@ -80,7 +80,6 @@ import {
   sessionThreadKey,
   threadHistoryPreview,
   visibleThreadShortcutOrder,
-  visibleWorkspaceGroups,
   workspaceHistoryExpansionKey,
   type RecencyThreadSection,
   type ThreadSidebarModel,
@@ -179,6 +178,9 @@ export function Sidebar(props: SidebarProps) {
   return <SidebarContent {...useStableHandlers({ ...props, wsMenu, threadMenu })} />;
 }
 
+/** Matches the tab-swap transition in sidebar.css. */
+const SWAP_MS = 220;
+
 const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
   const signInNeedsOwner = useSignIns().some((signIn) => signIn.state !== "ok");
   const {
@@ -222,10 +224,22 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
   } as CSSProperties;
   const [activeId, setActiveId] = useState<string | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  // Tab switch: the list we left stays mounted, inert, for SWAP_MS while it fades out (sidebar.css).
+  const [shownGrouping, setShownGrouping] = useState(threadGrouping);
+  const [swap, setSwap] = useState<{ readonly from: ThreadGrouping } | null>(null);
+  if (shownGrouping !== threadGrouping) {
+    setShownGrouping(threadGrouping);
+    setSwap({ from: shownGrouping });
+  }
+  useEffect(() => {
+    if (!swap) return;
+    const timer = window.setTimeout(() => setSwap(null), SWAP_MS);
+    return () => window.clearTimeout(timer);
+  }, [swap]);
+  const swapDirection = threadGrouping === "workspace" ? "to-folders" : "to-chats";
   const [workingFolded, setWorkingFolded] = useState(false);
   const [snoozedFolded, setSnoozedFolded] = useState(true);
   const [foldedChatParents, setChatParentFolded, chatFoldMotion] = useFoldedChatParents();
-  const [projectsOpen, setProjectsOpen] = useState(loadProjectsOpen);
   const chatFold = useMemo<ChatFold>(
     () => ({ folded: foldedChatParents, motion: chatFoldMotion, setFolded: setChatParentFolded }),
     [foldedChatParents, chatFoldMotion, setChatParentFolded],
@@ -376,75 +390,180 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
       : [];
   };
 
-  const sidebarFolderGroups = visibleWorkspaceGroups(threadSidebarModel, threadGrouping);
-  const rootGroups = sidebarFolderGroups.filter((group) => group.workspace.kind === "primary");
-  const orphanGroups = sidebarFolderGroups.filter((group) => group.workspace.kind !== "primary");
+  const workspaceGroups = threadSidebarModel.workspaceGroups;
+  const rootGroups = workspaceGroups.filter((group) => group.workspace.kind === "primary");
+  const orphanGroups = workspaceGroups.filter((group) => group.workspace.kind !== "primary");
   const pinnedThreads = threadSidebarModel.pinnedThreads;
   const pinnedSortableIds = pinnedThreads.map(pinnedSortableId);
   const rootGroupIds = rootGroups.map((group) => group.workspace.id);
   const canDrag = rootGroups.length > 1;
-  const folderRows = (
-    <>
-      <SortableContext items={rootGroupIds} strategy={verticalListSortingStrategy}>
-        {rootGroups.map((group) => (
-          <SortableWorkspaceFolder
-            key={group.workspace.id}
-            workspace={group.workspace}
-            threads={threadGrouping === "workspace" ? group.threads : undefined}
-            historyExpanded={expandedHistory.has(workspaceHistoryExpansionKey(group.workspace.id))}
-            onToggleHistory={() =>
-              toggleHistoryExpanded(workspaceHistoryExpansionKey(group.workspace.id))
-            }
-            collapsed={collapsedFolderIds.has(group.workspace.id)}
-            onToggleCollapsed={() =>
-              setFolderCollapsed(group.workspace.id, !collapsedFolderIds.has(group.workspace.id))
-            }
-            canDrag={canDrag}
+  const renderList = (grouping: ThreadGrouping, leaving: boolean) => (
+    <div
+      className="workspace-list"
+      data-testid={leaving ? undefined : "workspace-list"}
+      data-swap={leaving ? undefined : swap ? swapDirection : undefined}
+      data-swap-leaving={leaving ? swapDirection : undefined}
+      inert={leaving || undefined}
+    >
+      {grouping === "time" ? (
+        <>
+          <AttentionSection
+            kind="needs-you"
+            label="Needs you"
+            threads={threadSidebarModel.needsYouThreads}
             selectedWorkspace={selectedWorkspace}
             selectedSession={selectedSession}
-            linkedWorktreeByWorkspaceId={linkedWorktreeByWorkspaceId}
-            wsMenu={wsMenu}
-            api={api}
             threadMenu={threadMenu}
-            onNewThread={onNewThread}
             onArchiveSession={onArchiveSession}
             onSelectSession={onSelectSession}
             onSetSessionPinned={onSetSessionPinned}
           />
-        ))}
-      </SortableContext>
-      {orphanGroups.map((group) => (
-        <section
-          key={group.workspace.id}
-          className="workspace-group"
-          data-workspace-id={group.workspace.id}
-        >
-          <WorkspaceFolderContent
-            workspace={group.workspace}
-            threads={threadGrouping === "workspace" ? group.threads : undefined}
-            historyExpanded={expandedHistory.has(workspaceHistoryExpansionKey(group.workspace.id))}
-            onToggleHistory={() =>
-              toggleHistoryExpanded(workspaceHistoryExpansionKey(group.workspace.id))
-            }
-            collapsed={collapsedFolderIds.has(group.workspace.id)}
-            onToggleCollapsed={() =>
-              setFolderCollapsed(group.workspace.id, !collapsedFolderIds.has(group.workspace.id))
-            }
-            canDrag={false}
+          <AttentionSection
+            kind="working"
+            label="Working"
+            threads={threadSidebarModel.workingThreads}
+            folded={workingFolded}
+            onToggleFolded={() => setWorkingFolded((current) => !current)}
             selectedWorkspace={selectedWorkspace}
             selectedSession={selectedSession}
-            linkedWorktreeByWorkspaceId={linkedWorktreeByWorkspaceId}
-            wsMenu={wsMenu}
-            api={api}
             threadMenu={threadMenu}
-            onNewThread={onNewThread}
             onArchiveSession={onArchiveSession}
             onSelectSession={onSelectSession}
             onSetSessionPinned={onSetSessionPinned}
           />
-        </section>
-      ))}
-    </>
+        </>
+      ) : null}
+      {grouping === "workspace" ? (
+        <>
+          <SortableContext items={rootGroupIds} strategy={verticalListSortingStrategy}>
+            {(leaving ? [] : rootGroups).map((group) => (
+              <SortableWorkspaceFolder
+                key={group.workspace.id}
+                workspace={group.workspace}
+                threads={grouping === "workspace" ? group.threads : undefined}
+                historyExpanded={expandedHistory.has(
+                  workspaceHistoryExpansionKey(group.workspace.id),
+                )}
+                onToggleHistory={() =>
+                  toggleHistoryExpanded(workspaceHistoryExpansionKey(group.workspace.id))
+                }
+                collapsed={collapsedFolderIds.has(group.workspace.id)}
+                onToggleCollapsed={() =>
+                  setFolderCollapsed(
+                    group.workspace.id,
+                    !collapsedFolderIds.has(group.workspace.id),
+                  )
+                }
+                canDrag={canDrag}
+                selectedWorkspace={selectedWorkspace}
+                selectedSession={selectedSession}
+                linkedWorktreeByWorkspaceId={linkedWorktreeByWorkspaceId}
+                wsMenu={wsMenu}
+                api={api}
+                threadMenu={threadMenu}
+                onNewThread={onNewThread}
+                onArchiveSession={onArchiveSession}
+                onSelectSession={onSelectSession}
+                onSetSessionPinned={onSetSessionPinned}
+              />
+            ))}
+          </SortableContext>
+          {(leaving ? workspaceGroups : orphanGroups).map((group) => (
+            <section
+              key={group.workspace.id}
+              className="workspace-group"
+              data-workspace-id={group.workspace.id}
+            >
+              <WorkspaceFolderContent
+                workspace={group.workspace}
+                threads={grouping === "workspace" ? group.threads : undefined}
+                historyExpanded={expandedHistory.has(
+                  workspaceHistoryExpansionKey(group.workspace.id),
+                )}
+                onToggleHistory={() =>
+                  toggleHistoryExpanded(workspaceHistoryExpansionKey(group.workspace.id))
+                }
+                collapsed={collapsedFolderIds.has(group.workspace.id)}
+                onToggleCollapsed={() =>
+                  setFolderCollapsed(
+                    group.workspace.id,
+                    !collapsedFolderIds.has(group.workspace.id),
+                  )
+                }
+                canDrag={false}
+                selectedWorkspace={selectedWorkspace}
+                selectedSession={selectedSession}
+                linkedWorktreeByWorkspaceId={linkedWorktreeByWorkspaceId}
+                wsMenu={wsMenu}
+                api={api}
+                threadMenu={threadMenu}
+                onNewThread={onNewThread}
+                onArchiveSession={onArchiveSession}
+                onSelectSession={onSelectSession}
+                onSetSessionPinned={onSetSessionPinned}
+              />
+            </section>
+          ))}
+        </>
+      ) : null}
+      {pinnedThreads.length > 0 ? (
+        <PinnedThreadsSection
+          pinnedThreads={pinnedThreads}
+          sortableIds={pinnedSortableIds}
+          sortableIdForThread={pinnedSortableId}
+          selectedWorkspace={selectedWorkspace}
+          selectedSession={selectedSession}
+          threadMenu={threadMenu}
+          onArchiveSession={onArchiveSession}
+          onSelectSession={onSelectSession}
+          onSetSessionPinned={onSetSessionPinned}
+        />
+      ) : null}
+      {grouping === "time"
+        ? threadSidebarModel.recencySections.map((section) => (
+            <RecencyThreadSectionView
+              key={section.bucket}
+              section={section}
+              historyExpanded={expandedHistory.has(recencyHistoryExpansionKey(section.bucket))}
+              onToggleHistory={() =>
+                toggleHistoryExpanded(recencyHistoryExpansionKey(section.bucket))
+              }
+              selectedWorkspace={selectedWorkspace}
+              selectedSession={selectedSession}
+              threadMenu={threadMenu}
+              onArchiveSession={onArchiveSession}
+              onSelectSession={onSelectSession}
+              onSetSessionPinned={onSetSessionPinned}
+            />
+          ))
+        : null}
+      <AttentionSection
+        kind="snoozed"
+        label="Snoozed"
+        threads={threadSidebarModel.snoozedThreads}
+        folded={snoozedFolded}
+        onToggleFolded={() => setSnoozedFolded((current) => !current)}
+        selectedWorkspace={selectedWorkspace}
+        selectedSession={selectedSession}
+        threadMenu={threadMenu}
+        onArchiveSession={onArchiveSession}
+        onSelectSession={onSelectSession}
+        onSetSessionPinned={onSetSessionPinned}
+      />
+      {threadSidebarModel.archivedThreads.length > 0 ? (
+        <ArchivedThreadsSection
+          archivedThreads={threadSidebarModel.archivedThreads}
+          open={archivedOpen}
+          onToggle={() => setArchivedOpen((current) => !current)}
+          selectedWorkspace={selectedWorkspace}
+          selectedSession={selectedSession}
+          threadMenu={threadMenu}
+          onUnarchiveSession={onUnarchiveSession}
+          onSelectSession={onSelectSession}
+          onSetSessionPinned={onSetSessionPinned}
+        />
+      ) : null}
+    </div>
   );
 
   function handleDragStart(event: DragStartEvent) {
@@ -692,115 +811,8 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
           >
             <ThreadShortcutContext.Provider value={shortcutByKey}>
               <ChatFoldContext.Provider value={chatFold}>
-                <div className="workspace-list" data-testid="workspace-list">
-                  {threadGrouping === "time" ? (
-                    <>
-                      <AttentionSection
-                        kind="needs-you"
-                        label="Needs you"
-                        threads={threadSidebarModel.needsYouThreads}
-                        selectedWorkspace={selectedWorkspace}
-                        selectedSession={selectedSession}
-                        threadMenu={threadMenu}
-                        onArchiveSession={onArchiveSession}
-                        onSelectSession={onSelectSession}
-                        onSetSessionPinned={onSetSessionPinned}
-                      />
-                      <AttentionSection
-                        kind="working"
-                        label="Working"
-                        threads={threadSidebarModel.workingThreads}
-                        folded={workingFolded}
-                        onToggleFolded={() => setWorkingFolded((current) => !current)}
-                        selectedWorkspace={selectedWorkspace}
-                        selectedSession={selectedSession}
-                        threadMenu={threadMenu}
-                        onArchiveSession={onArchiveSession}
-                        onSelectSession={onSelectSession}
-                        onSetSessionPinned={onSetSessionPinned}
-                      />
-                    </>
-                  ) : null}
-                  {threadGrouping === "time" ? (
-                    <section
-                      className="attention-group"
-                      aria-label="Projects"
-                      data-attention="projects"
-                    >
-                      <AttentionHead
-                        label="Projects"
-                        count={sidebarFolderGroups.length}
-                        folded={!projectsOpen}
-                        onToggle={() => {
-                          saveProjectsOpen(!projectsOpen);
-                          setProjectsOpen(!projectsOpen);
-                        }}
-                      />
-                      {projectsOpen ? folderRows : null}
-                    </section>
-                  ) : (
-                    folderRows
-                  )}
-                  {pinnedThreads.length > 0 ? (
-                    <PinnedThreadsSection
-                      pinnedThreads={pinnedThreads}
-                      sortableIds={pinnedSortableIds}
-                      sortableIdForThread={pinnedSortableId}
-                      selectedWorkspace={selectedWorkspace}
-                      selectedSession={selectedSession}
-                      threadMenu={threadMenu}
-                      onArchiveSession={onArchiveSession}
-                      onSelectSession={onSelectSession}
-                      onSetSessionPinned={onSetSessionPinned}
-                    />
-                  ) : null}
-                  {threadGrouping === "time"
-                    ? threadSidebarModel.recencySections.map((section) => (
-                        <RecencyThreadSectionView
-                          key={section.bucket}
-                          section={section}
-                          historyExpanded={expandedHistory.has(
-                            recencyHistoryExpansionKey(section.bucket),
-                          )}
-                          onToggleHistory={() =>
-                            toggleHistoryExpanded(recencyHistoryExpansionKey(section.bucket))
-                          }
-                          selectedWorkspace={selectedWorkspace}
-                          selectedSession={selectedSession}
-                          threadMenu={threadMenu}
-                          onArchiveSession={onArchiveSession}
-                          onSelectSession={onSelectSession}
-                          onSetSessionPinned={onSetSessionPinned}
-                        />
-                      ))
-                    : null}
-                  <AttentionSection
-                    kind="snoozed"
-                    label="Snoozed"
-                    threads={threadSidebarModel.snoozedThreads}
-                    folded={snoozedFolded}
-                    onToggleFolded={() => setSnoozedFolded((current) => !current)}
-                    selectedWorkspace={selectedWorkspace}
-                    selectedSession={selectedSession}
-                    threadMenu={threadMenu}
-                    onArchiveSession={onArchiveSession}
-                    onSelectSession={onSelectSession}
-                    onSetSessionPinned={onSetSessionPinned}
-                  />
-                  {threadSidebarModel.archivedThreads.length > 0 ? (
-                    <ArchivedThreadsSection
-                      archivedThreads={threadSidebarModel.archivedThreads}
-                      open={archivedOpen}
-                      onToggle={() => setArchivedOpen((current) => !current)}
-                      selectedWorkspace={selectedWorkspace}
-                      selectedSession={selectedSession}
-                      threadMenu={threadMenu}
-                      onUnarchiveSession={onUnarchiveSession}
-                      onSelectSession={onSelectSession}
-                      onSetSessionPinned={onSetSessionPinned}
-                    />
-                  ) : null}
-                </div>
+                {renderList(threadGrouping, false)}
+                {swap ? renderList(swap.from, true) : null}
                 <DragOverlay>
                   {activePinnedThread ? (
                     <ThreadSessionRow
@@ -839,25 +851,6 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
     </aside>
   );
 });
-
-// Renderer-local view state, stored like the folded chat parents (chat-fold.ts). Shut by default.
-const PROJECTS_OPEN_KEY = "pi-gui:projects-section-open:v1";
-
-function loadProjectsOpen(): boolean {
-  try {
-    return globalThis.localStorage?.getItem(PROJECTS_OPEN_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function saveProjectsOpen(open: boolean): void {
-  try {
-    globalThis.localStorage?.setItem(PROJECTS_OPEN_KEY, open ? "1" : "0");
-  } catch {
-    // localStorage unavailable; skip persistence
-  }
-}
 
 /* ── Sortable workspace folder ─────────────────────────── */
 
@@ -940,9 +933,9 @@ function WorkspaceFolderContent(
     onSetSessionPinned,
     dragHandleProps,
   } = props;
-  // Folder grouping lists threads under each folder, so the row folds them
-  // like Codex; with no threads to fold, the row just selects the folder.
-  const toggleCollapsed = threads?.length ? onToggleCollapsed : undefined;
+  // Folders view passes each folder its chats (possibly none), so its row always folds them.
+  // Without `threads` (the drag overlay) the row only selects the folder.
+  const toggleCollapsed = threads ? onToggleCollapsed : undefined;
   const collapsible = toggleCollapsed !== undefined;
   const history =
     threads && !collapsed ? threadHistoryPreview(threads, historyExpanded) : undefined;
@@ -1158,6 +1151,9 @@ function WorkspaceFolderContent(
           </div>
         </form>
       ) : null}
+      {threads?.length === 0 && !collapsed ? (
+        <p className="workspace-group__empty">No chats yet</p>
+      ) : null}
       {history && onSelectSession && onArchiveSession && onSetSessionPinned ? (
         <>
           <VirtualSessionList
@@ -1224,9 +1220,36 @@ function AttentionSection({
 }) {
   if (threads.length === 0) return null;
   const count = threads.filter((thread) => !thread.depth).length;
+  const headContent = (
+    <>
+      {onToggleFolded ? (
+        <span
+          aria-hidden="true"
+          className={`attention-group__chevron ${folded ? "attention-group__chevron--folded" : ""}`}
+        >
+          <ChevronDownIcon />
+        </span>
+      ) : (
+        <span aria-hidden="true" className="attention-group__dot" />
+      )}
+      <span>{label}</span>
+      <span className="attention-group__count">{count}</span>
+    </>
+  );
   return (
     <section className="attention-group" aria-label={label} data-attention={kind}>
-      <AttentionHead label={label} count={count} folded={folded} onToggle={onToggleFolded} />
+      {onToggleFolded ? (
+        <button
+          aria-expanded={!folded}
+          className="attention-group__head attention-group__head--button"
+          type="button"
+          onClick={onToggleFolded}
+        >
+          {headContent}
+        </button>
+      ) : (
+        <div className="attention-group__head">{headContent}</div>
+      )}
       {folded ? null : (
         <VirtualSessionList
           className="session-list session-list--history"
@@ -1248,47 +1271,6 @@ function AttentionSection({
         />
       )}
     </section>
-  );
-}
-
-function AttentionHead({
-  label,
-  count,
-  folded,
-  onToggle,
-}: {
-  readonly label: string;
-  readonly count: number;
-  readonly folded: boolean;
-  readonly onToggle?: () => void;
-}) {
-  const content = (
-    <>
-      {onToggle ? (
-        <span
-          aria-hidden="true"
-          className={`attention-group__chevron ${folded ? "attention-group__chevron--folded" : ""}`}
-        >
-          <ChevronDownIcon />
-        </span>
-      ) : (
-        <span aria-hidden="true" className="attention-group__dot" />
-      )}
-      <span>{label}</span>
-      <span className="attention-group__count">{count}</span>
-    </>
-  );
-  return onToggle ? (
-    <button
-      aria-expanded={!folded}
-      className="attention-group__head attention-group__head--button"
-      type="button"
-      onClick={onToggle}
-    >
-      {content}
-    </button>
-  ) : (
-    <div className="attention-group__head">{content}</div>
   );
 }
 
