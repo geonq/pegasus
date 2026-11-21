@@ -42,6 +42,7 @@ import {
 const MAX_TEXT_BYTES = 128 * 1024;
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 const MAX_REMOTE_ATTACHMENTS = 16;
+const MAX_SCOPED_MODEL_PATTERNS = 500;
 const IMAGE_MIME_TYPES = new Set<string>(
   SUPPORTED_COMPOSER_IMAGE_TYPES.map((type) => type.mimeType),
 );
@@ -124,6 +125,10 @@ export type RemoteDesktopInvocation =
       readonly args: readonly [string, string, string, string];
     }
   | { readonly method: "setDefaultModel"; readonly args: readonly [string, string, string] }
+  | {
+      readonly method: "setScopedModelPatterns";
+      readonly args: readonly [string, readonly string[]];
+    }
   | {
       readonly method: "setSessionThinkingLevel";
       readonly args: readonly [string, string, string];
@@ -461,6 +466,23 @@ export function validateRemoteDesktopInvocation(
           expectString(args[2], "modelId", 256),
         ],
       };
+    }
+    case "setScopedModelPatterns": {
+      // Settings > Models: an empty list means "all models" in pi, so the UI never sends one.
+      expectArgs(args, 2);
+      const workspaceId = expectAuthorizedWorkspace(args[0], workspaceIds);
+      const rawPatterns = args[1];
+      if (
+        !Array.isArray(rawPatterns) ||
+        rawPatterns.length === 0 ||
+        rawPatterns.length > MAX_SCOPED_MODEL_PATTERNS
+      ) {
+        throw new TypeError(
+          `patterns must be a list of 1 to ${MAX_SCOPED_MODEL_PATTERNS} model patterns.`,
+        );
+      }
+      const patterns = rawPatterns.map((pattern: unknown) => expectString(pattern, "pattern", 256));
+      return { method: allowedMethod, args: [workspaceId, patterns] };
     }
     case "setSessionThinkingLevel": {
       expectArgs(args, 3);

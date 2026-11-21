@@ -500,3 +500,54 @@ test("remote review and terminal calls stay inside authorized workspaces", () =>
     validateRemoteDesktopInvocation("setTerminalFocused", [true], workspaceScope),
   ).toThrow("not allowed");
 });
+
+test("remote Settings > Models switches validate the scoped model list", () => {
+  expect(
+    validateRemoteDesktopInvocation(
+      "setScopedModelPatterns",
+      [allowedWorkspaceId, ["anthropic/claude-opus-5-5", "openai/*"]],
+      workspaceScope,
+    ),
+  ).toEqual({
+    method: "setScopedModelPatterns",
+    args: [allowedWorkspaceId, ["anthropic/claude-opus-5-5", "openai/*"]],
+  });
+  expect(() =>
+    validateRemoteDesktopInvocation(
+      "setScopedModelPatterns",
+      [deniedWorkspaceId, ["openai/*"]],
+      workspaceScope,
+    ),
+  ).toThrow("not authorized");
+  expect(() =>
+    validateRemoteDesktopInvocation(
+      "setScopedModelPatterns",
+      [allowedWorkspaceId, []],
+      workspaceScope,
+    ),
+  ).toThrow(TypeError);
+  expect(() =>
+    validateRemoteDesktopInvocation(
+      "setScopedModelPatterns",
+      [allowedWorkspaceId, ["openai/*", 42]],
+      workspaceScope,
+    ),
+  ).toThrow(TypeError);
+  expect(() =>
+    validateRemoteDesktopInvocation(
+      "setScopedModelPatterns",
+      [allowedWorkspaceId, ["x".repeat(257)]],
+      workspaceScope,
+    ),
+  ).toThrow(TypeError);
+  expect(() =>
+    validateRemoteDesktopInvocation(
+      "setScopedModelPatterns",
+      [allowedWorkspaceId, Array.from({ length: 501 }, (_, index) => `model-${index}`)],
+      workspaceScope,
+    ),
+  ).toThrow(TypeError);
+  expect(() =>
+    validateRemoteDesktopInvocation("setScopedModelPatterns", [allowedWorkspaceId], workspaceScope),
+  ).toThrow(TypeError);
+});

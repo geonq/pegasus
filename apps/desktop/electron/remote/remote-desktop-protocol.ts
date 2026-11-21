@@ -27,6 +27,7 @@ export const REMOTE_DESKTOP_PI_METHODS = [
   "cancelCurrentRun",
   "setSessionModel",
   "setDefaultModel",
+  "setScopedModelPatterns",
   "setSessionThinkingLevel",
   "setSessionPermission",
   "respondToHostUiRequest",

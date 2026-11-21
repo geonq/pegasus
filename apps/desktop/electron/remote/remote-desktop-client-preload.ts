@@ -61,6 +61,7 @@ const REMOTE_METHODS = new Set<PropertyKey>([
   "cancelCurrentRun",
   "setSessionModel",
   "setDefaultModel",
+  "setScopedModelPatterns",
   "setSessionThinkingLevel",
   "setSessionPermission",
   "respondToHostUiRequest",
@@ -318,6 +319,8 @@ export function createRemoteDesktopClientApi(
             return (...args: unknown[]) => runState("setSessionModel", args);
           case "setDefaultModel":
             return (...args: unknown[]) => runState("setDefaultModel", args);
+    case "setScopedModelPatterns":
+      return (...args: unknown[]) => runState("setScopedModelPatterns", args);
           case "setSessionThinkingLevel":
             return (...args: unknown[]) => runState("setSessionThinkingLevel", args);
           case "setSessionPermission":
