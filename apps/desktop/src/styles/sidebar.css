@@ -1549,73 +1549,19 @@
   overflow-wrap: anywhere;
 }
 
-/* Chats / Folders tab switch: the list we left fades and slides out toward the tab we left, the
-   new one in from the other side. The outgoing copy is overlaid, so nothing reflows. */
-.sidebar__section {
-  position: relative;
-}
+/* Chats / Folders tab switch. A tab used many times a day gets one short fade and no movement: the
+   new list (and the folder actions above it) fade in where they will stay, so nothing slides,
+   overlaps the header or jumps when the folder actions appear. */
+[data-swap]:is(.workspace-list, .sidebar__folder-actions) {
+  transition: opacity var(--motion-base) var(--ease-out);
 
-.workspace-list[data-swap],
-.workspace-list[data-swap-leaving] {
-  --swap-x: 10px;
-  transition:
-    opacity 200ms var(--ease-out),
-    transform 200ms var(--ease-out);
-}
-
-.workspace-list[data-swap="to-folders"] {
   @starting-style {
     opacity: 0;
-    transform: translateX(var(--swap-x));
   }
-}
-
-.workspace-list[data-swap="to-chats"] {
-  @starting-style {
-    opacity: 0;
-    transform: translateX(calc(var(--swap-x) * -1));
-  }
-}
-
-.workspace-list[data-swap-leaving] {
-  position: absolute;
-  inset: 0 0 auto 0;
-  pointer-events: none;
-  animation: workspace-list-leave 200ms var(--ease-out) forwards;
-}
-
-@keyframes workspace-list-leave {
-  to {
-    opacity: 0;
-    transform: translateX(var(--leave-x));
-  }
-}
-
-.workspace-list[data-swap-leaving="to-folders"] {
-  --leave-x: -10px;
-}
-
-.workspace-list[data-swap-leaving="to-chats"] {
-  --leave-x: 10px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .workspace-list[data-swap],
-  .workspace-list[data-swap-leaving] {
-    transition-duration: 120ms;
-    animation-duration: 120ms;
-  }
-
-  .workspace-list[data-swap] {
-    @starting-style {
-      transform: none;
-    }
-  }
-
-  @keyframes workspace-list-leave {
-    to {
-      opacity: 0;
-      transform: none;
-    }
+  [data-swap]:is(.workspace-list, .sidebar__folder-actions) {
+    transition-duration: var(--motion-fast);
   }
 }

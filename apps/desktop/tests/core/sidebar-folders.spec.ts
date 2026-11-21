@@ -43,17 +43,25 @@ test("Chats lists no folders; Folders folds each folder open and shut from its r
     await expect(window.locator(".workspace-row")).toHaveCount(0);
     await shot("chats-view.png");
 
-    // Tab switch: the new list carries the swap direction and a 180-220 ms transition.
+    // Tab switch: one short fade in place; no slide, and the old list is never drawn beside it.
     const folderTab = window
       .getByRole("group", { name: "Sidebar view" })
       .getByRole("button", { name: "Folders", exact: true });
     await folderTab.click();
     const incoming = window.locator(".workspace-list[data-swap]");
     await expect(incoming).toHaveAttribute("data-swap", "to-folders");
-    const duration = await incoming.evaluate((el) => getComputedStyle(el).transitionDuration);
-    const ms = Number.parseFloat(duration) * 1000;
-    expect(ms).toBeGreaterThanOrEqual(180);
-    expect(ms).toBeLessThanOrEqual(220);
+    const swapStyle = await incoming.evaluate((el) => {
+      const computed = getComputedStyle(el);
+      return {
+        property: computed.transitionProperty,
+        duration: computed.transitionDuration,
+        transform: computed.transform,
+      };
+    });
+    expect(swapStyle.property).toBe("opacity");
+    expect(Number.parseFloat(swapStyle.duration) * 1000).toBeLessThanOrEqual(150);
+    expect(swapStyle.transform).toBe("none");
+    await expect(window.locator(".workspace-list")).toHaveCount(1);
     await shot("tab-swap-midframe.png");
     await expect(window.locator(".workspace-list")).toHaveCount(1);
 
@@ -121,7 +129,7 @@ test("Chats lists no folders; Folders folds each folder open and shut from its r
   }
 });
 
-test("reduced motion swaps tabs with a plain crossfade", async () => {
+test("reduced motion swaps tabs with a shorter fade", async () => {
   test.setTimeout(90_000);
   const userDataDir = await makeUserDataDir("pi-app-user-data-folders-motion-");
   const workspacePath = await makeWorkspace("folders-motion");
@@ -146,10 +154,7 @@ test("reduced motion swaps tabs with a plain crossfade", async () => {
     });
     expect(style.transform).toBe("none");
     expect(Number.parseFloat(style.duration) * 1000).toBeLessThanOrEqual(120);
-    const leaving = window.locator(".workspace-list[data-swap-leaving]");
-    if (await leaving.count()) {
-      expect(await leaving.evaluate((el) => getComputedStyle(el).transform)).toBe("none");
-    }
+    await expect(window.locator(".workspace-list")).toHaveCount(1);
   } finally {
     await harness.close();
   }

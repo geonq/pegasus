@@ -178,9 +178,6 @@ export function Sidebar(props: SidebarProps) {
   return <SidebarContent {...useStableHandlers({ ...props, wsMenu, threadMenu })} />;
 }
 
-/** Matches the tab-swap transition in sidebar.css. */
-const SWAP_MS = 220;
-
 const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
   const signInNeedsOwner = useSignIns().some((signIn) => signIn.state !== "ok");
   const {
@@ -224,18 +221,14 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
   } as CSSProperties;
   const [activeId, setActiveId] = useState<string | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
-  // Tab switch: the list we left stays mounted, inert, for SWAP_MS while it fades out (sidebar.css).
+  // Tab switch: the new list fades in once (sidebar.css). The old list is not kept on screen, so
+  // nothing is drawn twice or out of place while the folder actions appear or disappear.
   const [shownGrouping, setShownGrouping] = useState(threadGrouping);
-  const [swap, setSwap] = useState<{ readonly from: ThreadGrouping } | null>(null);
+  const [swapped, setSwapped] = useState(false);
   if (shownGrouping !== threadGrouping) {
     setShownGrouping(threadGrouping);
-    setSwap({ from: shownGrouping });
+    setSwapped(true);
   }
-  useEffect(() => {
-    if (!swap) return;
-    const timer = window.setTimeout(() => setSwap(null), SWAP_MS);
-    return () => window.clearTimeout(timer);
-  }, [swap]);
   const swapDirection = threadGrouping === "workspace" ? "to-folders" : "to-chats";
   const [workingFolded, setWorkingFolded] = useState(false);
   const [snoozedFolded, setSnoozedFolded] = useState(true);
@@ -397,13 +390,13 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
   const pinnedSortableIds = pinnedThreads.map(pinnedSortableId);
   const rootGroupIds = rootGroups.map((group) => group.workspace.id);
   const canDrag = rootGroups.length > 1;
-  const renderList = (grouping: ThreadGrouping, leaving: boolean) => (
+  const renderList = (grouping: ThreadGrouping) => (
     <div
       className="workspace-list"
-      data-testid={leaving ? undefined : "workspace-list"}
-      data-swap={leaving ? undefined : swap ? swapDirection : undefined}
-      data-swap-leaving={leaving ? swapDirection : undefined}
-      inert={leaving || undefined}
+      data-testid="workspace-list"
+      data-swap={swapped ? swapDirection : undefined}
+      // A new element per tab, so its @starting-style fade runs on every switch.
+      key={grouping}
     >
       {grouping === "time" ? (
         <>
@@ -436,7 +429,7 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
       {grouping === "workspace" ? (
         <>
           <SortableContext items={rootGroupIds} strategy={verticalListSortingStrategy}>
-            {(leaving ? [] : rootGroups).map((group) => (
+            {rootGroups.map((group) => (
               <SortableWorkspaceFolder
                 key={group.workspace.id}
                 workspace={group.workspace}
@@ -468,7 +461,7 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
               />
             ))}
           </SortableContext>
-          {(leaving ? workspaceGroups : orphanGroups).map((group) => (
+          {orphanGroups.map((group) => (
             <section
               key={group.workspace.id}
               className="workspace-group"
@@ -761,7 +754,7 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
         </div>
 
         {threadGrouping === "workspace" ? (
-          <div className="sidebar__folder-actions">
+          <div className="sidebar__folder-actions" data-swap={swapped ? swapDirection : undefined}>
             <button
               className="sidebar__nav-item"
               type="button"
@@ -811,8 +804,7 @@ const SidebarContent = memo(function SidebarContent(props: SidebarProps) {
           >
             <ThreadShortcutContext.Provider value={shortcutByKey}>
               <ChatFoldContext.Provider value={chatFold}>
-                {renderList(threadGrouping, false)}
-                {swap ? renderList(swap.from, true) : null}
+                {renderList(threadGrouping)}
                 <DragOverlay>
                   {activePinnedThread ? (
                     <ThreadSessionRow
