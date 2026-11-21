@@ -551,3 +551,59 @@ test("remote Settings > Models switches validate the scoped model list", () => {
     validateRemoteDesktopInvocation("setScopedModelPatterns", [allowedWorkspaceId], workspaceScope),
   ).toThrow(TypeError);
 });
+
+test("remote sidebar actions fold projects, pin and mark chats only in authorized workspaces", () => {
+  const target = { workspaceId: allowedWorkspaceId, sessionId: "s1" };
+  const denied = { workspaceId: deniedWorkspaceId, sessionId: "s1" };
+  expect(
+    validateRemoteDesktopInvocation(
+      "setWorkspaceCollapsed",
+      [allowedWorkspaceId, true],
+      workspaceScope,
+    ),
+  ).toEqual({ method: "setWorkspaceCollapsed", args: [allowedWorkspaceId, true] });
+  expect(() =>
+    validateRemoteDesktopInvocation(
+      "setWorkspaceCollapsed",
+      [deniedWorkspaceId, true],
+      workspaceScope,
+    ),
+  ).toThrow("not authorized");
+  expect(() =>
+    validateRemoteDesktopInvocation(
+      "setWorkspaceCollapsed",
+      [allowedWorkspaceId, "yes"],
+      workspaceScope,
+    ),
+  ).toThrow(TypeError);
+  expect(validateRemoteDesktopInvocation("setSidebarCollapsed", [false], workspaceScope)).toEqual({
+    method: "setSidebarCollapsed",
+    args: [false],
+  });
+  expect(() => validateRemoteDesktopInvocation("setSidebarCollapsed", [], workspaceScope)).toThrow(
+    TypeError,
+  );
+  expect(validateRemoteDesktopInvocation("markSessionRead", [target], workspaceScope)).toEqual({
+    method: "markSessionRead",
+    args: [target],
+  });
+  expect(() =>
+    validateRemoteDesktopInvocation("markSessionRead", [denied], workspaceScope),
+  ).toThrow("not authorized");
+  expect(
+    validateRemoteDesktopInvocation("setSessionPinned", [target, true], workspaceScope),
+  ).toEqual({
+    method: "setSessionPinned",
+    args: [target, true],
+  });
+  expect(() =>
+    validateRemoteDesktopInvocation("setSessionPinned", [denied, true], workspaceScope),
+  ).toThrow("not authorized");
+  expect(() =>
+    validateRemoteDesktopInvocation(
+      "setSessionPinned",
+      [{ ...target, extra: 1 }, true],
+      workspaceScope,
+    ),
+  ).toThrow();
+});

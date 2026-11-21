@@ -90,6 +90,19 @@ export type RemoteDesktopInvocation =
   | { readonly method: "setActiveView"; readonly args: readonly [AppView] }
   | { readonly method: "setThreadGrouping"; readonly args: readonly ["time" | "workspace"] }
   | { readonly method: "selectWorkspace"; readonly args: readonly [string] }
+  | { readonly method: "setWorkspaceCollapsed"; readonly args: readonly [string, boolean] }
+  | { readonly method: "setSidebarCollapsed"; readonly args: readonly [boolean] }
+  | {
+      readonly method: "markSessionRead";
+      readonly args: readonly [{ readonly workspaceId: string; readonly sessionId: string }];
+    }
+  | {
+      readonly method: "setSessionPinned";
+      readonly args: readonly [
+        { readonly workspaceId: string; readonly sessionId: string },
+        boolean,
+      ];
+    }
   | {
       readonly method: "selectSession";
       readonly args: readonly [{ readonly workspaceId: string; readonly sessionId: string }];
@@ -323,6 +336,38 @@ export function validateRemoteDesktopInvocation(
     case "selectWorkspace": {
       expectArgs(args, 1);
       return { method: allowedMethod, args: [expectAuthorizedWorkspace(args[0], workspaceIds)] };
+    }
+    // Sidebar state: folding a project, the sidebar, read marks and pins change no files or runs.
+    case "setWorkspaceCollapsed": {
+      expectArgs(args, 2);
+      return {
+        method: allowedMethod,
+        args: [
+          expectAuthorizedWorkspace(args[0], workspaceIds),
+          expectBoolean(args[1], "collapsed"),
+        ],
+      };
+    }
+    case "setSidebarCollapsed": {
+      expectArgs(args, 1);
+      return { method: allowedMethod, args: [expectBoolean(args[0], "collapsed")] };
+    }
+    case "markSessionRead": {
+      expectArgs(args, 1);
+      return {
+        method: allowedMethod,
+        args: [expectAuthorizedWorkspaceSessionTarget(args[0], workspaceIds)],
+      };
+    }
+    case "setSessionPinned": {
+      expectArgs(args, 2);
+      return {
+        method: allowedMethod,
+        args: [
+          expectAuthorizedWorkspaceSessionTarget(args[0], workspaceIds),
+          expectBoolean(args[1], "pinned"),
+        ],
+      };
     }
     case "selectSession": {
       expectArgs(args, 1);
@@ -917,6 +962,11 @@ function expectRemoteImages(value: unknown): readonly ComposerImageAttachment[] 
       data: attachment.data,
     };
   });
+}
+
+function expectBoolean(value: unknown, name: string): boolean {
+  if (typeof value !== "boolean") throw new TypeError(`${name} must be a boolean.`);
+  return value;
 }
 
 function expectString(value: unknown, name: string, maxLength: number): string {

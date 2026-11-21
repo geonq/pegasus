@@ -62,6 +62,10 @@ const REMOTE_METHODS = new Set<PropertyKey>([
   "setSessionModel",
   "setDefaultModel",
   "setScopedModelPatterns",
+  "setWorkspaceCollapsed",
+  "setSidebarCollapsed",
+  "markSessionRead",
+  "setSessionPinned",
   "setSessionThinkingLevel",
   "setSessionPermission",
   "respondToHostUiRequest",
@@ -319,8 +323,12 @@ export function createRemoteDesktopClientApi(
             return (...args: unknown[]) => runState("setSessionModel", args);
           case "setDefaultModel":
             return (...args: unknown[]) => runState("setDefaultModel", args);
-    case "setScopedModelPatterns":
-      return (...args: unknown[]) => runState("setScopedModelPatterns", args);
+          case "setScopedModelPatterns":
+          case "setWorkspaceCollapsed":
+          case "setSidebarCollapsed":
+          case "markSessionRead":
+          case "setSessionPinned":
+            return (...args: unknown[]) => runState(property, args);
           case "setSessionThinkingLevel":
             return (...args: unknown[]) => runState("setSessionThinkingLevel", args);
           case "setSessionPermission":
