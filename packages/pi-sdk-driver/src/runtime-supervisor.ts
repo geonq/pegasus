@@ -687,6 +687,15 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     return this.buildSnapshot(context);
   }
 
+  /**
+   * The workspace's model runtime, including the providers its extensions registered
+   * (Gemini via agy, the Claude CLI accounts). One-shot calls such as the thread title
+   * use it so they can reach every model a chat can.
+   */
+  async modelRuntimeFor(workspace: WorkspaceRef): Promise<ModelRuntime> {
+    return (await this.ensureContext(workspace)).modelRuntime;
+  }
+
   /** The built-in's name when `path` is a pi-gui built-in extension, which Settings toggles app-wide. */
   builtinExtensionName(path: string): string | undefined {
     return findBuiltinExtension(this.builtinExtensions, path)?.name;

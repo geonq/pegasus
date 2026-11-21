@@ -25,14 +25,17 @@ export interface GenerateOneShotTextOptions {
 export async function generateOneShotText(
   workspace: WorkspaceRef,
   options: GenerateOneShotTextOptions,
-  deps: { readonly agentDir: string },
+  deps: { readonly agentDir: string; readonly modelRuntime?: () => Promise<ModelRuntime> },
 ): Promise<string | null> {
   if (!options.prompt.trim() || options.signal?.aborted) return null;
-  const modelRuntime = await ModelRuntime.create({
-    authPath: join(deps.agentDir, "auth.json"),
-    modelsPath: join(deps.agentDir, "models.json"),
-    refreshOnCreate: false,
-  });
+  // The workspace runtime carries extension providers (Gemini via agy); a fresh one would not.
+  const modelRuntime = deps.modelRuntime
+    ? await deps.modelRuntime()
+    : await ModelRuntime.create({
+        authPath: join(deps.agentDir, "auth.json"),
+        modelsPath: join(deps.agentDir, "models.json"),
+        refreshOnCreate: false,
+      });
   await modelRuntime.refresh({ allowNetwork: false });
   const createOptions: CreateAgentSessionOptions = {
     cwd: workspace.path,

@@ -20,6 +20,12 @@ export interface GenerateThreadTitleOptions {
 
 interface ThreadTitleGeneratorDeps {
   readonly agentDir: string;
+  /**
+   * The workspace's runtime with its extension providers. Without it only built-in and
+   * models.json providers resolve, so a chat on an extension provider (Gemini via agy)
+   * got no title and fell back to its prompt.
+   */
+  readonly modelRuntime?: () => Promise<ModelRuntime>;
 }
 
 const MAX_THREAD_TITLE_LENGTH = 36;
@@ -47,11 +53,13 @@ export async function generateThreadTitle(
     retry: { enabled: false },
   });
   const resourceLoader = createThreadTitleResourceLoader();
-  const modelRuntime = await ModelRuntime.create({
-    authPath: join(deps.agentDir, "auth.json"),
-    modelsPath: join(deps.agentDir, "models.json"),
-    refreshOnCreate: false,
-  });
+  const modelRuntime = deps.modelRuntime
+    ? await deps.modelRuntime()
+    : await ModelRuntime.create({
+        authPath: join(deps.agentDir, "auth.json"),
+        modelsPath: join(deps.agentDir, "models.json"),
+        refreshOnCreate: false,
+      });
   await modelRuntime.refresh({ allowNetwork: false });
 
   const createOptions: CreateAgentSessionOptions = {

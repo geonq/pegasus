@@ -194,7 +194,7 @@ export class PiSdkDriver implements SessionDriver {
     workspace: WorkspaceRef,
     options: GenerateOneShotTextOptions,
   ): Promise<string | null> {
-    return generateOneShotText(workspace, options, { agentDir: this.agentDir });
+    return generateOneShotText(workspace, options, this.oneShotDeps(workspace));
   }
 
   generateThreadTitle(
@@ -206,14 +206,18 @@ export class PiSdkDriver implements SessionDriver {
         (override) =>
           override !== undefined
             ? override
-            : generateThreadTitle(workspace, options, {
-                agentDir: this.agentDir,
-              }),
+            : generateThreadTitle(workspace, options, this.oneShotDeps(workspace)),
       );
     }
-    return generateThreadTitle(workspace, options, {
+    return generateThreadTitle(workspace, options, this.oneShotDeps(workspace));
+  }
+
+  /** One-shot calls resolve models through the workspace runtime, extension providers included. */
+  private oneShotDeps(workspace: WorkspaceRef) {
+    return {
       agentDir: this.agentDir,
-    });
+      modelRuntime: () => this.runtimeSupervisor.modelRuntimeFor(workspace),
+    };
   }
 }
 
