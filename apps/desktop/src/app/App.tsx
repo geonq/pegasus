@@ -25,6 +25,7 @@ import { canTogglePrimarySidebar } from "./app-shell-utils";
 import { useDesktopCommands } from "./use-desktop-commands";
 
 import { RunningLabel } from "../features/conversation/hooks/use-running-label";
+import { chatPromptHistory } from "../features/conversation/prompt-history";
 import { countRender } from "../lib/render-count";
 import { useTypeToFocusComposer } from "../features/conversation/hooks/use-type-to-focus-composer";
 
@@ -458,6 +459,11 @@ export default function App() {
       : null;
 
   const activeTranscript = selectedTranscriptForSession?.transcript ?? [];
+  // ArrowUp in this chat recalls this chat's own prompts, not the last one sent anywhere.
+  const chatPrompts = useMemo(
+    () => chatPromptHistory(selectedTranscriptForSession?.transcript ?? []),
+    [selectedTranscriptForSession?.transcript],
+  );
 
   const pins = usePinnedCards(selectedSessionKey, activeTranscript);
 
@@ -1056,6 +1062,8 @@ export default function App() {
     onNewThreadComposerError: newThread.setComposerError,
 
     annotations: transcriptAnnotations,
+
+    chatPrompts,
   });
 
   useEffect(() => {

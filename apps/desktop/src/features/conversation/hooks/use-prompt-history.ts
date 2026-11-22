@@ -1,4 +1,4 @@
-import { useCallback, useRef, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, type KeyboardEvent } from "react";
 import {
   caretAllowsHistory,
   idleNavigation,
@@ -13,9 +13,20 @@ import {
 let sharedHistory: readonly string[] | undefined;
 const history = () => (sharedHistory ??= loadPromptHistory());
 
-/** ArrowUp/ArrowDown recall of sent prompts for one composer textarea. */
-export function usePromptHistory() {
+/**
+ * ArrowUp/ArrowDown recall of sent prompts for one composer textarea. With `chatPrompts` (an open
+ * chat's own prompts, newest first) only that chat's prompts are recalled, on any machine; without
+ * it (the new-thread composer) the window-wide history is used.
+ */
+export function usePromptHistory(chatPrompts?: readonly string[], chatKey?: string) {
   const navigation = useRef<PromptHistoryNavigation>(idleNavigation);
+  const chatPromptsRef = useRef(chatPrompts);
+  chatPromptsRef.current = chatPrompts;
+
+  // Switching chats starts from that chat's live draft, not mid-way through another chat's prompts.
+  useEffect(() => {
+    navigation.current = idleNavigation;
+  }, [chatKey]);
 
   const recordSentPrompt = useCallback((prompt: string) => {
     sharedHistory = recordPrompt(loadPromptHistory(), prompt);
@@ -38,8 +49,9 @@ export function usePromptHistory() {
       if (!caretAllowsHistory(draft, textarea.selectionStart, textarea.selectionEnd, direction)) {
         return false;
       }
-      if (direction === "older") sharedHistory = loadPromptHistory();
-      const step = stepPromptHistory(history(), navigation.current, draft, direction);
+      const own = chatPromptsRef.current;
+      if (!own && direction === "older") sharedHistory = loadPromptHistory();
+      const step = stepPromptHistory(own ?? history(), navigation.current, draft, direction);
       if (!step) return false;
       event.preventDefault();
       navigation.current = step.navigation;

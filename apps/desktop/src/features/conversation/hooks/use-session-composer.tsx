@@ -46,6 +46,8 @@ interface UseSessionComposerParams {
   readonly appendNewThreadAttachment: (attachment: ComposerImageAttachment) => void;
   readonly onNewThreadComposerError: (message: string) => void;
   readonly annotations: TranscriptAnnotations;
+  /** This chat's own prompts, newest first: what ArrowUp recalls here. */
+  readonly chatPrompts: readonly string[];
 }
 
 export function useSessionComposer(params: UseSessionComposerParams) {
@@ -67,10 +69,14 @@ export function useSessionComposer(params: UseSessionComposerParams) {
     appendNewThreadAttachment,
     onNewThreadComposerError,
     annotations,
+    chatPrompts,
   } = params;
 
   const [attachmentsClearedOnSubmit, setAttachmentsClearedOnSubmit] = useState(false);
-  const { recordSentPrompt, handlePromptHistoryKeyDown } = usePromptHistory();
+  const { recordSentPrompt, handlePromptHistoryKeyDown } = usePromptHistory(
+    chatPrompts,
+    selectedSession?.id,
+  );
   const composerAttachments = attachmentsClearedOnSubmit
     ? []
     : (snapshot?.composerAttachments ?? []);

@@ -1,10 +1,25 @@
 import { expect, test } from "@playwright/test";
 import {
   caretAllowsHistory,
+  chatPromptHistory,
   idleNavigation,
   recordPrompt,
   stepPromptHistory,
 } from "../../src/features/conversation/prompt-history";
+
+test("a chat's ArrowUp history is its own user prompts only, newest first", () => {
+  const transcript = [
+    { kind: "message", role: "user", text: "first in this chat" },
+    { kind: "message", role: "assistant", text: "answer" },
+    { kind: "tool", role: undefined, text: undefined },
+    { kind: "message", role: "user", text: "second in this chat" },
+    { kind: "message", role: "user", text: "second in this chat" },
+  ];
+  const own = chatPromptHistory(transcript);
+  expect(own).toEqual(["second in this chat", "first in this chat"]);
+  expect(stepPromptHistory(own, idleNavigation, "", "older")?.draft).toBe("second in this chat");
+  expect(chatPromptHistory([])).toEqual([]);
+});
 
 test("prompt history recalls newest first and gives the draft back past the newest", () => {
   let history = recordPrompt([], "first");

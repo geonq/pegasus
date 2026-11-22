@@ -23,6 +23,22 @@ export function recordPrompt(history: readonly string[], prompt: string): readon
   return [prompt, ...history].slice(0, PROMPT_HISTORY_LIMIT);
 }
 
+/**
+ * One chat's own prompts, newest first, from its transcript: what ArrowUp recalls in that chat. It comes
+ * from the chat itself, so it is the same on every machine showing it (a Mac remote client included).
+ */
+export function chatPromptHistory(
+  transcript: readonly { readonly kind: string; readonly role?: string; readonly text?: string }[],
+): readonly string[] {
+  let prompts: readonly string[] = [];
+  for (const item of transcript) {
+    if (item.kind === "message" && item.role === "user" && typeof item.text === "string") {
+      prompts = recordPrompt(prompts, item.text);
+    }
+  }
+  return prompts;
+}
+
 /** Whether the caret allows leaving the text upwards (first line) or downwards (last line). */
 export function caretAllowsHistory(
   value: string,
