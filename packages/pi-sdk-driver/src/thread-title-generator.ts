@@ -71,14 +71,22 @@ export async function generateThreadTitle(
     sessionManager: SessionManager.inMemory(),
     tools: [],
   };
-  if (options.model) {
-    const selectedModel = modelRuntime.getModel(options.model.provider, options.model.modelId);
+  // An Antigravity title on the chat's premium Gemini model raced the chat's first turn for the
+  // same quota and that turn got 429, so titles use agy's cheapest model (gemini-3.8-flash-low).
+  const cheapAgyTitle = options.model?.provider === "antigravity";
+  const titleModel = cheapAgyTitle
+    ? { provider: "antigravity", modelId: "gemini-3.8-flash" }
+    : options.model;
+  if (titleModel) {
+    const selectedModel = modelRuntime.getModel(titleModel.provider, titleModel.modelId);
     if (!selectedModel) {
       return null;
     }
     createOptions.model = selectedModel;
   }
-  if (options.thinkingLevel) {
+  if (cheapAgyTitle) {
+    createOptions.thinkingLevel = "low";
+  } else if (options.thinkingLevel) {
     createOptions.thinkingLevel = options.thinkingLevel as NonNullable<
       CreateAgentSessionOptions["thinkingLevel"]
     >;
