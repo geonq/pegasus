@@ -1389,6 +1389,12 @@
   }
 }
 
+/* Windows draws its own minimize/maximize/close in the top-right strip, above this notice; without
+   this its View and Dismiss buttons sat under them and a click closed or resized the window. */
+[data-platform="win32"] .attention-toast {
+  top: calc(var(--chrome-bar-height) + var(--space-2));
+}
+
 .attention-toast__dot {
   flex: none;
   width: 8px;
