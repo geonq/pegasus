@@ -22,6 +22,8 @@ const config: ExpoConfig = {
   // the config differs, and the fingerprint runtime version the PC publishes for never matches the app.
   platforms: ["ios", "android"],
   orientation: "portrait",
+  // The Mac app's icon (apps/desktop/resources/icon.icns, 1024 px), flattened on black.
+  icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
   // fingerprint: a hash of everything native (Expo config, native modules and their versions), so a
   // JS update only reaches builds with the exact same native code. appVersion would trust us to bump
