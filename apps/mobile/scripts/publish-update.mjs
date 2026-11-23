@@ -34,7 +34,9 @@ import {
 } from "./update-lib.mjs";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const stateDir = resolve(process.env.PEGASUS_MOBILE_UPDATES_DIR || "D:\\Pi\\pi-ecosystem\\.state\\mobile-updates");
+const stateDir = resolve(
+  process.env.PEGASUS_MOBILE_UPDATES_DIR || "D:\\Pi\\pi-ecosystem\\.state\\mobile-updates",
+);
 const keyPath = process.env.PEGASUS_UPDATE_KEY || join(stateDir, "keys", "private-key.pem");
 const certPath = join(projectRoot, "updates", "certificate.pem");
 const argv = process.argv.slice(2);
@@ -86,7 +88,13 @@ async function writeUpdate({ runtimeVersion, files, sourceSha, key, previous }) 
   const certificate = await readFile(certPath, "utf8");
   const id = randomUUID();
   const createdAt = nextCreatedAt(new Date(), previous?.createdAt);
-  const manifest = buildManifest({ id, createdAt, runtimeVersion, bundle: files.bundle, assets: files.assets });
+  const manifest = buildManifest({
+    id,
+    createdAt,
+    runtimeVersion,
+    bundle: files.bundle,
+    assets: files.assets,
+  });
   const bytes = Buffer.from(JSON.stringify(manifest));
   const signature = signatureHeader(bytes, privateKey);
   // A key that does not match the app's certificate would publish updates every phone rejects.
@@ -130,13 +138,18 @@ async function prune() {
 
 async function publish() {
   const sourceSha = process.env.PEGASUS_UPDATE_SOURCE_SHA || null;
-  const resolved = JSON.parse(node(["expo-updates", "bin", "cli.js"], ["runtimeversion:resolve", "--platform", "ios"]));
+  const resolved = JSON.parse(
+    node(["expo-updates", "bin", "cli.js"], ["runtimeversion:resolve", "--platform", "ios"]),
+  );
   const runtimeVersion = resolved.runtimeVersion;
-  if (typeof runtimeVersion !== "string" || !runtimeVersion) throw new Error("could not resolve the runtime version");
+  if (typeof runtimeVersion !== "string" || !runtimeVersion)
+    throw new Error("could not resolve the runtime version");
   const latest = await readJson(join(stateDir, "latest.json"), {});
   const metas = await allMetas();
   const previous = metas.find((m) => m.id === latest[runtimeVersion]) ?? null;
-  const already = sourceSha && metas.find((m) => m.sourceSha === sourceSha && m.runtimeVersion === runtimeVersion);
+  const already =
+    sourceSha &&
+    metas.find((m) => m.sourceSha === sourceSha && m.runtimeVersion === runtimeVersion);
   if (already) {
     log(`update for ${sourceSha} already published as ${already.id}`);
     return { id: already.id, runtimeVersion, previousId: previous?.id ?? null, skipped: true };
@@ -188,12 +201,22 @@ async function rollback(targetId) {
     previous,
   });
   log(`rolled back to ${targetId}'s code as ${meta.id}; pruned ${await prune()}`);
-  return { id: meta.id, runtimeVersion: meta.runtimeVersion, previousId: previous?.id ?? null, rolledBackTo: targetId, skipped: false };
+  return {
+    id: meta.id,
+    runtimeVersion: meta.runtimeVersion,
+    previousId: previous?.id ?? null,
+    rolledBackTo: targetId,
+    skipped: false,
+  };
 }
 
 try {
   const result = rollbackAt >= 0 ? await rollback(argv[rollbackAt + 1]) : await publish();
-  console.log(json ? JSON.stringify(result) : `update id: ${result.id}${result.skipped ? " (unchanged)" : ""}`);
+  console.log(
+    json
+      ? JSON.stringify(result)
+      : `update id: ${result.id}${result.skipped ? " (unchanged)" : ""}`,
+  );
 } catch (e) {
   console.error(`publish-update failed: ${e?.message ?? e}`);
   process.exit(1);

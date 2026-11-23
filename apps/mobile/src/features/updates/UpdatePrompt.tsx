@@ -54,7 +54,9 @@ export function UpdatePrompt() {
             onPress={() => Updates.reloadAsync().catch(() => setDismissed(true))}
             style={styles.action}
           >
-            <Text style={[text.subheadline, styles.strong, { color: palette.accentText }]}>Restart</Text>
+            <Text style={[text.subheadline, styles.strong, { color: palette.accentText }]}>
+              Restart
+            </Text>
           </Pressable>
         </View>
       </GlassCard>

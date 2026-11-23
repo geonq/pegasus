@@ -27,7 +27,9 @@ export function isSafeAssetName(name) {
 
 /** The extension an exported file is stored under; refuses anything that could alter a path. */
 export function safeExt(ext) {
-  const e = String(ext ?? "").replace(/^\./, "").toLowerCase();
+  const e = String(ext ?? "")
+    .replace(/^\./, "")
+    .toLowerCase();
   if (!EXT.test(e)) throw new Error(`unsupported asset extension: ${JSON.stringify(ext)}`);
   return e;
 }
@@ -61,7 +63,11 @@ export function iosFilesFromMetadata(metadata) {
   if (!ios || typeof ios.bundle !== "string") throw new Error("expo export produced no iOS bundle");
   const clean = (p) => {
     const rel = String(p).replace(/\\/g, "/");
-    if (rel.startsWith("/") || /^[a-z]:/i.test(rel) || rel.split("/").some((s) => s === ".." || s === "")) {
+    if (
+      rel.startsWith("/") ||
+      /^[a-z]:/i.test(rel) ||
+      rel.split("/").some((s) => s === ".." || s === "")
+    ) {
       throw new Error(`unsafe export path: ${JSON.stringify(p)}`);
     }
     return rel;
@@ -139,7 +145,9 @@ export function signatureHeader(bytes, privateKeyPem) {
 export function verifySignatureHeader(bytes, header, certificatePem) {
   const m = /^sig="([A-Za-z0-9+/=]+)", keyid="([^"]*)"$/.exec(header);
   if (!m || m[2] !== KEY_ID) return false;
-  const key = createPublicKey(new X509Certificate(certificatePem).publicKey.export({ type: "spki", format: "pem" }));
+  const key = createPublicKey(
+    new X509Certificate(certificatePem).publicKey.export({ type: "spki", format: "pem" }),
+  );
   return verify("sha256", bytes, key, Buffer.from(m[1], "base64"));
 }
 
@@ -150,7 +158,10 @@ export function verifySignatureHeader(bytes, header, certificatePem) {
 export function updatesToPrune(metas, latest, keep = KEEP_UPDATES) {
   const pinned = new Set(Object.values(latest));
   const newestFirst = [...metas].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-  return newestFirst.slice(keep).filter((m) => !pinned.has(m.id)).map((m) => m.id);
+  return newestFirst
+    .slice(keep)
+    .filter((m) => !pinned.has(m.id))
+    .map((m) => m.id);
 }
 
 /** Asset files no kept update references. */

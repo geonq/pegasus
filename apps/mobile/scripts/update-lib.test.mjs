@@ -22,7 +22,13 @@ const bundle = describeFile(Buffer.from("console.log(1)"), "hbc");
 const png = describeFile(Buffer.from([0x89, 0x50, 0x4e, 0x47]), "png");
 
 test("manifest follows expo-updates v1 with relative, content-addressed asset URLs", () => {
-  const m = buildManifest({ id, createdAt: "2026-11-23T10:00:00.000Z", runtimeVersion: "rv1", bundle, assets: [png] });
+  const m = buildManifest({
+    id,
+    createdAt: "2026-11-23T10:00:00.000Z",
+    runtimeVersion: "rv1",
+    bundle,
+    assets: [png],
+  });
   assert.equal(m.id, id);
   assert.equal(m.runtimeVersion, "rv1");
   assert.equal(m.launchAsset.url, `assets/${bundle.name}`);
@@ -33,7 +39,9 @@ test("manifest follows expo-updates v1 with relative, content-addressed asset UR
   assert.match(m.launchAsset.hash, /^[A-Za-z0-9_-]{43}$/);
   assert.match(m.launchAsset.key, /^[0-9a-f]{32}$/);
   assert.ok(isSafeAssetName(bundle.name) && isSafeAssetName(png.name));
-  assert.throws(() => buildManifest({ id: "../x", createdAt: "", runtimeVersion: "rv", bundle, assets: [] }));
+  assert.throws(() =>
+    buildManifest({ id: "../x", createdAt: "", runtimeVersion: "rv", bundle, assets: [] }),
+  );
 });
 
 test("signature verifies against the certificate and fails for other bytes or keys", () => {
@@ -51,13 +59,25 @@ test("signature verifies against the certificate and fails for other bytes or ke
   const good = signatureHeader(bytes, pem);
   assert.equal(verifySignatureHeader(bytes, good, testCert), true);
   assert.equal(verifySignatureHeader(Buffer.from('{"id":"y"}'), good, testCert), false);
-  assert.equal(verifySignatureHeader(bytes, good.replace('keyid="main"', 'keyid="other"'), testCert), false);
+  assert.equal(
+    verifySignatureHeader(bytes, good.replace('keyid="main"', 'keyid="other"'), testCert),
+    false,
+  );
 });
 
 test("path safety: ids, asset names, extensions and export paths", () => {
   assert.ok(isUpdateId(id));
-  for (const bad of ["../etc", id.toUpperCase(), `${id}/..`, "", null]) assert.equal(isUpdateId(bad), false, String(bad));
-  for (const bad of ["../a.png", `${"a".repeat(64)}.png/..`, `${"A".repeat(64)}.png`, `${"a".repeat(63)}.png`, `${"a".repeat(64)}`, `${"a".repeat(64)}.p/g`, "x.png"]) {
+  for (const bad of ["../etc", id.toUpperCase(), `${id}/..`, "", null])
+    assert.equal(isUpdateId(bad), false, String(bad));
+  for (const bad of [
+    "../a.png",
+    `${"a".repeat(64)}.png/..`,
+    `${"A".repeat(64)}.png`,
+    `${"a".repeat(63)}.png`,
+    `${"a".repeat(64)}`,
+    `${"a".repeat(64)}.p/g`,
+    "x.png",
+  ]) {
     assert.equal(isSafeAssetName(bad), false, bad);
   }
   assert.equal(safeExt(".PNG"), "png");
@@ -65,13 +85,24 @@ test("path safety: ids, asset names, extensions and export paths", () => {
   assert.throws(() => safeExt(""));
 
   const files = iosFilesFromMetadata({
-    fileMetadata: { ios: { bundle: "_expo\\static\\js\\ios\\index-1.hbc", assets: [{ path: "assets\\abc", ext: "png" }] } },
+    fileMetadata: {
+      ios: {
+        bundle: "_expo\\static\\js\\ios\\index-1.hbc",
+        assets: [{ path: "assets\\abc", ext: "png" }],
+      },
+    },
   });
   assert.equal(files.bundle.path, "_expo/static/js/ios/index-1.hbc");
   assert.equal(files.bundle.ext, "hbc");
   assert.equal(files.assets[0].path, "assets/abc");
   for (const p of ["../secret", "assets/../../x", "/etc/passwd", "C:\\Windows\\x", "a//b"]) {
-    assert.throws(() => iosFilesFromMetadata({ fileMetadata: { ios: { bundle: "b.hbc", assets: [{ path: p, ext: "png" }] } } }), p);
+    assert.throws(
+      () =>
+        iosFilesFromMetadata({
+          fileMetadata: { ios: { bundle: "b.hbc", assets: [{ path: p, ext: "png" }] } },
+        }),
+      p,
+    );
   }
   assert.throws(() => iosFilesFromMetadata({ fileMetadata: {} }));
 });
@@ -86,14 +117,21 @@ test("keeps the newest five and every runtime's latest; prunes unreferenced asse
   const drop = updatesToPrune(metas, { rvNew: "u7", rvOld: "u1" });
   assert.deepEqual(drop.sort(), ["u0", "u2"]);
   const kept = metas.filter((m) => !drop.includes(m.id));
-  assert.deepEqual(assetsToPrune(["a0", "a1", "a2", "a7", "shared", "orphan"], kept).sort(), ["a0", "a2", "orphan"]);
+  assert.deepEqual(assetsToPrune(["a0", "a1", "a2", "a7", "shared", "orphan"], kept).sort(), [
+    "a0",
+    "a2",
+    "orphan",
+  ]);
 });
 
 test("content key ignores asset order; createdAt always moves forward", () => {
   const b = "_expo/static/js/ios/index-1.hbc";
   assert.equal(contentKey("rv", b, [png, bundle]), contentKey("rv", b, [bundle, png]));
   assert.notEqual(contentKey("rv", b, [png]), contentKey("rv2", b, [png]));
-  assert.notEqual(contentKey("rv", b, [png]), contentKey("rv", "_expo/static/js/ios/index-2.hbc", [png]));
+  assert.notEqual(
+    contentKey("rv", b, [png]),
+    contentKey("rv", "_expo/static/js/ios/index-2.hbc", [png]),
+  );
   const now = new Date("2026-11-23T10:00:00.000Z");
   assert.equal(nextCreatedAt(now, null), now.toISOString());
   assert.equal(nextCreatedAt(now, "2026-11-23T11:00:00.000Z"), "2026-11-23T11:00:00.001Z");
@@ -108,14 +146,30 @@ function selfSigned({ publicKey, privateKey }) {
   const sha256Rsa = seq(oid("2a864886f70d01010b"), Buffer.from([0x05, 0x00]));
   const name = seq(der(0x31, seq(oid("550403"), der(0x0c, Buffer.from("test")))));
   const time = (s) => der(0x17, Buffer.from(s));
-  const tbs = seq(der(0xa0, int(2)), int(1), sha256Rsa, name, seq(time("250101000000Z"), time("350101000000Z")), name, spki);
+  const tbs = seq(
+    der(0xa0, int(2)),
+    int(1),
+    sha256Rsa,
+    name,
+    seq(time("250101000000Z"), time("350101000000Z")),
+    name,
+    spki,
+  );
   const sig = sign("sha256", tbs, privateKey);
   const cert = seq(tbs, sha256Rsa, der(0x03, Buffer.concat([Buffer.from([0]), sig])));
-  return `-----BEGIN CERTIFICATE-----\n${cert.toString("base64").match(/.{1,64}/g).join("\n")}\n-----END CERTIFICATE-----\n`;
+  return `-----BEGIN CERTIFICATE-----\n${cert
+    .toString("base64")
+    .match(/.{1,64}/g)
+    .join("\n")}\n-----END CERTIFICATE-----\n`;
 }
 
 function der(tag, body) {
   const len = body.length;
-  const head = len < 0x80 ? Buffer.from([len]) : len < 0x100 ? Buffer.from([0x81, len]) : Buffer.from([0x82, len >> 8, len & 0xff]);
+  const head =
+    len < 0x80
+      ? Buffer.from([len])
+      : len < 0x100
+        ? Buffer.from([0x81, len])
+        : Buffer.from([0x82, len >> 8, len & 0xff]);
   return Buffer.concat([Buffer.from([tag]), head, body]);
 }
