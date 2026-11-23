@@ -18,6 +18,9 @@ const config: ExpoConfig = {
   slug: "pegasus",
   scheme: "pegasus",
   version: "0.1.0",
+  // Explicit: otherwise Expo adds "web" only where react-dom resolves (the PC workspace, not the Mac),
+  // the config differs, and the fingerprint runtime version the PC publishes for never matches the app.
+  platforms: ["ios", "android"],
   orientation: "portrait",
   userInterfaceStyle: "automatic",
   // fingerprint: a hash of everything native (Expo config, native modules and their versions), so a
