@@ -102,6 +102,8 @@ export interface HomeSection {
   /** Set on a project's section: the project new chats from it start in. */
   readonly workspace?: WorkspaceRecord;
   readonly rows: readonly ChatRow[];
+  /** A project's section only: it has no unarchived chat anywhere, not even in the sections above. */
+  readonly noChats?: boolean;
 }
 
 /** Projects the phone lists, in the desktop sidebar's order; worktrees fold into their project. */
@@ -123,7 +125,7 @@ export function projectsOf(state: Pick<DesktopAppState, "workspaces" | "workspac
 
 /**
  * The home list, laid out like the desktop sidebar: Needs you, Working, Pinned, then one section per
- * project with its other chats, newest first. Subagent chats stay under the chat that started them
+ * project (also when it has no other chats) with its other chats, newest first. Subagent chats stay under the chat that started them
  * (only counted here). A search shows one flat "Results" section over titles, previews and projects.
  */
 export function buildHome(
@@ -213,13 +215,17 @@ export function buildHome(
     workspace.kind === "worktree" && workspace.rootWorkspaceId && ids.has(workspace.rootWorkspaceId)
       ? workspace.rootWorkspaceId
       : workspace.id;
+  // Every project shows, even with no chats yet (a project created on the PC after pairing starts
+  // empty), so a new chat can start from its header, as in the desktop sidebar.
+  const withChats = new Set(all.map((row) => projectOf(row.workspace)));
   for (const project of projectsOf(state)) {
-    push(
-      `project:${project.id}`,
-      project.name,
-      unpinned.filter((row) => projectOf(row.workspace) === project.id),
-      project,
-    );
+    sections.push({
+      key: `project:${project.id}`,
+      title: project.name,
+      workspace: project,
+      rows: unpinned.filter((row) => projectOf(row.workspace) === project.id),
+      ...(withChats.has(project.id) ? {} : { noChats: true }),
+    });
   }
   return sections;
 }

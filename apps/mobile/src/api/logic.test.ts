@@ -132,9 +132,14 @@ test("home lists Needs you, Working, Pinned, then projects in sidebar order; sea
       ["Working", ["a-run"]],
       ["Pinned", ["b-pin"]],
       ["Beta", ["b-new", "bt1", "b-old"]],
+      // Every project stays listed, also when all its chats sit in the sections above, so a new
+      // chat can start from its header (and a project created after pairing appears at once).
+      ["Alpha", []],
     ],
   );
   assert.equal(sections[3]?.rows[0]?.childCount, 1);
+  // Alpha has chats (in Needs you and Working), so it is not marked as having none.
+  assert.equal(sections[4]?.noChats, undefined);
   const found = buildHome(
     {
       workspaces: [

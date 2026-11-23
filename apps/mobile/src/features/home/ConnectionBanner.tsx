@@ -2,6 +2,7 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "rea
 import type { StreamStatus } from "../../api/client";
 import { usePegasus } from "../../state/PegasusProvider";
 import { hitSize, radius, spacing, text, usePalette } from "../../theme";
+import { Icon } from "../../ui";
 
 /** What the banner says for a stream status, or null when the phone is live. */
 export function connectionLine(
@@ -47,7 +48,15 @@ export function ConnectionBanner() {
       accessibilityLiveRegion="polite"
       style={[styles.banner, { backgroundColor: offline ? palette.warningTint : palette.surface }]}
     >
-      {offline ? null : <ActivityIndicator size="small" color={palette.textMuted} />}
+      {offline ? (
+        <Icon
+          name={status.state === "revoked" ? "key.slash" : "wifi.exclamationmark"}
+          color={palette.warningText}
+          size={15}
+        />
+      ) : (
+        <ActivityIndicator size="small" color={palette.textMuted} />
+      )}
       <Text
         style={[
           text.footnote,

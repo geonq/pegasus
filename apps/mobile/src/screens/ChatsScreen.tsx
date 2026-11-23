@@ -7,31 +7,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { buildHome, type ChatRow } from "../api/chats";
 import { ChatListRow, type ChatRowActions } from "../features/home/ChatListRow";
 import { ConnectionBanner } from "../features/home/ConnectionBanner";
+import { homeItems, type HomeItem } from "../features/home/home-items";
 import type { RootStackParamList } from "../navigation";
 import { usePegasus } from "../state/PegasusProvider";
-import { Button, EmptyState, Skeleton } from "../ui";
-import { hitSize, radius, spacing, text, usePalette, weight } from "../theme";
-
-type Item =
-  | {
-      readonly kind: "header";
-      readonly key: string;
-      readonly title: string;
-      readonly workspaceId?: string;
-    }
-  | {
-      readonly kind: "chat";
-      readonly key: string;
-      readonly row: ChatRow;
-      readonly showProject: boolean;
-    };
-
-/** Sections where chats of several projects mix, so each row names its project. */
-const MIXED = new Set(["needs-you", "working", "pinned", "results"]);
+import { Button, EmptyState, Icon, Skeleton } from "../ui";
+import { hitSize, maxFontScale, radius, spacing, text, usePalette, weight } from "../theme";
 
 /**
- * Every chat on the PC, laid out like the desktop sidebar: Needs you, Working, Pinned, then each
- * project. Search in the header, pull to refresh, swipe a row for pin, archive and mark read.
+ * Every chat on the PC, laid out like the desktop sidebar: Needs you, Working, Pinned, then every
+ * project (new ones arrive live with the PC's state). Large title with search, pull to refresh,
+ * swipe or long press a row for pin, archive and mark read, compose and settings in the bar.
  */
 export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackParamList, "Chats">) {
   const palette = usePalette();
@@ -49,39 +34,43 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
-        placeholder: "Search chats",
+        placeholder: "Search chats and projects",
         hideWhenScrolling: true,
         autoCapitalize: "none",
         onChangeText: (event) => setQuery(event.nativeEvent.text),
         onCancelButtonPress: () => setQuery(""),
       },
+      unstable_headerLeftItems: () => [
+        {
+          type: "button",
+          label: "Settings",
+          icon: { type: "sfSymbol", name: "gearshape" },
+          accessibilityLabel: "Settings",
+          onPress: () => navigation.navigate("Settings"),
+        },
+      ],
+      unstable_headerRightItems: () => [
+        {
+          type: "button",
+          label: "New chat",
+          icon: { type: "sfSymbol", name: "square.and.pencil" },
+          accessibilityLabel: "New chat",
+          disabled: !state,
+          onPress: () => navigation.navigate("NewChat"),
+        },
+      ],
     });
-  }, [navigation]);
+  }, [navigation, state === null]);
 
-  const items = useMemo<Item[]>(() => {
-    if (!state) return [];
-    const out: Item[] = [];
-    for (const section of buildHome(state, query)) {
-      out.push({
-        kind: "header",
-        key: `h:${section.key}`,
-        title: section.title,
-        ...(section.workspace ? { workspaceId: section.workspace.id } : {}),
-      });
-      for (const row of section.rows) {
-        out.push({
-          kind: "chat",
-          key: `${section.key}/${row.workspace.id}/${row.session.id}`,
-          row,
-          showProject: MIXED.has(section.key),
-        });
-      }
-    }
-    return out;
-  }, [state, query]);
+  const items = useMemo<HomeItem[]>(
+    () => (state ? homeItems(buildHome(state, query)) : []),
+    [state, query],
+  );
 
-  const fail = (what: string) => (reason: unknown) =>
+  const fail = (what: string) => (reason: unknown) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
     Alert.alert(what, reason instanceof Error ? reason.message : String(reason));
+  };
 
   const actions = useMemo<ChatRowActions>(
     () => ({
@@ -114,6 +103,13 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
           fail("Could not mark read"),
         );
       },
+      newChatIn: (row: ChatRow) =>
+        navigation.navigate("NewChat", {
+          workspaceId:
+            row.workspace.kind === "worktree" && row.workspace.rootWorkspaceId
+              ? row.workspace.rootWorkspaceId
+              : row.workspace.id,
+        }),
     }),
     [navigation, setPinned, archive, unarchive, markRead],
   );
@@ -127,22 +123,33 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
 
   const empty = !state ? (
     status.state === "connecting" ? (
-      <View style={styles.skeletons}>
-        {[0, 1, 2, 3, 4].map((index) => (
-          <Skeleton key={index} height={52} rounded={radius.md} />
+      <View accessible accessibilityLabel="Loading chats" style={styles.skeletons}>
+        {[0, 1, 2, 3, 4, 5].map((index) => (
+          <View key={index} style={styles.skeletonRow}>
+            <Skeleton width="62%" height={15} />
+            <Skeleton width="88%" height={12} />
+          </View>
         ))}
       </View>
-    ) : null
+    ) : (
+      <EmptyState
+        icon="wifi.exclamationmark"
+        title="Can't reach your PC"
+        message="Check that Pegasus is open on the PC and Tailscale is on for both devices."
+        action={<Button label="Try again" onPress={onRefresh} variant="secondary" />}
+      />
+    )
   ) : query ? (
     <EmptyState
-      title="No matching chats"
-      message={`Nothing on this PC matches “${query.trim()}”.`}
+      icon="magnifyingglass"
+      title="No matches"
+      message={`Nothing on this PC matches “${query.trim()}”. Search looks at titles, previews and project names.`}
     />
   ) : (
     <EmptyState
-      title="No chats yet"
-      message="Start one here, or on the PC; it shows up live."
-      action={<Button label="New chat" onPress={() => navigation.navigate("NewChat")} />}
+      icon="bubble.left.and.bubble.right"
+      title="No projects yet"
+      message="Add a project in Pegasus on the PC; it shows up here live."
     />
   );
 
@@ -159,11 +166,18 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
         refreshing={refreshing}
         onRefresh={onRefresh}
         extraData={nowMs}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}
         ListHeaderComponent={<ConnectionBanner />}
         renderItem={({ item }) =>
           item.kind === "header" ? (
             <View style={styles.header}>
+              {item.icon ? (
+                <Icon
+                  name={item.icon}
+                  color={item.tint ? palette[item.tint] : palette.textSoft}
+                  size={13}
+                />
+              ) : null}
               <Text
                 accessibilityRole="header"
                 numberOfLines={1}
@@ -171,18 +185,43 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
               >
                 {item.title}
               </Text>
+              {item.count > 0 ? (
+                <Text
+                  maxFontSizeMultiplier={maxFontScale.chrome}
+                  style={[text.caption, { color: palette.textSoft }]}
+                >
+                  {item.count}
+                </Text>
+              ) : null}
               {item.workspaceId ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`New chat in ${item.title}`}
-                  hitSlop={10}
+                  hitSlop={6}
                   onPress={() => navigation.navigate("NewChat", { workspaceId: item.workspaceId })}
-                  style={styles.headerAction}
+                  style={({ pressed }) => [
+                    styles.headerAction,
+                    pressed ? { backgroundColor: palette.overlayActive } : null,
+                  ]}
                 >
-                  <Text style={[text.headline, { color: palette.textMuted }]}>+</Text>
+                  <Icon name="plus" color={palette.textMuted} size={15} />
                 </Pressable>
               ) : null}
             </View>
+          ) : item.kind === "placeholder" ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`No chats in ${item.projectName}. Start one.`}
+              onPress={() => navigation.navigate("NewChat", { workspaceId: item.workspaceId })}
+              style={({ pressed }) => [
+                styles.placeholder,
+                pressed ? { backgroundColor: palette.overlayActive } : null,
+              ]}
+            >
+              <Text style={[text.footnote, { color: palette.textSoft }]}>
+                No chats yet · <Text style={{ color: palette.accentText }}>Start one</Text>
+              </Text>
+            </Pressable>
           ) : (
             <ChatListRow
               row={item.row}
@@ -194,56 +233,37 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
         }
         ListEmptyComponent={empty}
       />
-      {state ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="New chat"
-          onPress={() => navigation.navigate("NewChat")}
-          style={({ pressed }) => [
-            styles.fab,
-            {
-              bottom: insets.bottom + spacing.lg,
-              backgroundColor: palette.primaryFill,
-              shadowColor: palette.shadow,
-              transform: [{ scale: pressed ? 0.97 : 1 }],
-            },
-          ]}
-        >
-          <Text style={[text.headline, { color: palette.onPrimary }]}>New chat</Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  skeletons: { gap: spacing.sm, padding: spacing.lg },
+  skeletons: { gap: spacing.lg, padding: spacing.xl },
+  skeletonRow: { gap: spacing.sm },
   header: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.sm2,
     paddingLeft: spacing.xl,
     paddingRight: spacing.md,
     paddingTop: spacing.lg,
     minHeight: hitSize.compact + spacing.lg,
   },
-  headerText: { flex: 1, fontWeight: weight.semibold },
+  headerText: { flexShrink: 1, fontWeight: weight.semibold },
   headerAction: {
-    minWidth: hitSize.compact,
-    minHeight: hitSize.compact,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  fab: {
-    position: "absolute",
-    right: spacing.lg,
-    minHeight: hitSize.min + 4,
-    paddingHorizontal: spacing.xl,
+    marginLeft: "auto",
+    width: hitSize.compact,
+    height: hitSize.compact,
     borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
+  },
+  placeholder: {
+    marginHorizontal: spacing.gutter,
+    paddingLeft: 28 + spacing.xs,
+    minHeight: hitSize.min,
+    justifyContent: "center",
+    borderRadius: radius.md,
   },
 });
