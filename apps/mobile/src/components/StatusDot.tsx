@@ -11,7 +11,10 @@ import Animated, {
 import type { ChatSection } from "../api/chats";
 import { usePalette } from "../theme";
 
-/** A chat's state at a glance: pulsing while it works (unless Reduce Motion is on). */
+/**
+ * A chat's state at a glance, in the desktop's status colours (tokens.css: green = running, amber =
+ * attention, grey = idle): pulsing while it works (unless Reduce Motion is on).
+ */
 export function StatusDot({ section }: { readonly section: ChatSection }) {
   const palette = usePalette();
   const reduceMotion = useReducedMotion();
@@ -32,8 +35,8 @@ export function StatusDot({ section }: { readonly section: ChatSection }) {
     section === "needs-you"
       ? palette.warning
       : section === "working"
-        ? palette.accent
-        : palette.line;
+        ? palette.success
+        : palette.statusNeutral;
   return <Animated.View style={[styles.dot, { backgroundColor: color }, animated]} />;
 }
 
