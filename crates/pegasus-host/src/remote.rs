@@ -523,7 +523,10 @@ fn frame_of(event: &serde_json::value::RawValue) -> Option<SseFrame> {
     let json = event.get();
     let head: Head = serde_json::from_str(json).ok()?;
     let ty = head.ty.as_ref();
-    if !matches!(ty, "stateChanged" | "selectedTranscriptChanged" | "terminalData" | "terminalExit" | "terminalError") {
+    if !matches!(
+        ty,
+        "stateChanged" | "sessionTranscriptDelta" | "selectedTranscriptChanged" | "terminalData" | "terminalExit" | "terminalError"
+    ) {
         return None;
     }
     let mut text = String::with_capacity(json.len() + ty.len() + 16);
