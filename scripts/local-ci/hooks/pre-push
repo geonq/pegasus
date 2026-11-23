@@ -1,0 +1,32 @@
+#!/bin/sh
+# Local CI gate (installed by scripts/local-ci/install-hooks.ps1 via core.hooksPath).
+# Pushes of main to the geonq remote must pass scripts/local-ci/run-ci.ps1 for the pushed SHA.
+# Bypass once, on purpose:  PEGASUS_CI_SKIP=1 git push geonq main   (the bypass is logged)
+remote="$1"
+url="$2"
+case "$url" in
+  *github.com/geonq/pegasus*|*github.com:geonq/pegasus*) ;;
+  *) exit 0 ;;
+esac
+pwsh_exe="D:/Pi/runtime/tools/powershell/pwsh.exe"
+[ -x "$pwsh_exe" ] || pwsh_exe="pwsh"
+script="$(git rev-parse --show-toplevel)/scripts/local-ci/run-ci.ps1"
+status=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$remote_ref" = "refs/heads/main" ] || continue
+  case "$local_sha" in 0000000000000000000000000000000000000000) continue ;; esac
+  if [ "$PEGASUS_CI_SKIP" = "1" ]; then
+    echo "local-ci: BYPASSED for $local_sha (PEGASUS_CI_SKIP=1)" >&2
+    printf '{"sha":"%s","result":"bypassed","trigger":"pre-push","time":"%s"}\n' "$local_sha" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      >> "D:/Pi/pi-ecosystem/.state/local-ci/history.jsonl"
+    continue
+  fi
+  # Waits up to 20 minutes if the scheduled runner is busy, rather than letting the push through.
+  "$pwsh_exe" -NoProfile -NonInteractive -File "$script" -Trigger pre-push -Sha "$local_sha" -WaitSeconds 1200 </dev/null
+  code=$?
+  if [ $code -ne 0 ]; then
+    echo "local-ci: push to $remote main BLOCKED (exit $code). Fix it, or bypass once with PEGASUS_CI_SKIP=1." >&2
+    status=1
+  fi
+done
+exit $status
