@@ -90,3 +90,23 @@ test("future workspace grants use only contained real directories and publish th
     await rm(temporaryRoot, { recursive: true, force: true });
   }
 });
+
+test("a paired phone sees projects added after pairing; other remote devices keep their scope", async () => {
+  const state = {
+    ...createEmptyDesktopAppState(),
+    revision: 1,
+    workspaces: [workspace("old", "C:\\old"), workspace("talking", "D:\\talking")],
+  };
+  const phoneScope = new Set(["old"]);
+  const phone = new RemoteWorkspaceStateProjector(phoneScope, new Map(), true);
+  expect((await phone.projectResponse(state)).workspaces.map(({ id }) => id)).toEqual([
+    "old",
+    "talking",
+  ]);
+  expect(phoneScope).toEqual(new Set(["old", "talking"]));
+
+  const macScope = new Set(["old"]);
+  const mac = new RemoteWorkspaceStateProjector(macScope, new Map());
+  expect((await mac.projectResponse(state)).workspaces.map(({ id }) => id)).toEqual(["old"]);
+  expect(macScope).toEqual(new Set(["old"]));
+});

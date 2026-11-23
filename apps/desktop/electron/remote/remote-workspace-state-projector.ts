@@ -14,6 +14,11 @@ export class RemoteWorkspaceStateProjector {
   constructor(
     private readonly workspaceIds: Set<string>,
     futureWorkspaceRootPaths: ReadonlyMap<string, string>,
+    /**
+     * The owner's paired phone sees every project of this PC, including ones added after pairing
+     * (pairing grants "all workspaces"; a snapshot of the ids hid every later project).
+     */
+    private readonly grantAllWorkspaces = false,
   ) {
     this.futureFolders = createRemoteWorkspaceFolders(futureWorkspaceRootPaths);
     this.futureRootIds = [...futureWorkspaceRootPaths.keys()];
@@ -75,6 +80,10 @@ export class RemoteWorkspaceStateProjector {
     const grants: string[] = [];
     for (const workspace of state.workspaces) {
       if (this.workspaceIds.has(workspace.id)) continue;
+      if (this.grantAllWorkspaces) {
+        grants.push(workspace.id);
+        continue;
+      }
       for (const rootId of this.futureRootIds) {
         if (await this.futureFolders.contains(rootId, workspace.path, true)) {
           grants.push(workspace.id);

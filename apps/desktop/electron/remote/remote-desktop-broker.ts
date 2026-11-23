@@ -126,6 +126,8 @@ export class RemoteDesktopBroker {
     this.workspaceStateProjector = new RemoteWorkspaceStateProjector(
       this.workspaceIds,
       options.futureWorkspaceRootPaths ?? new Map(),
+      // Phones are paired with all workspaces (remote/phone-access.ts), so later ones join too.
+      options.clientId.startsWith("phone-"),
     );
     this.folderRootIds = {
       windows: new Set(options.windowsFolderRootPaths.keys()),
