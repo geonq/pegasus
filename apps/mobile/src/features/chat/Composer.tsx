@@ -1,32 +1,23 @@
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { useState, type ReactNode } from "react";
-import {
-  ActionSheetIOS,
-  Alert,
-  Image,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Image, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { QueuedComposerMessage } from "../../api/types";
-import { PressableScale } from "../../ui";
 import {
-  hitSize,
-  maxFontScale,
-  radius,
-  spacing,
-  text,
-  usePalette,
-  useScheme,
-  elevation,
-} from "../../theme";
+  GlassCard,
+  Icon,
+  NativeMenu,
+  PressableScale,
+  type IconName,
+  type MenuSection,
+} from "../../ui";
+import { hitSize, maxFontScale, radius, spacing, text, usePalette } from "../../theme";
 import { messageOf, type ChatActions } from "./actions";
+import { photoName } from "./photo-name";
 import { PhotoCapture } from "./PhotoCapture";
 import {
   attachmentProblem,
+  IMAGES_MAX_COUNT,
   PERMISSION_OPTIONS,
   thinkingLabel,
   thinkingOptionsFor,
@@ -54,10 +45,11 @@ export interface ComposerProps {
 }
 
 /**
- * The chat's composer, like the desktop's and T3's: a floating card with the text field, photos,
- * the session's model, effort and permission under it, and one round action that is Send, or Stop
- * while the run works and nothing is typed. Typing during a run offers Queue (next turn) and Steer
- * (this turn); queued messages sit above the card with Steer now and Remove.
+ * The chat's composer, like the desktop's and T3's: a floating glass card with the text field,
+ * photos (camera or library), the session's model, effort and permission as native menus under
+ * it, and one round action that is Send, or Stop while the run works and nothing is typed. Typing
+ * during a run offers Queue (next turn) and Steer (this turn); queued messages sit above the card
+ * with Steer now and Remove.
  */
 export function Composer({
   actions,
@@ -75,7 +67,6 @@ export function Composer({
   bottomInset,
 }: ComposerProps) {
   const palette = usePalette();
-  const scheme = useScheme();
   const [draft, setDraft] = useState("");
   const [images, setImages] = useState<readonly ImageAttachment[]>([]);
   const [sending, setSending] = useState(false);
@@ -119,76 +110,54 @@ export function Composer({
       .finally(() => setStopping(false));
   };
 
-  const pick = (
-    title: string,
-    options: readonly {
-      readonly label: string;
-      readonly value: string;
-      readonly selected?: boolean;
-    }[],
-    onPick: (value: string) => Promise<void>,
-  ) => {
-    if (options.length === 0) return;
-    const labels = options.map((option) => (option.selected ? `✓ ${option.label}` : option.label));
-    const run = (index: number) => {
-      const option = options[index];
-      if (!option || option.selected) return;
-      Haptics.selectionAsync().catch(() => undefined);
-      onPick(option.value).catch(fail);
-    };
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { title, options: [...labels, "Cancel"], cancelButtonIndex: labels.length },
-        run,
-      );
-    } else {
-      Alert.alert(title, undefined, [
-        ...labels.map((label, index) => ({ text: label, onPress: () => run(index) })),
-        { text: "Cancel", style: "cancel" as const },
-      ]);
-    }
+  /** A picker menu's choice: picking the current one does nothing. */
+  const choice = (selected: boolean, run: () => Promise<void>) => () => {
+    if (!selected) run().catch(fail);
   };
 
-  const chooseModel = () => {
-    if (!modelsLoaded) {
-      actions.loadRuntime().catch(fail);
-      return;
-    }
-    pick(
-      "Model for this chat",
-      models.map((entry) => ({
-        label: `${entry.label} · ${entry.providerName}`,
-        value: `${entry.providerId}\u0000${entry.modelId}`,
-        selected: entry.providerId === config.provider && entry.modelId === config.modelId,
-      })),
-      (value) => {
-        const [provider = "", modelId = ""] = value.split("\u0000");
-        return actions.setModel(provider, modelId);
-      },
-    );
-  };
+  // Grouped by provider, like the desktop's model picker.
+  const providers = [...new Set(models.map((entry) => entry.providerName))];
+  const modelMenu: MenuSection[] = providers.map((provider) => ({
+    title: provider,
+    items: models
+      .filter((entry) => entry.providerName === provider)
+      .map((entry) => {
+        const selected = entry.providerId === config.provider && entry.modelId === config.modelId;
+        return {
+          id: `model:${entry.providerId}/${entry.modelId}`,
+          label: entry.label,
+          selected,
+          onPress: choice(selected, () => actions.setModel(entry.providerId, entry.modelId)),
+        };
+      }),
+  }));
 
-  const chooseThinking = () =>
-    pick(
-      "Effort",
-      thinkingOptionsFor(model).map((level) => ({
+  const thinkingMenu: MenuSection[] = [
+    {
+      title: "Effort",
+      items: thinkingOptionsFor(model).map((level) => ({
+        id: `effort:${level}`,
         label: thinkingLabel(level),
-        value: level,
         selected: level === config.thinkingLevel,
+        onPress: choice(level === config.thinkingLevel, () => actions.setThinking(level)),
       })),
-      actions.setThinking,
-    );
+    },
+  ];
 
-  const choosePermission = () =>
-    pick(
-      "Permissions",
-      PERMISSION_OPTIONS.map((option) => ({
-        label: `${option.label}: ${option.description}`,
-        value: option.value,
+  const permissionMenu: MenuSection[] = [
+    {
+      title: "What the agent may do without asking",
+      items: PERMISSION_OPTIONS.map((option) => ({
+        id: `permission:${option.value}`,
+        label: `${option.label} — ${option.description}`,
+        icon: PERMISSION_ICONS[option.value],
         selected: option.value === permission,
+        onPress: choice(option.value === permission, () =>
+          actions.setPermission(option.value as SessionPermission),
+        ),
       })),
-      (value) => actions.setPermission(value as SessionPermission),
-    );
+    },
+  ];
 
   const addPhoto = (photo: ImageAttachment) => {
     const problem = attachmentProblem(images, photo);
@@ -198,6 +167,52 @@ export function Composer({
     }
     setImages((current) => [...current, photo]);
   };
+
+  // The system photo picker runs out of process and needs no library permission.
+  const pickFromLibrary = () => {
+    const room = IMAGES_MAX_COUNT - images.length;
+    if (room <= 0) {
+      setError(`At most ${IMAGES_MAX_COUNT} photos per message.`);
+      return;
+    }
+    ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "images",
+      allowsMultipleSelection: true,
+      selectionLimit: room,
+      // 0.6 keeps a phone photo near 1-2 MB, well under the PC's 10 MB per image.
+      quality: 0.6,
+      base64: true,
+    })
+      .then((result) => {
+        if (result.canceled) return;
+        const at = Date.now();
+        result.assets.forEach((asset, index) => {
+          if (!asset.base64) return;
+          addPhoto({
+            id: `phone-${at}-${index}`,
+            kind: "image",
+            name: photoName(asset.fileName, at, index),
+            mimeType: "image/jpeg",
+            data: asset.base64,
+          });
+        });
+      })
+      .catch(fail);
+  };
+
+  const photoMenu: MenuSection[] = [
+    {
+      items: [
+        {
+          id: "photo:library",
+          label: "Photo library",
+          icon: "photo.on.rectangle",
+          onPress: pickFromLibrary,
+        },
+        { id: "photo:camera", label: "Take photo", icon: "camera", onPress: () => setCamera(true) },
+      ],
+    },
+  ];
 
   const modelLabel = model?.label ?? config.modelId ?? (modelsLoaded ? "Choose model" : "Model");
   const permissionLabel =
@@ -255,16 +270,7 @@ export function Composer({
         </PressableScale>
       ) : null}
 
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: palette.surfaceElevated,
-            borderColor: palette.borderHeavy,
-          },
-          elevation(scheme, "float"),
-        ]}
-      >
+      <GlassCard padded={false} style={styles.card}>
         {images.length > 0 ? (
           <ScrollView
             contentContainerStyle={styles.thumbs}
@@ -287,7 +293,7 @@ export function Composer({
                   }
                   style={[styles.thumbRemove, { backgroundColor: palette.primaryFill }]}
                 >
-                  <Text style={[text.caption2, { color: palette.onPrimary }]}>✕</Text>
+                  <Icon name="xmark" color={palette.onPrimary} size={10} weight="bold" />
                 </PressableScale>
               </View>
             ))}
@@ -306,11 +312,12 @@ export function Composer({
         />
 
         <View style={styles.toolbar}>
-          <ToolbarButton
+          <MenuPill
             accessibilityLabel="Attach a photo"
             disabled={!live || sending}
-            label="＋"
-            onPress={() => setCamera(true)}
+            icon="plus"
+            round
+            sections={photoMenu}
           />
           <ScrollView
             contentContainerStyle={styles.pills}
@@ -318,26 +325,39 @@ export function Composer({
             showsHorizontalScrollIndicator={false}
             style={styles.flex}
           >
-            <Pill
-              accessibilityHint="Changes the model for this chat"
-              disabled={!live}
-              label={modelLabel}
-              onPress={chooseModel}
-            />
-            {config.thinkingLevel || model?.thinkingLevels.length ? (
+            {modelsLoaded ? (
+              <MenuPill
+                accessibilityHint="Changes the model for this chat"
+                disabled={!live || models.length === 0}
+                icon="cpu"
+                label={modelLabel}
+                sections={modelMenu}
+              />
+            ) : (
               <Pill
+                accessibilityHint="Loads the models from the PC"
+                disabled={!live}
+                icon="cpu"
+                label={modelLabel}
+                onPress={() => actions.loadRuntime().catch(fail)}
+              />
+            )}
+            {config.thinkingLevel || model?.thinkingLevels.length ? (
+              <MenuPill
                 accessibilityHint="Changes how hard the model thinks"
                 disabled={!live}
+                icon="brain"
                 label={thinkingLabel(config.thinkingLevel ?? "medium")}
-                onPress={chooseThinking}
+                sections={thinkingMenu}
               />
             ) : null}
             {permission !== undefined ? (
-              <Pill
+              <MenuPill
                 accessibilityHint="Changes what the agent may do without asking"
                 disabled={!live}
+                icon={permission ? PERMISSION_ICONS[permission] : "lock"}
                 label={permissionLabel}
-                onPress={choosePermission}
+                sections={permissionMenu}
               />
             ) : null}
           </ScrollView>
@@ -364,7 +384,7 @@ export function Composer({
               fill={palette.primaryFill}
               onPress={stop}
             >
-              <View style={[styles.stopGlyph, { backgroundColor: palette.onPrimary }]} />
+              <Icon name="stop.fill" color={palette.onPrimary} size={12} />
             </RoundButton>
           ) : (
             <RoundButton
@@ -375,35 +395,111 @@ export function Composer({
               fill={canSend ? palette.accent : palette.primaryDisabledFill}
               onPress={() => submit(running ? "steer" : "followUp")}
             >
-              <Text
-                style={[
-                  styles.sendGlyph,
-                  { color: canSend ? palette.onAccent : palette.onPrimaryDisabled },
-                ]}
-              >
-                {running ? "↪" : "↑"}
-              </Text>
+              <Icon
+                color={canSend ? palette.onAccent : palette.onPrimaryDisabled}
+                name={running ? "arrow.turn.down.right" : "arrow.up"}
+                size={15}
+                weight="bold"
+              />
             </RoundButton>
           )}
         </View>
-      </View>
+      </GlassCard>
       <PhotoCapture onClose={() => setCamera(false)} onPhoto={addPhoto} visible={camera} />
     </View>
   );
 }
 
+const PERMISSION_ICONS: Record<SessionPermission, IconName> = {
+  plan: "doc.text.magnifyingglass",
+  ask: "hand.raised",
+  edits: "pencil",
+  full: "bolt.shield",
+};
+
+/** What a toolbar pill shows: an icon, its label and a chevron (or just the icon when round). */
+function PillFace({
+  icon,
+  label,
+  round,
+  disabled,
+}: {
+  readonly icon: IconName;
+  readonly label?: string;
+  readonly round?: boolean;
+  readonly disabled?: boolean;
+}) {
+  const palette = usePalette();
+  if (round) {
+    return (
+      <View style={[styles.round, { opacity: disabled ? 0.45 : 1 }]}>
+        <Icon name={icon} color={palette.textMuted} size={19} />
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.pill, { opacity: disabled ? 0.45 : 1 }]}>
+      <Icon name={icon} color={palette.textMuted} size={13} />
+      <Text
+        maxFontSizeMultiplier={maxFontScale.chrome}
+        numberOfLines={1}
+        style={[text.footnote, styles.pillText, { color: palette.textMuted }]}
+      >
+        {label}
+      </Text>
+      <Icon name="chevron.up.chevron.down" color={palette.textSoft} size={9} />
+    </View>
+  );
+}
+
+/** A toolbar control that opens a native menu (a picker with a checkmark on the current one). */
+function MenuPill({
+  sections,
+  icon,
+  label,
+  round,
+  disabled,
+  accessibilityLabel,
+  accessibilityHint,
+}: {
+  readonly sections: readonly MenuSection[];
+  readonly icon: IconName;
+  readonly label?: string;
+  readonly round?: boolean;
+  readonly disabled?: boolean;
+  readonly accessibilityLabel?: string;
+  readonly accessibilityHint?: string;
+}) {
+  const face = (
+    <View
+      accessible
+      accessibilityHint={accessibilityHint}
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled) }}
+    >
+      <PillFace disabled={disabled} icon={icon} round={round} {...(label ? { label } : {})} />
+    </View>
+  );
+  // A disabled control shows its face only; an empty menu would open nothing.
+  if (disabled) return face;
+  return <NativeMenu sections={sections}>{face}</NativeMenu>;
+}
+
+/** A toolbar pill that runs an action instead of opening a menu. */
 function Pill({
   label,
+  icon,
   onPress,
   disabled,
   accessibilityHint,
 }: {
   readonly label: string;
+  readonly icon: IconName;
   readonly onPress: () => void;
   readonly disabled?: boolean;
   readonly accessibilityHint?: string;
 }) {
-  const palette = usePalette();
   return (
     <PressableScale
       accessibilityHint={accessibilityHint}
@@ -413,48 +509,8 @@ function Pill({
       disabled={disabled}
       hitSlop={{ top: 6, bottom: 6 }}
       onPress={onPress}
-      pressedStyle={{ backgroundColor: palette.overlayActive }}
-      style={[styles.pill, { opacity: disabled ? 0.45 : 1 }]}
     >
-      <Text
-        maxFontSizeMultiplier={maxFontScale.chrome}
-        numberOfLines={1}
-        style={[text.footnote, styles.pillText, { color: palette.textMuted }]}
-      >
-        {label} ⌄
-      </Text>
-    </PressableScale>
-  );
-}
-
-function ToolbarButton({
-  label,
-  onPress,
-  disabled,
-  accessibilityLabel,
-}: {
-  readonly label: string;
-  readonly onPress: () => void;
-  readonly disabled?: boolean;
-  readonly accessibilityLabel: string;
-}) {
-  const palette = usePalette();
-  return (
-    <PressableScale
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled) }}
-      disabled={disabled}
-      onPress={onPress}
-      pressedStyle={{ backgroundColor: palette.overlayActive }}
-      style={[styles.round, { opacity: disabled ? 0.45 : 1 }]}
-    >
-      <Text
-        maxFontSizeMultiplier={maxFontScale.chrome}
-        style={[text.title3, { color: palette.textMuted }]}
-      >
-        {label}
-      </Text>
+      <PillFace disabled={disabled} icon={icon} label={label} />
     </PressableScale>
   );
 }
@@ -508,8 +564,12 @@ function QueuedRow({
   const palette = usePalette();
   return (
     <View style={[styles.queuedRow, { borderTopColor: palette.borderDefault }]}>
+      <Icon
+        color={palette.textSoft}
+        name={message.mode === "steer" ? "arrow.turn.down.right" : "clock"}
+        size={12}
+      />
       <Text numberOfLines={2} style={[text.subheadline, styles.flex, { color: palette.text }]}>
-        {message.mode === "steer" ? "↪ " : ""}
         {message.text || "Photo"}
       </Text>
       {message.mode !== "steer" ? (
@@ -542,7 +602,7 @@ function QueuedRow({
         pressedStyle={{ backgroundColor: palette.overlayActive }}
         style={styles.round}
       >
-        <Text style={[text.subheadline, { color: palette.textMuted }]}>✕</Text>
+        <Icon name="xmark" color={palette.textMuted} size={13} />
       </PressableScale>
     </View>
   );
@@ -576,7 +636,6 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: radius.composer,
-    borderWidth: StyleSheet.hairlineWidth,
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.xs,
     paddingBottom: spacing.xs,
@@ -606,12 +665,14 @@ const styles = StyleSheet.create({
   pills: { alignItems: "center", gap: spacing.xxs },
   pill: {
     minHeight: hitSize.compact,
-    justifyContent: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.pill,
-    maxWidth: 200,
+    maxWidth: 220,
   },
-  pillText: { fontWeight: "500" },
+  pillText: { fontWeight: "500", flexShrink: 1 },
   textAction: { minHeight: hitSize.min, justifyContent: "center", paddingHorizontal: spacing.sm },
   round: {
     width: hitSize.min,
@@ -627,6 +688,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stopGlyph: { width: 12, height: 12, borderRadius: 2 },
-  sendGlyph: { fontSize: 18, fontWeight: "700", marginTop: -1 },
 });

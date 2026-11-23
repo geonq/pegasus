@@ -12,7 +12,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { GlassCard, PressableScale } from "../../ui";
+import { GlassCard, Icon, PressableScale } from "../../ui";
 import { hitSize, maxFontScale, motion, radius, spacing, text, usePalette } from "../../theme";
 
 const ENTER = FadeIn.duration(motion.slow).reduceMotion(ReduceMotion.System);
@@ -83,12 +83,7 @@ export function FloatingStatus({
               pressedStyle={{ backgroundColor: palette.overlayActive }}
               style={styles.jumpInner}
             >
-              <Text
-                maxFontSizeMultiplier={maxFontScale.chrome}
-                style={[text.headline, { color: palette.text }]}
-              >
-                ↓
-              </Text>
+              <Icon name="arrow.down" color={palette.text} size={16} weight="semibold" />
             </PressableScale>
           </GlassCard>
         </Animated.View>

@@ -2,7 +2,7 @@ import * as Haptics from "expo-haptics";
 import { useState } from "react";
 import { Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import type { PendingDialog, PendingDialogAnswer } from "../api/types";
-import { Button, PressableScale } from "../ui";
+import { Button, Icon, PressableScale } from "../ui";
 import { hitSize, maxFontScale, radius, spacing, text, usePalette } from "../theme";
 
 const KIND_LABELS: Record<PendingDialog["kind"], string> = {
@@ -116,7 +116,7 @@ export function ApprovalCard({
               ]}
             >
               <Text style={[text.callout, styles.flex, { color: palette.text }]}>{option}</Text>
-              <Text style={[text.callout, { color: palette.textSoft }]}>›</Text>
+              <Icon name="chevron.right" color={palette.textSoft} size={13} weight="semibold" />
             </PressableScale>
           ))}
         </View>

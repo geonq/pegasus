@@ -8,11 +8,12 @@ import { hitSize, palettes, radius, spacing, text, usePalette } from "../../them
 
 // The viewfinder is dark in both schemes, like the system camera.
 const chrome = palettes.dark;
+import { photoName } from "./photo-name";
 import type { ImageAttachment } from "./wire";
 
 /**
- * Takes one photo for the composer with the camera the app already ships for pairing.
- * shortcut: camera only, no photo library; add expo-image-picker (a native rebuild) for library picks.
+ * Takes one photo for the composer with the camera the app already ships for pairing. Library
+ * picks go through expo-image-picker in the composer's photo menu.
  */
 export function PhotoCapture({
   visible,
@@ -44,7 +45,7 @@ export function PhotoCapture({
       onPhoto({
         id: `phone-${at}`,
         kind: "image",
-        name: `Photo ${new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.jpg`,
+        name: photoName(null, at),
         mimeType: "image/jpeg",
         data: picture.base64,
       });
@@ -98,7 +99,12 @@ export function PhotoCapture({
               </Text>
             ) : null}
             <View style={[styles.bar, { paddingBottom: insets.bottom + spacing.lg }]}>
-              <PressableScale accessibilityRole="button" onPress={onClose} style={styles.cancel}>
+              <PressableScale
+                accessibilityLabel="Cancel"
+                accessibilityRole="button"
+                onPress={onClose}
+                style={styles.cancel}
+              >
                 <Text style={[text.body, { color: chrome.textStrong }]}>Cancel</Text>
               </PressableScale>
               <PressableScale

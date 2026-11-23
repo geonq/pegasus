@@ -4,7 +4,7 @@ import { Image, Platform, StyleSheet, Text, View } from "react-native";
 import type { TranscriptTool } from "../../api/types";
 import { formatDuration, toolsSummary, type WorkLogRow } from "../../api/worklog";
 import { Markdown } from "../../components/Markdown";
-import { PressableScale } from "../../ui";
+import { Icon, PressableScale } from "../../ui";
 import { hitSize, maxFontScale, radius, spacing, text, usePalette } from "../../theme";
 import { GenerativeUiCard } from "./GenerativeUiCard";
 import { messageImages } from "./wire";
@@ -120,9 +120,15 @@ export const TranscriptRow = memo(function TranscriptRow({
         onPress={() => onToggle(row.id)}
         style={styles.thinking}
       >
-        <Text style={[text.footnote, { color: palette.textMuted }]}>
-          {expanded ? "▾" : "▸"} {label}
-        </Text>
+        <View style={styles.thinkingLine}>
+          <Icon name="brain" color={palette.textSoft} size={12} />
+          <Text style={[text.footnote, { color: palette.textMuted }]}>{label}</Text>
+          <Icon
+            name={expanded ? "chevron.down" : "chevron.right"}
+            color={palette.textSoft}
+            size={10}
+          />
+        </View>
         {expanded && row.text ? (
           <Text selectable style={[text.footnote, styles.italic, { color: palette.textMuted }]}>
             {row.text}
@@ -176,7 +182,11 @@ function ToolRun({
             {time ? ` · ${time}` : ""}
           </Text>
         </View>
-        <Text style={[text.footnote, { color: palette.textSoft }]}>{expanded ? "▾" : "▸"}</Text>
+        <Icon
+          name={expanded ? "chevron.down" : "chevron.right"}
+          color={palette.textSoft}
+          size={11}
+        />
       </PressableScale>
       {expanded ? (
         <View style={[styles.toolList, { borderTopColor: palette.borderDefault }]}>
@@ -225,20 +235,16 @@ function ToolLine({
 /** A shape per status, so it never relies on colour alone. */
 function StatusGlyph({ status }: { readonly status: TranscriptTool["status"] }) {
   const palette = usePalette();
-  const [glyph, color, label] =
+  const [name, color, label] =
     status === "running"
-      ? ["●", palette.accentText, "Running"]
+      ? (["circle.dotted", palette.accentText, "Running"] as const)
       : status === "error"
-        ? ["✕", palette.dangerText, "Failed"]
-        : ["✓", palette.successText, "Done"];
+        ? (["xmark.circle.fill", palette.dangerText, "Failed"] as const)
+        : (["checkmark.circle.fill", palette.successText, "Done"] as const);
   return (
-    <Text
-      accessibilityLabel={label}
-      maxFontSizeMultiplier={maxFontScale.chrome}
-      style={[text.footnote, styles.glyph, { color }]}
-    >
-      {glyph}
-    </Text>
+    <View accessible accessibilityLabel={label} style={styles.glyph}>
+      <Icon name={name} color={color} size={14} />
+    </View>
   );
 }
 
@@ -273,6 +279,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   italic: { fontStyle: "italic" },
+  thinkingLine: { flexDirection: "row", alignItems: "center", gap: spacing.sm2 },
   toolCard: { borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
   toolHeader: {
     minHeight: hitSize.min,
@@ -290,7 +297,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   toolLine: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
-  glyph: { width: 16, textAlign: "center" },
+  glyph: { width: 16, height: 18, alignItems: "center", justifyContent: "center" },
   mono: {
     ...text.mono,
     fontSize: text.caption.fontSize,

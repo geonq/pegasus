@@ -1,5 +1,5 @@
-import { LegendList, type LegendListRef } from "@legendapp/list/react-native";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { type LegendListRef } from "@legendapp/list/react-native";
+import { KeyboardAwareLegendList, useKeyboardChatComposerInset } from "@legendapp/list/keyboard";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
@@ -13,23 +13,25 @@ import {
   type ReactNode,
 } from "react";
 import {
+  ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   StyleSheet,
   Text,
   View,
+  type HostInstance,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { pendingDialogsOf, sessionKey } from "../api/chats";
+import { transcriptFor } from "../api/transcript-cache";
 import type { PendingDialogAnswer, TranscriptItem } from "../api/types";
 import { LIMIT_WARNING_PERCENT, planStatus, resetsIn } from "../api/usage";
 import { groupTranscript } from "../api/worklog";
 import { ApprovalCard } from "../components/ApprovalCard";
 import { messageOf, useChatActions } from "../features/chat/actions";
-import { ChatMenuButton, ChatTitle, type ChatMenuItem } from "../features/chat/ChatHeader";
+import { chatMenuItem, ChatTitle, type ChatStatus } from "../features/chat/ChatHeader";
 import { Composer } from "../features/chat/Composer";
 import { FloatingStatus } from "../features/chat/FloatingStatus";
 import { SubagentRows } from "../features/chat/SubagentRows";
@@ -37,7 +39,7 @@ import { selectionHaptic, TranscriptRow } from "../features/chat/TranscriptRow";
 import { hasRuntime, modelsOf, permissionOf, sessionConfigOf } from "../features/chat/wire";
 import type { RootStackParamList } from "../navigation";
 import { usePegasus } from "../state/PegasusProvider";
-import { Button, EmptyState, PressableScale, Skeleton } from "../ui";
+import { Button, EmptyState, Icon, PressableScale, Skeleton, type MenuSection } from "../ui";
 import { maxFontScale, radius, spacing, text, usePalette } from "../theme";
 
 /** Past this many points from the end, the person is reading back: stop following, offer a jump. */
@@ -45,8 +47,11 @@ const FOLLOW_THRESHOLD = 120;
 
 /**
  * One chat: its work log as it streams in, approvals and questions inline at its end, and the
- * composer that sends, queues or steers. Everything is drawn from the PC's state; the screen only
- * owns what was typed, which rows are expanded, and whether the person scrolled up.
+ * composer that sends, queues or steers. A chat opened before draws its last copy at once while
+ * the PC selects it; the live transcript then replaces it in place. The composer rides on the
+ * keyboard and the list's end inset follows the composer's height, so the last message is never
+ * covered. Everything is drawn from the PC's state; the screen only owns what was typed, which
+ * rows are expanded, and whether the person scrolled up.
  */
 export function ChatScreen({
   route,
@@ -55,15 +60,25 @@ export function ChatScreen({
   const { workspaceId, sessionId, title: routeTitle } = route.params;
   const palette = usePalette();
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
-  const { state, transcript, status, openChat, stop, answer, removeQueued, steerQueued } =
-    usePegasus();
+  const {
+    state,
+    transcript: liveTranscript,
+    cachedTranscript,
+    status,
+    openChat,
+    stop,
+    answer,
+    removeQueued,
+    steerQueued,
+  } = usePegasus();
   const actions = useChatActions(workspaceId, sessionId);
   const [openError, setOpenError] = useState<string | null>(null);
   const [opening, setOpening] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [awayFromEnd, setAwayFromEnd] = useState(false);
   const list = useRef<LegendListRef>(null);
+  const dock = useRef<HostInstance>(null);
+  const { contentInsetEndAdjustment, onComposerLayout } = useKeyboardChatComposerInset(list, dock);
 
   const workspace = state?.workspaces.find((entry) => entry.id === workspaceId);
   const session = workspace?.sessions.find((entry) => entry.id === sessionId);
@@ -102,12 +117,16 @@ export function ChatScreen({
     if (live && workspace && !modelsLoaded) actions.loadRuntime().catch(() => undefined);
   }, [actions, live, modelsLoaded, workspace]);
 
+  const shown = transcriptFor(
+    liveTranscript,
+    { get: (w, s) => cachedTranscript({ workspaceId: w, sessionId: s }) },
+    workspaceId,
+    sessionId,
+  );
+  const stale = shown.stale;
   const items = useMemo(
-    () =>
-      transcript?.workspaceId === workspaceId && transcript.sessionId === sessionId
-        ? transcript.transcript.filter(isShown)
-        : null,
-    [transcript, workspaceId, sessionId],
+    () => (shown.transcript ? shown.transcript.transcript.filter(isShown) : null),
+    [shown.transcript],
   );
   const rows = useMemo(() => groupTranscript(items ?? []), [items]);
   const lastRowId = rows[rows.length - 1]?.id;
@@ -138,9 +157,11 @@ export function ChatScreen({
   }, []);
 
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const distance = contentSize.height - layoutMeasurement.height - contentOffset.y;
-    setAwayFromEnd(distance > FOLLOW_THRESHOLD);
+    const { contentOffset, contentSize, layoutMeasurement, contentInset } = event.nativeEvent;
+    const distance =
+      contentSize.height + (contentInset?.bottom ?? 0) - layoutMeasurement.height - contentOffset.y;
+    const away = distance > FOLLOW_THRESHOLD;
+    setAwayFromEnd((current) => (current === away ? current : away));
   }, []);
 
   const toggle = useCallback((id: string) => {
@@ -158,24 +179,12 @@ export function ChatScreen({
     [answer, sessionId, workspaceId],
   );
 
-  const openReview = useCallback(() => {
-    // The Review screen is registered by the review feature; older builds without it say so.
-    if (!navigation.getState().routeNames.includes("Review" as keyof RootStackParamList)) {
-      Alert.alert("Review is not available", "This build of the app has no review screen yet.");
-      return;
-    }
-    (navigation.navigate as (name: string, params: object) => void)("Review", {
-      workspaceId,
-      sessionId,
-    });
-  }, [navigation, sessionId, workspaceId]);
-
   const title = session?.title || routeTitle || "Chat";
   const model = models.find(
     (entry) => entry.providerId === config.provider && entry.modelId === config.modelId,
   );
   const subtitle = [workspace?.name, model?.label ?? config.modelId].filter(Boolean).join(" · ");
-  const headerStatus = !live
+  const headerStatus: ChatStatus = !live
     ? "offline"
     : asked
       ? "waiting"
@@ -185,78 +194,121 @@ export function ChatScreen({
           ? "failed"
           : "idle";
 
-  const menu = useMemo<ChatMenuItem[]>(() => {
+  const menu = useMemo<MenuSection[]>(() => {
     const fail = (label: string) => (reason: unknown) => Alert.alert(label, messageOf(reason));
-    const items: ChatMenuItem[] = [
-      { label: "Review changes", onPress: openReview },
-      { label: "Usage", onPress: () => navigation.navigate("Usage", { workspaceId, sessionId }) },
+    const sections: MenuSection[] = [
+      {
+        items: [
+          {
+            id: "review",
+            label: "Review changes",
+            icon: "doc.text.magnifyingglass",
+            onPress: () => navigation.navigate("Review", { workspaceId, sessionId }),
+          },
+          {
+            id: "usage",
+            label: "Usage",
+            icon: "gauge.with.dots.needle.33percent",
+            onPress: () => navigation.navigate("Usage", { workspaceId, sessionId }),
+          },
+          {
+            id: "new",
+            label: "New chat in this project",
+            icon: "square.and.pencil",
+            onPress: () =>
+              navigation.navigate("NewChat", {
+                workspaceId:
+                  workspace?.kind === "worktree" && workspace.rootWorkspaceId
+                    ? workspace.rootWorkspaceId
+                    : workspaceId,
+              }),
+          },
+        ],
+      },
     ];
     if (session) {
-      items.push({
-        label: session.pinnedAt ? "Unpin" : "Pin",
-        onPress: () => actions.setPinned(!session.pinnedAt).catch(fail("Could not change the pin")),
+      sections.push({
+        items: [
+          {
+            id: "pin",
+            label: session.pinnedAt ? "Unpin" : "Pin",
+            icon: session.pinnedAt ? "pin.slash" : "pin",
+            onPress: () =>
+              actions.setPinned(!session.pinnedAt).catch(fail("Could not change the pin")),
+          },
+          session.archivedAt
+            ? {
+                id: "unarchive",
+                label: "Unarchive",
+                icon: "tray.and.arrow.up",
+                onPress: () => actions.unarchive().catch(fail("Could not unarchive the chat")),
+              }
+            : {
+                id: "archive",
+                label: "Archive",
+                icon: "archivebox",
+                destructive: true,
+                onPress: () =>
+                  Alert.alert(
+                    "Archive this chat?",
+                    "It leaves the list. You can find it on the PC.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Archive",
+                        style: "destructive",
+                        onPress: () =>
+                          actions
+                            .archive()
+                            .then(() => navigation.goBack())
+                            .catch(fail("Could not archive the chat")),
+                      },
+                    ],
+                  ),
+              },
+        ],
       });
-      items.push(
-        session.archivedAt
-          ? {
-              label: "Unarchive",
-              onPress: () => actions.unarchive().catch(fail("Could not unarchive the chat")),
-            }
-          : {
-              label: "Archive",
-              destructive: true,
-              onPress: () =>
-                Alert.alert(
-                  "Archive this chat?",
-                  "It leaves the list. You can find it on the PC.",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Archive",
-                      style: "destructive",
-                      onPress: () =>
-                        actions
-                          .archive()
-                          .then(() => navigation.goBack())
-                          .catch(fail("Could not archive the chat")),
-                    },
-                  ],
-                ),
-            },
-      );
     }
-    return items;
-  }, [actions, navigation, openReview, session, sessionId, workspaceId]);
+    return sections;
+  }, [actions, navigation, session, sessionId, workspace, workspaceId]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
       headerTitle: () => <ChatTitle status={headerStatus} subtitle={subtitle} title={title} />,
-      headerRight: () => <ChatMenuButton items={menu} />,
+      unstable_headerRightItems: () => [chatMenuItem(menu)],
     });
   }, [headerStatus, menu, navigation, subtitle, title]);
 
   const banner =
     status.state === "retrying"
-      ? `${status.reason} Retrying in ${Math.round(status.inMs / 1000)} s. Showing the last update.`
+      ? {
+          tone: "warning" as const,
+          line: `${status.reason} Retrying in ${Math.max(1, Math.round(status.inMs / 1000))} s. Showing the last update.`,
+        }
       : status.state === "revoked"
-        ? status.reason
+        ? { tone: "warning" as const, line: status.reason }
         : status.state === "connecting" && state
-          ? "Reconnecting…"
-          : null;
+          ? { tone: "quiet" as const, line: "Reconnecting…" }
+          : stale && !openError
+            ? { tone: "quiet" as const, line: "Loading the latest…" }
+            : null;
 
   const limitReset = plan ? resetsIn(plan.resetsAt, Date.now()) : null;
   const sessionGone = Boolean(state) && !session;
   const since = running && session?.runningSince ? Date.parse(session.runningSince) : NaN;
+  // Until the PC has this chat selected, a send would land in whichever chat it had open.
+  const canSend = live && !stale;
 
   let body: ReactNode;
   if (sessionGone) {
     body = (
       <View style={styles.center}>
         <EmptyState
+          icon="questionmark.bubble"
           action={
             <Button label="Back to chats" onPress={() => navigation.goBack()} variant="secondary" />
           }
-          message="It was deleted, or this phone may no longer see its project."
+          message="It was deleted or archived on the PC."
           title="This chat is not on the PC"
         />
       </View>
@@ -265,6 +317,7 @@ export function ChatScreen({
     body = (
       <View style={styles.center}>
         <EmptyState
+          icon="exclamationmark.triangle"
           action={
             <Button
               label="Try again"
@@ -272,7 +325,7 @@ export function ChatScreen({
               variant="primary"
             />
           }
-          message={openError}
+          message={`${openError} Check that the PC is awake, then try again.`}
           title="Could not open this chat"
         />
       </View>
@@ -293,11 +346,12 @@ export function ChatScreen({
     );
   } else {
     body = (
-      <LegendList
+      <KeyboardAwareLegendList
         ListEmptyComponent={
           asked ? null : (
             <View style={styles.center}>
               <EmptyState
+                icon={running ? "ellipsis.bubble" : "bubble.left"}
                 message={
                   running
                     ? "The first reply is on its way."
@@ -334,13 +388,17 @@ export function ChatScreen({
         }
         alignItemsAtEnd
         contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        contentInsetEndAdjustment={contentInsetEndAdjustment}
         data={rows}
         estimatedItemSize={88}
         extraData={expanded}
         getItemType={(row) => row.kind}
-        initialScrollIndex={Math.max(0, rows.length - 1)}
+        initialScrollAtEnd
         keyExtractor={(row) => row.id}
         keyboardDismissMode="interactive"
+        keyboardLiftBehavior="whenAtEnd"
+        keyboardOffset={dockOffset(insets.bottom)}
         keyboardShouldPersistTaps="handled"
         maintainScrollAtEnd
         maintainScrollAtEndThreshold={0.15}
@@ -358,74 +416,104 @@ export function ChatScreen({
             workspaceId={workspaceId}
           />
         )}
-        scrollEventThrottle={64}
+        scrollEventThrottle={32}
       />
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={headerHeight}
-      style={[styles.screen, { backgroundColor: palette.background }]}
-    >
+    <View style={[styles.screen, { backgroundColor: palette.background }]}>
       {banner ? (
         <View
           accessibilityLiveRegion="polite"
-          style={[styles.banner, { backgroundColor: palette.warningTint }]}
+          style={[
+            styles.banner,
+            { backgroundColor: banner.tone === "warning" ? palette.warningTint : palette.surface },
+          ]}
         >
-          <Text style={[text.footnote, styles.flex, { color: palette.warningText }]}>{banner}</Text>
+          {banner.tone === "warning" ? (
+            <Icon name="wifi.exclamationmark" color={palette.warningText} size={14} />
+          ) : (
+            <ActivityIndicator size="small" color={palette.textMuted} />
+          )}
+          <Text
+            style={[
+              text.footnote,
+              styles.flex,
+              { color: banner.tone === "warning" ? palette.warningText : palette.textMuted },
+            ]}
+          >
+            {banner.line}
+          </Text>
         </View>
       ) : null}
 
       <View style={styles.flex}>{body}</View>
 
       {!sessionGone ? (
-        <>
-          <FloatingStatus
-            onJump={jumpToLatest}
-            showJump={awayFromEnd && items !== null && rows.length > 0}
-            working={
-              running && !Number.isNaN(since)
-                ? { since, ...(session?.currentStep ? { step: session.currentStep } : {}) }
-                : null
-            }
-          />
-          {plan && plan.usedPercent >= LIMIT_WARNING_PERCENT ? (
-            <PressableScale
-              accessibilityHint="Opens usage"
-              accessibilityRole="button"
-              onPress={() => navigation.navigate("Usage", { workspaceId, sessionId })}
-              style={styles.limit}
-            >
-              <Text
-                maxFontSizeMultiplier={maxFontScale.chrome}
-                style={[text.caption, { color: palette.warningText }]}
+        <KeyboardStickyView
+          offset={{ closed: 0, opened: dockOffset(insets.bottom) }}
+          style={styles.dock}
+        >
+          <View onLayout={onComposerLayout} pointerEvents="box-none" ref={dock}>
+            <FloatingStatus
+              onJump={jumpToLatest}
+              showJump={awayFromEnd && items !== null && rows.length > 0}
+              working={
+                running && !Number.isNaN(since)
+                  ? { since, ...(session?.currentStep ? { step: session.currentStep } : {}) }
+                  : null
+              }
+            />
+            {plan && plan.usedPercent >= LIMIT_WARNING_PERCENT ? (
+              <PressableScale
+                accessibilityHint="Opens usage"
+                accessibilityRole="button"
+                onPress={() => navigation.navigate("Usage", { workspaceId, sessionId })}
+                style={styles.limit}
               >
-                {plan.provider} usage {Math.round(plan.usedPercent)}%
-                {limitReset ? ` · ${limitReset}` : ""}
-              </Text>
-            </PressableScale>
-          ) : null}
-          <Composer
-            actions={actions}
-            bottomInset={insets.bottom}
-            config={config}
-            live={live}
-            models={models}
-            modelsLoaded={modelsLoaded}
-            onRemoveQueued={removeQueued}
-            onSent={jumpToLatest}
-            onSteerQueued={steerQueued}
-            onStop={() => stop({ workspaceId, sessionId })}
-            permission={permission}
-            queued={items === null ? [] : queued}
-            running={running}
-          />
-        </>
+                <Icon
+                  name="gauge.with.dots.needle.67percent"
+                  color={palette.warningText}
+                  size={12}
+                />
+                <Text
+                  maxFontSizeMultiplier={maxFontScale.chrome}
+                  style={[text.caption, { color: palette.warningText }]}
+                >
+                  {plan.provider} usage {Math.round(plan.usedPercent)}%
+                  {limitReset ? ` · ${limitReset}` : ""}
+                </Text>
+              </PressableScale>
+            ) : null}
+            <Composer
+              actions={actions}
+              bottomInset={insets.bottom}
+              config={config}
+              live={canSend}
+              models={models}
+              modelsLoaded={modelsLoaded}
+              onRemoveQueued={removeQueued}
+              onSent={jumpToLatest}
+              onSteerQueued={steerQueued}
+              onStop={() => stop({ workspaceId, sessionId })}
+              permission={permission}
+              queued={stale || items === null ? [] : queued}
+              running={running}
+            />
+          </View>
+        </KeyboardStickyView>
       ) : null}
-    </KeyboardAvoidingView>
+    </View>
   );
+}
+
+/**
+ * How far the docked composer sinks while the keyboard is up: the safe-area part of its bottom
+ * padding, which the keyboard already covers (Composer pads max(bottomInset, 8)).
+ */
+function dockOffset(bottomInset: number): number {
+  return Math.max(0, Math.max(bottomInset, spacing.sm) - spacing.sm);
 }
 
 function isShown(item: TranscriptItem): boolean {
@@ -435,7 +523,13 @@ function isShown(item: TranscriptItem): boolean {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   flex: { flex: 1 },
-  banner: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, flexDirection: "row" },
+  banner: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
   center: { flex: 1, justifyContent: "center" },
   content: {
     paddingHorizontal: spacing.lg,
@@ -446,8 +540,12 @@ const styles = StyleSheet.create({
   footer: { gap: spacing.md, paddingTop: spacing.xs },
   skeleton: { flex: 1, padding: spacing.lg, gap: spacing.md, justifyContent: "flex-end" },
   skeletonUser: { alignItems: "flex-end" },
+  dock: { position: "absolute", left: 0, right: 0, bottom: 0 },
   limit: {
     alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
     minHeight: 32,
     justifyContent: "center",
     paddingHorizontal: spacing.md,

@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { OrchestrationChildThread } from "../../api/types";
-import { PressableScale } from "../../ui";
+import { Icon, PressableScale } from "../../ui";
 import {
   hitSize,
   maxFontScale,
@@ -111,7 +111,7 @@ export function SubagentRows({
           >
             {STATUS_LABELS[agent.status]}
           </Text>
-          <Text style={[text.body, { color: palette.textSoft }]}>›</Text>
+          <Icon name="chevron.right" color={palette.textSoft} size={13} weight="semibold" />
         </PressableScale>
       ))}
     </View>

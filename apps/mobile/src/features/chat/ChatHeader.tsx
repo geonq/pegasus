@@ -1,15 +1,12 @@
+import type { NativeStackHeaderItemMenu } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
-import { ActionSheetIOS, Alert, Platform, StyleSheet, Text, View } from "react-native";
-import { PressableScale } from "../../ui";
-import { hitSize, maxFontScale, spacing, text, usePalette } from "../../theme";
+import { StyleSheet, Text, View } from "react-native";
+import type { MenuSection } from "../../ui";
+import { maxFontScale, spacing, text, usePalette } from "../../theme";
 
-export interface ChatMenuItem {
-  readonly label: string;
-  readonly destructive?: boolean;
-  readonly onPress: () => void;
-}
+export type ChatStatus = "working" | "waiting" | "failed" | "idle" | "offline";
 
-/** The navigation bar's title: the chat's title over its project, model and status. */
+/** The navigation bar's title: the chat's title over its status, project and model. */
 export function ChatTitle({
   title,
   subtitle,
@@ -17,12 +14,12 @@ export function ChatTitle({
 }: {
   readonly title: string;
   readonly subtitle: string;
-  readonly status: "working" | "waiting" | "failed" | "idle" | "offline";
+  readonly status: ChatStatus;
 }) {
   const palette = usePalette();
   const [dot, label] =
     status === "working"
-      ? [palette.accent, "Working"]
+      ? [palette.success, "Working"]
       : status === "waiting"
         ? [palette.warning, "Needs you"]
         : status === "failed"
@@ -49,9 +46,9 @@ export function ChatTitle({
         <Text
           maxFontSizeMultiplier={maxFontScale.chrome}
           numberOfLines={1}
-          style={[text.caption, { color: palette.textMuted }]}
+          style={[text.caption, styles.subtitleText, { color: palette.textMuted }]}
         >
-          {label && status !== "idle" ? `${label} · ` : ""}
+          {label ? `${label} · ` : ""}
           {subtitle}
         </Text>
       </View>
@@ -59,59 +56,45 @@ export function ChatTitle({
   );
 }
 
-/** The ••• button: a native action sheet of the chat's actions. */
-export function ChatMenuButton({ items }: { readonly items: readonly ChatMenuItem[] }) {
-  const palette = usePalette();
-  const open = () => {
-    Haptics.selectionAsync().catch(() => undefined);
-    const labels = items.map((item) => item.label);
-    const destructive = items.findIndex((item) => item.destructive);
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: [...labels, "Cancel"],
-          cancelButtonIndex: labels.length,
-          ...(destructive >= 0 ? { destructiveButtonIndex: destructive } : {}),
-        },
-        (index) => items[index]?.onPress(),
-      );
-    } else {
-      Alert.alert("Chat", undefined, [
-        ...items.map((item) => ({
-          text: item.label,
-          style: item.destructive ? ("destructive" as const) : ("default" as const),
-          onPress: item.onPress,
+/**
+ * The bar's ellipsis button: a native UIMenu on the bar button item itself (react-native-screens),
+ * so it opens like Mail's or Notes'. Each section is an inline group, divided from the next.
+ */
+export function chatMenuItem(sections: readonly MenuSection[]): NativeStackHeaderItemMenu {
+  return {
+    type: "menu",
+    label: "Chat actions",
+    accessibilityLabel: "Chat actions",
+    icon: { type: "sfSymbol", name: "ellipsis.circle" },
+    menu: {
+      items: sections
+        .filter((section) => section.items.length > 0)
+        .map((section) => ({
+          type: "submenu" as const,
+          label: section.title ?? "",
+          inline: true,
+          items: section.items.map((item) => ({
+            type: "action" as const,
+            label: item.label,
+            ...(item.icon ? { icon: { type: "sfSymbol" as const, name: item.icon as never } } : {}),
+            ...(item.destructive ? { destructive: true } : {}),
+            ...(item.disabled ? { disabled: true } : {}),
+            ...(item.selected !== undefined
+              ? { state: item.selected ? ("on" as const) : ("off" as const) }
+              : {}),
+            onPress: () => {
+              Haptics.selectionAsync().catch(() => undefined);
+              item.onPress();
+            },
+          })),
         })),
-        { text: "Cancel", style: "cancel" as const },
-      ]);
-    }
+    },
   };
-  return (
-    <PressableScale
-      accessibilityLabel="Chat actions"
-      accessibilityRole="button"
-      hitSlop={4}
-      onPress={open}
-      style={styles.menu}
-    >
-      <Text
-        maxFontSizeMultiplier={maxFontScale.chrome}
-        style={[text.headline, { color: palette.accentText }]}
-      >
-        •••
-      </Text>
-    </PressableScale>
-  );
 }
 
 const styles = StyleSheet.create({
   title: { alignItems: "center", maxWidth: 240 },
-  subtitle: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  subtitle: { flexDirection: "row", alignItems: "center", gap: spacing.xs, maxWidth: "100%" },
+  subtitleText: { flexShrink: 1 },
   dot: { width: 6, height: 6, borderRadius: 3 },
-  menu: {
-    minWidth: hitSize.min,
-    minHeight: hitSize.min,
-    alignItems: "flex-end",
-    justifyContent: "center",
-  },
 });

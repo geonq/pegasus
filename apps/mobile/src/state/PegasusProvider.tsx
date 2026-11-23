@@ -12,6 +12,7 @@ import { AppState, Linking, Platform, Settings } from "react-native";
 import { PegasusClient, PegasusError, type EventStream, type StreamStatus } from "../api/client";
 import { initialLiveState, reduceLive, type LiveInput, type LiveState } from "../api/live-state";
 import { parsePairingLink } from "../api/pairing";
+import { TranscriptCache } from "../api/transcript-cache";
 import type {
   AccountLimits,
   DesktopAppState,
@@ -35,6 +36,8 @@ interface PegasusContextValue {
   readonly status: StreamStatus;
   readonly state: DesktopAppState | null;
   readonly transcript: SelectedTranscript | null;
+  /** The last transcript seen for a chat this session, drawn while the live one loads. */
+  readonly cachedTranscript: (target: ChatTarget) => SelectedTranscript | undefined;
   readonly pair: (pairing: Pairing) => Promise<void>;
   readonly forget: () => Promise<void>;
   /** Pulls the whole state now (pull to refresh) and reconnects a stream that is waiting to retry. */
@@ -89,6 +92,7 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
   const streamRef = useRef<EventStream | null>(null);
   /** Feeds one input through the reducer; set while a client is connected. */
   const feedRef = useRef<(input: LiveInput) => void>(() => undefined);
+  const cacheRef = useRef(new TranscriptCache());
 
   useEffect(() => {
     loadPairing()
@@ -144,6 +148,7 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
       if (!active) return;
       const result = reduceLive(liveRef.current, input);
       liveRef.current = result.live;
+      cacheRef.current.remember(result.live.transcript);
       setLive(result.live);
       if (result.pullTranscript) {
         client
@@ -175,6 +180,7 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
       stream.stop();
       streamRef.current = null;
       feedRef.current = () => undefined;
+      cacheRef.current.clear();
       liveRef.current = initialLiveState;
       setLive(initialLiveState);
       setStatus({ state: "connecting" });
@@ -205,6 +211,7 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
       status,
       state: live.state,
       transcript: live.transcript,
+      cachedTranscript: (target) => cacheRef.current.get(target.workspaceId, target.sessionId),
       pair: async (next) => {
         // Prove the address and key work before keeping them.
         await new PegasusClient(next).invoke("getAppVersion");
