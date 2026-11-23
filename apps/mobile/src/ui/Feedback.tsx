@@ -9,21 +9,37 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { radius, spacing, text, usePalette } from "../theme";
+import { Icon, type IconName } from "./Icon";
 
-/** A centred message for an empty list or screen, with an optional action under it. */
+/**
+ * A centred message for an empty list or screen: what happened, what to do, and the action that
+ * does it. The icon is decorative; the title carries the meaning.
+ */
 export function EmptyState({
   title,
   message,
   action,
+  icon,
 }: {
   readonly title: string;
   readonly message?: string;
   readonly action?: ReactNode;
+  readonly icon?: IconName;
 }) {
   const palette = usePalette();
   return (
     <View style={styles.empty}>
-      <Text style={[text.headline, styles.center, { color: palette.textStrong }]}>{title}</Text>
+      {icon ? (
+        <View style={styles.icon}>
+          <Icon name={icon} color={palette.textSoft} size={34} weight="regular" />
+        </View>
+      ) : null}
+      <Text
+        accessibilityRole="header"
+        style={[text.headline, styles.center, { color: palette.textStrong }]}
+      >
+        {title}
+      </Text>
       {message ? (
         <Text style={[text.subheadline, styles.center, { color: palette.textMuted }]}>
           {message}
@@ -109,6 +125,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   center: { textAlign: "center" },
+  icon: { marginBottom: spacing.xs },
   action: { marginTop: spacing.sm },
   sheet: {
     paddingTop: spacing.sm,

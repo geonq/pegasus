@@ -1,6 +1,7 @@
 import { Children, Fragment, isValidElement, type ReactNode } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { hitSize, radius, spacing, text, usePalette } from "../theme";
+import { Icon } from "./Icon";
 import { PressableScale } from "./PressableScale";
 
 /** A section title above a group: sentence case, muted, like the desktop's settings headings. */
@@ -69,6 +70,8 @@ export interface ListRowProps {
   readonly trailing?: ReactNode;
   /** Shows a chevron and makes the row pressable. */
   readonly onPress?: () => void;
+  /** The trailing accessory when the row opens a menu instead of a screen. */
+  readonly accessory?: "chevron" | "menu";
   readonly tone?: "default" | "danger" | "accent";
   readonly disabled?: boolean;
   readonly accessibilityHint?: string;
@@ -85,6 +88,7 @@ export function ListRow({
   tone = "default",
   disabled,
   accessibilityHint,
+  accessory,
 }: ListRowProps) {
   const palette = usePalette();
   const { fontScale } = useWindowDimensions();
@@ -113,7 +117,11 @@ export function ListRow({
         </Text>
       ) : null}
       {trailing}
-      {onPress ? <Text style={[text.body, { color: palette.textSoft }]}>›</Text> : null}
+      {accessory === "menu" ? (
+        <Icon name="chevron.up.chevron.down" color={palette.textSoft} size={12} />
+      ) : onPress || accessory === "chevron" ? (
+        <Icon name="chevron.right" color={palette.textSoft} size={13} weight="semibold" />
+      ) : null}
     </View>
   );
   if (!onPress) return content;

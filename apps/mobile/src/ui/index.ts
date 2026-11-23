@@ -16,3 +16,8 @@ export { Button, IconButton, type ButtonProps } from "./Button";
 export { Badge, Chip, type Tone } from "./Chip";
 /** EmptyState, loading Skeleton blocks and the SheetHeader of a bottom sheet. */
 export { EmptyState, SheetHeader, Skeleton } from "./Feedback";
+/** An SF Symbol (expo-symbols), decorative, scaled with Dynamic Type. */
+export { Icon, type IconName } from "./Icon";
+/** The system menu (SwiftUI Menu / ContextMenu via @expo/ui) built from sections of items. */
+export { NativeMenu } from "./NativeMenu";
+export type { MenuItem, MenuSection } from "./menu-model";

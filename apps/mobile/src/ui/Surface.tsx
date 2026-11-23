@@ -1,3 +1,4 @@
+import { BlurView } from "expo-blur";
 import type { ReactNode } from "react";
 import { AccessibilityInfo, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { useEffect, useState } from "react";
@@ -41,33 +42,50 @@ export function Surface({ tone = "muted", padded = true, style, children }: Surf
 }
 
 /**
- * The desktop's glass for anything floating over content (menus, toasts, notices). Without a blur
- * module it is a nearly opaque fill (see `material` in theme.ts); with Reduce Transparency on it
- * is fully opaque, like the desktop's prefers-reduced-transparency rule.
+ * The desktop's one glass for anything floating over content (polish.css: --surface-float over
+ * blur + saturate): a system material blur under the translucent float fill. With Reduce
+ * Transparency on it is fully opaque, like the desktop's prefers-reduced-transparency rule.
+ * The blur sits in its own clipped layer so the card's shadow is not clipped with it.
  */
 export function GlassCard({ padded = true, style, children }: Omit<SurfaceProps, "tone">) {
   const palette = usePalette();
   const scheme = useScheme();
   const reduceTransparency = useReduceTransparency();
+  const flat = StyleSheet.flatten(style) ?? {};
+  const corner = flat.borderRadius ?? radius.float;
   return (
     <View
       style={[
         styles.glass,
-        {
-          backgroundColor: reduceTransparency ? palette.surfaceElevated : material[scheme].fill,
-          borderColor: material[scheme].border,
-        },
+        { borderColor: material[scheme].border },
         elevation(scheme, "menu"),
         padded ? styles.padded : null,
         style,
       ]}
     >
+      <View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { borderRadius: corner, overflow: "hidden" }]}
+      >
+        {reduceTransparency ? (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.surfaceElevated }]} />
+        ) : (
+          <>
+            <BlurView
+              intensity={material.blur}
+              style={StyleSheet.absoluteFill}
+              tint={scheme === "dark" ? "systemThinMaterialDark" : "systemThinMaterialLight"}
+            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: material[scheme].fill }]} />
+          </>
+        )}
+      </View>
       {children}
     </View>
   );
 }
 
-function useReduceTransparency(): boolean {
+export function useReduceTransparency(): boolean {
   const [reduce, setReduce] = useState(false);
   useEffect(() => {
     let live = true;

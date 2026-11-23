@@ -1,7 +1,8 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { ActivityIndicator, Pressable, Text, View, useColorScheme } from "react-native";
+import { ActivityIndicator, View, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import NewChatScreen from "./features/home/NewChatScreen";
 import ReviewScreen from "./features/review/ReviewScreen";
@@ -13,7 +14,7 @@ import { ChatsScreen } from "./screens/ChatsScreen";
 import { PairScreen } from "./screens/PairScreen";
 import { UsageScreen } from "./screens/UsageScreen";
 import { PegasusProvider, usePegasus } from "./state/PegasusProvider";
-import { hitSize, type, usePalette } from "./theme";
+import { usePalette } from "./theme";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -26,10 +27,10 @@ function Root() {
     ...base,
     colors: {
       ...base.colors,
-      primary: palette.accent,
+      primary: palette.accentText,
       background: palette.background,
-      card: palette.surface,
-      text: palette.text,
+      card: palette.background,
+      text: palette.textStrong,
       border: palette.line,
     },
   };
@@ -37,6 +38,7 @@ function Root() {
   if (pairing === undefined) {
     return (
       <View
+        accessibilityLabel="Starting Pegasus"
         style={{
           flex: 1,
           alignItems: "center",
@@ -44,44 +46,38 @@ function Root() {
           backgroundColor: palette.background,
         }}
       >
-        <ActivityIndicator color={palette.accent} />
+        <ActivityIndicator color={palette.textMuted} />
       </View>
     );
   }
 
   return (
     <NavigationContainer theme={theme}>
-      <Stack.Navigator>
+      <Stack.Navigator
+        screenOptions={{
+          // The system bar on the screen's background, no hairline, and a back chevron without the
+          // previous screen's (often long) title.
+          headerTransparent: false,
+          headerShadowVisible: false,
+          headerBackButtonDisplayMode: "minimal",
+          headerStyle: { backgroundColor: palette.background },
+          headerTintColor: palette.accentText,
+          headerTitleStyle: { color: palette.textStrong },
+          headerLargeTitleStyle: { color: palette.textStrong },
+          contentStyle: { backgroundColor: palette.background },
+        }}
+      >
         {pairing ? (
           <>
             <Stack.Screen
               name="Chats"
               component={ChatsScreen}
-              options={({ navigation }) => ({
+              options={{
                 title: pairing.hostName,
-                headerLargeTitle: true,
-                headerTransparent: false,
-                headerStyle: { backgroundColor: palette.background },
-                headerShadowVisible: false,
-                headerRight: () => (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Settings"
-                    hitSlop={8}
-                    onPress={() => navigation.navigate("Settings")}
-                    style={{
-                      minWidth: hitSize.min,
-                      minHeight: hitSize.min,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text style={{ color: palette.accentText, fontSize: type.title }}>
-                      Settings
-                    </Text>
-                  </Pressable>
-                ),
-              })}
+                headerLargeTitleEnabled: true,
+                headerLargeTitleShadowVisible: false,
+                headerLargeStyle: { backgroundColor: palette.background },
+              }}
             />
             <Stack.Screen name="Chat" component={ChatScreen} options={{ title: "" }} />
             <Stack.Screen
@@ -93,12 +89,25 @@ function Root() {
             <Stack.Screen
               name="Settings"
               component={SettingsScreen}
-              options={{ title: "Settings" }}
+              options={{
+                title: "Settings",
+                headerLargeTitleEnabled: true,
+                headerLargeTitleShadowVisible: false,
+                headerLargeStyle: { backgroundColor: palette.background },
+              }}
             />
             <Stack.Screen
               name="Usage"
               component={UsageScreen}
-              options={{ title: "Usage", presentation: "modal" }}
+              options={{
+                title: "Usage",
+                presentation: "formSheet",
+                sheetAllowedDetents: [0.6, 1],
+                // The screen's SheetHeader draws the grabber with its title.
+                sheetGrabberVisible: false,
+                sheetCornerRadius: 18,
+                headerShown: false,
+              }}
             />
           </>
         ) : (
@@ -113,10 +122,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <PegasusProvider>
-          <Root />
-          <UpdatePrompt />
-        </PegasusProvider>
+        <KeyboardProvider>
+          <PegasusProvider>
+            <Root />
+            <UpdatePrompt />
+          </PegasusProvider>
+        </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

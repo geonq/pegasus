@@ -347,15 +347,16 @@ export function elevation(scheme: Scheme, level: "card" | "float" | "menu" | "mo
 }
 
 /**
- * The desktop's one glass (polish.css: --surface-float over blur(12px) saturate(180%)). The phone
- * has no blur module (expo-blur is not a dependency), and translucency without blur leaves text
- * behind readable through the card, so floating surfaces draw this nearly opaque fill instead.
- * shortcut: no real blur; add expo-blur and use BlurView in ui/Surface when a native rebuild is fine.
+ * The desktop's one glass (polish.css: --surface-float over blur(12px) saturate(180%)): an
+ * expo-blur system thin material at `blur` intensity, under this fill (--surface-float at a little
+ * more opacity, since a phone is read in daylight). Used only by ui/Surface GlassCard and the
+ * glass header, so every floating layer shares one rule.
  */
 export const material = {
-  light: { fill: "rgba(252, 252, 252, 0.94)", border: "rgba(10, 10, 10, 0.13)" },
-  dark: { fill: "rgba(28, 28, 28, 0.94)", border: "rgba(245, 245, 245, 0.13)" },
-} as const satisfies Record<Scheme, { fill: string; border: string }>;
+  blur: 60,
+  light: { fill: "rgba(252, 252, 252, 0.72)", border: "rgba(10, 10, 10, 0.13)" },
+  dark: { fill: "rgba(28, 28, 28, 0.72)", border: "rgba(245, 245, 245, 0.13)" },
+} as const;
 
 export function useScheme(): Scheme {
   return useColorScheme() === "dark" ? "dark" : "light";
