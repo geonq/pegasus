@@ -9,15 +9,13 @@ const rule = (file: string, selector: string) =>
   )?.[1] ?? "";
 
 // Opening the side panel moved its toggle up: the panel's tab bar was 40px while the top bar
-// and the Windows caption buttons are 48px. Both bars must share one height.
+// was 48px. Both bars must share one height. The Windows caption buttons are drawn by the app
+// since 50c50b6a (no titleBarOverlay); their alignment is covered by window-controls-align.spec.ts.
 test("the top bar and the side panel tab bar share the window-chrome height", () => {
   expect(rule("topbar.css", ".topbar")).toMatch(/height:\s*var\(--chrome-bar-height\)/);
   expect(rule("workbench.css", ".workbench__tabbar")).toMatch(
     /height:\s*var\(--chrome-bar-height\)/,
   );
   const tokens = readFileSync(path.join(styles, "tokens.css"), "utf8");
-  const height = Number(tokens.match(/--chrome-bar-height:\s*(\d+)px/)?.[1]);
-  const main = readFileSync(path.join(__dirname, "../../electron/main.ts"), "utf8");
-  const overlay = Number(main.match(/symbolColor:[^}]*height:\s*(\d+)/)?.[1]);
-  expect(height).toBe(overlay);
+  expect(tokens).toMatch(/--chrome-bar-height:\s*48px/);
 });
