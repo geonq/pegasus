@@ -46,7 +46,10 @@ const ids = (live: LiveState) => live.state?.workspaces[0]?.sessions.map((s) => 
 
 test("bug B: chats made on the PC after Pegasus restarted show up (revisions start over)", () => {
   // Pegasus ran a long time: the phone holds revision 4210.
-  let live = play(initialLiveState, stream([{ type: "stateChanged", state: state(4210, [session("old")]) }]));
+  let live = play(
+    initialLiveState,
+    stream([{ type: "stateChanged", state: state(4210, [session("old")]) }]),
+  );
   assert.deepEqual(ids(live), ["old"]);
   // Pegasus restarts (app-store.ts publishRevision starts at 1); the phone reconnects and the PC
   // has a new chat. The old provider kept revision 4210 and dropped all of this.
@@ -61,26 +64,44 @@ test("bug B: chats made on the PC after Pegasus restarted show up (revisions sta
 });
 
 test("within one stream a late, older snapshot does not undo a newer one", () => {
-  let live = play(initialLiveState, stream([{ type: "stateChanged", state: state(10, [session("a")]) }]));
-  live = reduceLive(live, { kind: "event", event: { type: "stateChanged", state: state(12, [session("b")]) } }).live;
-  live = reduceLive(live, { kind: "event", event: { type: "stateChanged", state: state(11, [session("c")]) } }).live;
+  let live = play(
+    initialLiveState,
+    stream([{ type: "stateChanged", state: state(10, [session("a")]) }]),
+  );
+  live = reduceLive(live, {
+    kind: "event",
+    event: { type: "stateChanged", state: state(12, [session("b")]) },
+  }).live;
+  live = reduceLive(live, {
+    kind: "event",
+    event: { type: "stateChanged", state: state(11, [session("c")]) },
+  }).live;
   assert.deepEqual(ids(live), ["b"]);
   // Renames, archives and status changes are just newer snapshots.
   live = reduceLive(live, {
     kind: "event",
-    event: { type: "stateChanged", state: state(13, [session("b", { title: "Renamed", status: "running" })]) },
+    event: {
+      type: "stateChanged",
+      state: state(13, [session("b", { title: "Renamed", status: "running" })]),
+    },
   }).live;
   assert.equal(live.state?.workspaces[0]?.sessions[0]?.title, "Renamed");
   assert.equal(live.state?.workspaces[0]?.sessions[0]?.status, "running");
 });
 
 test("a pulled getState is a baseline; an action's state only when not older", () => {
-  let live = play(initialLiveState, stream([{ type: "stateChanged", state: state(900, [session("a")]) }]));
+  let live = play(
+    initialLiveState,
+    stream([{ type: "stateChanged", state: state(900, [session("a")]) }]),
+  );
   live = reduceLive(live, { kind: "actionState", state: state(5, [session("stale")]) }).live;
   assert.deepEqual(ids(live), ["a"]);
   live = reduceLive(live, { kind: "pulledState", state: state(5, [session("pulled")]) }).live;
   assert.deepEqual(ids(live), ["pulled"]);
-  live = reduceLive(live, { kind: "actionState", state: state(6, [session("pinned", { pinnedAt: "x" })]) }).live;
+  live = reduceLive(live, {
+    kind: "actionState",
+    state: state(6, [session("pinned", { pinnedAt: "x" })]),
+  }).live;
   assert.deepEqual(ids(live), ["pinned"]);
 });
 
@@ -96,10 +117,19 @@ test("transcript deltas apply in order; a gap asks for the whole transcript", ()
     initialLiveState,
     stream([
       { type: "stateChanged", state: state(1, [session("a")]) },
-      { type: "selectedTranscriptChanged", transcript: { workspaceId: "w", sessionId: "a", transcript: [message("m1", "Hi")] } },
+      {
+        type: "selectedTranscriptChanged",
+        transcript: { workspaceId: "w", sessionId: "a", transcript: [message("m1", "Hi")] },
+      },
       {
         type: "sessionTranscriptDelta",
-        delta: { version: 1, sequence: 1, workspaceId: "w", sessionId: "a", patches: [{ type: "update", id: "m1", item: message("m1", "Hi there") }] },
+        delta: {
+          version: 1,
+          sequence: 1,
+          workspaceId: "w",
+          sessionId: "a",
+          patches: [{ type: "update", id: "m1", item: message("m1", "Hi there") }],
+        },
       },
     ]),
   );
@@ -108,7 +138,13 @@ test("transcript deltas apply in order; a gap asks for the whole transcript", ()
     kind: "event",
     event: {
       type: "sessionTranscriptDelta",
-      delta: { version: 1, sequence: 3, workspaceId: "w", sessionId: "a", patches: [{ type: "append", item: message("m2", "lost") }] },
+      delta: {
+        version: 1,
+        sequence: 3,
+        workspaceId: "w",
+        sessionId: "a",
+        patches: [{ type: "append", item: message("m2", "lost") }],
+      },
     },
   });
   assert.equal(gap.pullTranscript, true);

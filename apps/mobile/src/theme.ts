@@ -267,8 +267,18 @@ export const weight = {
  */
 export const text = {
   largeTitle: { fontSize: type.large, lineHeight: 34, fontWeight: weight.bold, letterSpacing: 0.2 },
-  title: { fontSize: type.title2, lineHeight: 28, fontWeight: weight.semibold, letterSpacing: -0.2 },
-  title3: { fontSize: type.title3, lineHeight: 25, fontWeight: weight.semibold, letterSpacing: -0.2 },
+  title: {
+    fontSize: type.title2,
+    lineHeight: 28,
+    fontWeight: weight.semibold,
+    letterSpacing: -0.2,
+  },
+  title3: {
+    fontSize: type.title3,
+    lineHeight: 25,
+    fontWeight: weight.semibold,
+    letterSpacing: -0.2,
+  },
   headline: { fontSize: type.title, lineHeight: 22, fontWeight: weight.semibold },
   body: { fontSize: type.bodyLarge, lineHeight: 22, fontWeight: weight.normal },
   callout: { fontSize: type.body, lineHeight: 21, fontWeight: weight.normal },
@@ -306,13 +316,33 @@ export function elevation(scheme: Scheme, level: "card" | "float" | "menu" | "mo
   const color = palettes[scheme].shadow;
   switch (level) {
     case "card":
-      return { shadowColor: color, shadowOpacity: dim ? 0.2 : 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } };
+      return {
+        shadowColor: color,
+        shadowOpacity: dim ? 0.2 : 0.04,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      };
     case "float":
-      return { shadowColor: "#000000", shadowOpacity: dim ? 0.28 : 0.1, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } };
+      return {
+        shadowColor: "#000000",
+        shadowOpacity: dim ? 0.28 : 0.1,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 8 },
+      };
     case "menu":
-      return { shadowColor: color, shadowOpacity: dim ? 0.3 : 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 8 } };
+      return {
+        shadowColor: color,
+        shadowOpacity: dim ? 0.3 : 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 8 },
+      };
     case "modal":
-      return { shadowColor: color, shadowOpacity: dim ? 0.4 : 0.12, shadowRadius: 24, shadowOffset: { width: 0, height: 16 } };
+      return {
+        shadowColor: color,
+        shadowOpacity: dim ? 0.4 : 0.12,
+        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 16 },
+      };
   }
 }
 

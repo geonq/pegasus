@@ -19,7 +19,12 @@ export interface ButtonProps {
 }
 
 function colors(palette: Palette, variant: NonNullable<ButtonProps["variant"]>, off: boolean) {
-  if (off) return { fill: palette.primaryDisabledFill, ink: palette.onPrimaryDisabled, border: "transparent" };
+  if (off)
+    return {
+      fill: palette.primaryDisabledFill,
+      ink: palette.onPrimaryDisabled,
+      border: "transparent",
+    };
   switch (variant) {
     case "primary":
       return { fill: palette.primaryFill, ink: palette.onPrimary, border: "transparent" };
@@ -28,7 +33,11 @@ function colors(palette: Palette, variant: NonNullable<ButtonProps["variant"]>, 
     case "secondary":
       return { fill: palette.surface, ink: palette.text, border: palette.borderDefault };
     case "destructive":
-      return { fill: palette.dangerTint, ink: palette.dangerText, border: palette.dangerTintBorder };
+      return {
+        fill: palette.dangerTint,
+        ink: palette.dangerText,
+        border: palette.dangerTintBorder,
+      };
   }
 }
 

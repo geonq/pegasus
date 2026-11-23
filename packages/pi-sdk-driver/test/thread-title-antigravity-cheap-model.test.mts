@@ -26,7 +26,11 @@ function fakeAntigravity(pi: { registerProvider: (name: string, config: unknown)
     apiKey: "LOCAL_TEST_CANARY",
     api: "antigravity-title-test",
     models: [geminiModel("gemini-4-neon"), geminiModel("gemini-3.8-flash")],
-    streamSimple(model: { api: string; provider: string; id: string }, _context: unknown, options?: { reasoning?: unknown }) {
+    streamSimple(
+      model: { api: string; provider: string; id: string },
+      _context: unknown,
+      options?: { reasoning?: unknown },
+    ) {
       calls.push({ model: model.id, reasoning: options?.reasoning });
       const text = "Cheap Title";
       const message = {
@@ -66,11 +70,20 @@ await test("an antigravity chat titles itself with gemini-3.8-flash at low effor
 
   const driver = new PiSdkDriver({
     agentDir,
-    builtinExtensions: [{ name: "antigravity-title-test", displayName: "agy test", factory: fakeAntigravity as never }],
+    builtinExtensions: [
+      {
+        name: "antigravity-title-test",
+        displayName: "agy test",
+        factory: fakeAntigravity as never,
+      },
+    ],
   });
   const title = await driver.generateThreadTitle(
     { workspaceId: "title-agy-ws", path: workspacePath },
-    { prompt: "why does gemini keep failing", model: { provider: "antigravity", modelId: "gemini-4-neon" } },
+    {
+      prompt: "why does gemini keep failing",
+      model: { provider: "antigravity", modelId: "gemini-4-neon" },
+    },
   );
   assert.equal(title, "Cheap Title");
   assert.deepEqual(calls, [{ model: "gemini-3.8-flash", reasoning: "low" }]);

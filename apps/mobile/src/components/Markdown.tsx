@@ -23,9 +23,24 @@ export const Markdown = memo(function Markdown({
   const style = useMemo<MarkdownStyle>(
     () => ({
       paragraph: { ...text.body, color: palette.text, lineHeight: 24, marginBottom: spacing.sm },
-      h1: { ...text.title, color: palette.textStrong, marginTop: spacing.sm, marginBottom: spacing.sm },
-      h2: { ...text.title3, color: palette.textStrong, marginTop: spacing.sm, marginBottom: spacing.sm2 },
-      h3: { ...text.headline, color: palette.textStrong, marginTop: spacing.xs, marginBottom: spacing.sm2 },
+      h1: {
+        ...text.title,
+        color: palette.textStrong,
+        marginTop: spacing.sm,
+        marginBottom: spacing.sm,
+      },
+      h2: {
+        ...text.title3,
+        color: palette.textStrong,
+        marginTop: spacing.sm,
+        marginBottom: spacing.sm2,
+      },
+      h3: {
+        ...text.headline,
+        color: palette.textStrong,
+        marginTop: spacing.xs,
+        marginBottom: spacing.sm2,
+      },
       strong: { color: palette.textStrong },
       list: {
         ...text.body,
@@ -80,7 +95,12 @@ export const Markdown = memo(function Markdown({
         checkmarkColor: palette.onAccent,
         checkedTextColor: palette.textMuted,
       },
-      thematicBreak: { color: palette.line, height: 1, marginTop: spacing.sm, marginBottom: spacing.sm },
+      thematicBreak: {
+        color: palette.line,
+        height: 1,
+        marginTop: spacing.sm,
+        marginBottom: spacing.sm,
+      },
       link: { color: palette.accentText },
     }),
     [palette],
@@ -100,4 +120,3 @@ export const Markdown = memo(function Markdown({
     />
   );
 });
-

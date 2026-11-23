@@ -44,7 +44,11 @@ export interface UsageReport {
   readonly refreshedAt: number;
   readonly totals: UsageTokens;
   readonly sessions: number;
-  readonly models: readonly { readonly key: string; readonly label: string; readonly tokens: UsageTokens }[];
+  readonly models: readonly {
+    readonly key: string;
+    readonly label: string;
+    readonly tokens: UsageTokens;
+  }[];
 }
 
 export interface ClaudeSlot {
@@ -82,7 +86,15 @@ export function defaultModel(runtime: RuntimeSnapshot | undefined): RuntimeModel
   );
 }
 
-const THINKING_LEVELS: readonly ThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
+const THINKING_LEVELS: readonly ThinkingLevel[] = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+];
 
 export function thinkingLevelsFor(model: RuntimeModel | undefined): readonly ThinkingLevel[] {
   if (!model) return [];

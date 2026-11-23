@@ -3,7 +3,15 @@ import { useMemo, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import type { TranscriptTool } from "../../api/types";
 import { Button, PressableScale } from "../../ui";
-import { hitSize, maxFontScale, radius, spacing, text, usePalette, type Palette } from "../../theme";
+import {
+  hitSize,
+  maxFontScale,
+  radius,
+  spacing,
+  text,
+  usePalette,
+  type Palette,
+} from "../../theme";
 import { messageOf, useChatActions } from "./actions";
 import {
   buildAnswer,
@@ -246,7 +254,12 @@ function Block({
                   },
                 ]}
               >
-                <Text style={[text.subheadline, { color: selected ? palette.accentText : palette.textMuted }]}>
+                <Text
+                  style={[
+                    text.subheadline,
+                    { color: selected ? palette.accentText : palette.textMuted },
+                  ]}
+                >
                   {block.multiple ? (selected ? "☑" : "☐") : selected ? "◉" : "○"}
                 </Text>
                 <View style={styles.flex}>
@@ -267,7 +280,7 @@ function Block({
               onChangeText={(next) => {
                 const rest = picked.filter((entry) => known.has(entry));
                 const value = next.trim() ? [...rest, next] : rest;
-                onChange(block.id, block.multiple ? value : (next.trim() ? next : (rest[0] ?? "")));
+                onChange(block.id, block.multiple ? value : next.trim() ? next : (rest[0] ?? ""));
               }}
               placeholder="Other…"
               placeholderTextColor={palette.textSoft}
@@ -324,7 +337,12 @@ function Block({
                             },
                           ]}
                         >
-                          <Text style={[text.subheadline, { color: selected ? palette.accentText : palette.text }]}>
+                          <Text
+                            style={[
+                              text.subheadline,
+                              { color: selected ? palette.accentText : palette.text },
+                            ]}
+                          >
                             {option.label}
                           </Text>
                         </PressableScale>
@@ -348,7 +366,11 @@ function Block({
                   onChangeText={(next) => onChange(entry.id, next)}
                   placeholder={entry.placeholder}
                   placeholderTextColor={palette.textSoft}
-                  style={[styles.input, entry.multiline ? styles.multiline : null, inputColors(palette)]}
+                  style={[
+                    styles.input,
+                    entry.multiline ? styles.multiline : null,
+                    inputColors(palette),
+                  ]}
                   value={typeof value === "string" ? value : ""}
                 />
               </View>
@@ -403,7 +425,10 @@ function Block({
           </View>
           <View style={[styles.track, { backgroundColor: palette.overlayActive }]}>
             <View
-              style={[styles.fill, { backgroundColor: palette.accent, width: `${block.value * 100}%` }]}
+              style={[
+                styles.fill,
+                { backgroundColor: palette.accent, width: `${block.value * 100}%` },
+              ]}
             />
           </View>
         </View>
@@ -449,7 +474,13 @@ function Block({
   }
 }
 
-function CheckGlyph({ status, palette }: { readonly status: ChecklistStatus; readonly palette: Palette }) {
+function CheckGlyph({
+  status,
+  palette,
+}: {
+  readonly status: ChecklistStatus;
+  readonly palette: Palette;
+}) {
   const [glyph, color, label] =
     status === "done"
       ? ["✓", palette.successText, "Done"]
@@ -470,7 +501,11 @@ function CheckGlyph({ status, palette }: { readonly status: ChecklistStatus; rea
 }
 
 function inputColors(palette: Palette) {
-  return { backgroundColor: palette.background, borderColor: palette.borderDefault, color: palette.text };
+  return {
+    backgroundColor: palette.background,
+    borderColor: palette.borderDefault,
+    color: palette.text,
+  };
 }
 
 const styles = StyleSheet.create({
@@ -504,7 +539,12 @@ const styles = StyleSheet.create({
     ...text.callout,
   },
   multiline: { minHeight: 96, paddingTop: spacing.md, textAlignVertical: "top" },
-  toggleRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, minHeight: hitSize.min },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    minHeight: hitSize.min,
+  },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   chip: {
     minHeight: hitSize.min,
@@ -515,7 +555,12 @@ const styles = StyleSheet.create({
   },
   table: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius.sm, overflow: "hidden" },
   tableRow: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
-  cell: { minWidth: 96, maxWidth: 220, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm2 },
+  cell: {
+    minWidth: 96,
+    maxWidth: 220,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm2,
+  },
   track: { height: 6, borderRadius: radius.pill, overflow: "hidden" },
   fill: { height: 6, borderRadius: radius.pill },
   code: { borderRadius: radius.md2, padding: spacing.md },

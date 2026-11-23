@@ -48,7 +48,13 @@ export function Meter({
 }
 
 /** A card per signed-in account with its plan windows, fullest first (the caller sorts). */
-export function AccountCard({ account, now }: { readonly account: AccountLimits; readonly now: number }) {
+export function AccountCard({
+  account,
+  now,
+}: {
+  readonly account: AccountLimits;
+  readonly now: number;
+}) {
   const palette = usePalette();
   return (
     <Surface>
@@ -76,7 +82,12 @@ export function AccountCard({ account, now }: { readonly account: AccountLimits;
 
 const styles = StyleSheet.create({
   meter: { gap: spacing.sm2 },
-  meterHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: spacing.sm },
+  meterHead: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
   shrink: { flexShrink: 1 },
   value: { fontWeight: weight.semibold, fontVariant: ["tabular-nums"] },
   track: { height: 6, borderRadius: radius.pill, overflow: "hidden" },

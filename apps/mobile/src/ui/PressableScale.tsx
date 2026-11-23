@@ -39,7 +39,10 @@ export function PressableScale({
       onPressIn={(event) => {
         setPressed(true);
         if (!reduceMotion) {
-          scale.value = withTiming(motion.pressScale, { duration: motion.fast, easing: motion.easeOut });
+          scale.value = withTiming(motion.pressScale, {
+            duration: motion.fast,
+            easing: motion.easeOut,
+          });
         }
         onPressIn?.(event);
       }}

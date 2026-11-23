@@ -25,7 +25,9 @@ export function EmptyState({
     <View style={styles.empty}>
       <Text style={[text.headline, styles.center, { color: palette.textStrong }]}>{title}</Text>
       {message ? (
-        <Text style={[text.subheadline, styles.center, { color: palette.textMuted }]}>{message}</Text>
+        <Text style={[text.subheadline, styles.center, { color: palette.textMuted }]}>
+          {message}
+        </Text>
       ) : null}
       {action ? <View style={styles.action}>{action}</View> : null}
     </View>
@@ -62,7 +64,10 @@ export function Skeleton({
     <Animated.View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[{ width, height, borderRadius: rounded, backgroundColor: palette.overlayActive }, animated]}
+      style={[
+        { width, height, borderRadius: rounded, backgroundColor: palette.overlayActive },
+        animated,
+      ]}
     />
   );
 }
@@ -97,10 +102,20 @@ export function SheetHeader({
 }
 
 const styles = StyleSheet.create({
-  empty: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl },
+  empty: {
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+  },
   center: { textAlign: "center" },
   action: { marginTop: spacing.sm },
-  sheet: { paddingTop: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.md },
+  sheet: {
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
+  },
   grabber: { alignSelf: "center", width: 36, height: 5, borderRadius: radius.pill },
   sheetRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   sheetTitles: { flex: 1, gap: 2 },

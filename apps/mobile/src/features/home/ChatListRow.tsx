@@ -44,7 +44,10 @@ function SwipeAction({
       onPress={onPress}
       style={[styles.action, { backgroundColor: color }]}
     >
-      <Text maxFontSizeMultiplier={maxFontScale.chrome} style={[text.footnote, styles.actionText, { color: ink }]}>
+      <Text
+        maxFontSizeMultiplier={maxFontScale.chrome}
+        style={[text.footnote, styles.actionText, { color: ink }]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -163,17 +166,26 @@ export const ChatListRow = memo(function ChatListRow({
               style={[
                 text.subheadline,
                 styles.title,
-                { color: palette.textStrong, fontWeight: row.unread ? weight.semibold : weight.medium },
+                {
+                  color: palette.textStrong,
+                  fontWeight: row.unread ? weight.semibold : weight.medium,
+                },
               ]}
             >
               {title}
             </Text>
             {pinned ? (
-              <Text style={[text.caption2, { color: palette.textSoft }]} accessibilityElementsHidden>
+              <Text
+                style={[text.caption2, { color: palette.textSoft }]}
+                accessibilityElementsHidden
+              >
                 Pinned
               </Text>
             ) : null}
-            <Text maxFontSizeMultiplier={maxFontScale.chrome} style={[text.caption, { color: palette.textMuted }]}>
+            <Text
+              maxFontSizeMultiplier={maxFontScale.chrome}
+              style={[text.caption, { color: palette.textMuted }]}
+            >
               {when}
             </Text>
           </View>
@@ -189,13 +201,19 @@ export const ChatListRow = memo(function ChatListRow({
               {detail}
             </Text>
             {row.childCount > 0 ? (
-              <Text maxFontSizeMultiplier={maxFontScale.chrome} style={[text.caption, { color: palette.textSoft }]}>
+              <Text
+                maxFontSizeMultiplier={maxFontScale.chrome}
+                style={[text.caption, { color: palette.textSoft }]}
+              >
                 {row.childCount === 1 ? "1 subagent" : `${row.childCount} subagents`}
               </Text>
             ) : null}
             {row.pendingDialogs.length > 0 ? (
               <View style={[styles.count, { backgroundColor: palette.warningTint }]}>
-                <Text maxFontSizeMultiplier={maxFontScale.chrome} style={[text.caption2, { color: palette.warningText }]}>
+                <Text
+                  maxFontSizeMultiplier={maxFontScale.chrome}
+                  style={[text.caption2, { color: palette.warningText }]}
+                >
                   {row.pendingDialogs.length}
                 </Text>
               </View>
@@ -210,7 +228,12 @@ export const ChatListRow = memo(function ChatListRow({
 const styles = StyleSheet.create({
   swipe: { marginHorizontal: spacing.gutter, borderRadius: radius.md, overflow: "hidden" },
   actions: { flexDirection: "row" },
-  action: { width: 84, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.sm },
+  action: {
+    width: 84,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.sm,
+  },
   actionText: { fontWeight: weight.semibold },
   row: {
     flexDirection: "row",

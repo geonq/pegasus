@@ -94,7 +94,10 @@ export function ChatMenuButton({ items }: { readonly items: readonly ChatMenuIte
       onPress={open}
       style={styles.menu}
     >
-      <Text maxFontSizeMultiplier={maxFontScale.chrome} style={[text.headline, { color: palette.accentText }]}>
+      <Text
+        maxFontSizeMultiplier={maxFontScale.chrome}
+        style={[text.headline, { color: palette.accentText }]}
+      >
         •••
       </Text>
     </PressableScale>
@@ -105,5 +108,10 @@ const styles = StyleSheet.create({
   title: { alignItems: "center", maxWidth: 240 },
   subtitle: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   dot: { width: 6, height: 6, borderRadius: 3 },
-  menu: { minWidth: hitSize.min, minHeight: hitSize.min, alignItems: "flex-end", justifyContent: "center" },
+  menu: {
+    minWidth: hitSize.min,
+    minHeight: hitSize.min,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
 });

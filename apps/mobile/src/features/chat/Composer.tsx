@@ -121,7 +121,11 @@ export function Composer({
 
   const pick = (
     title: string,
-    options: readonly { readonly label: string; readonly value: string; readonly selected?: boolean }[],
+    options: readonly {
+      readonly label: string;
+      readonly value: string;
+      readonly selected?: boolean;
+    }[],
     onPick: (value: string) => Promise<void>,
   ) => {
     if (options.length === 0) return;
@@ -242,7 +246,10 @@ export function Composer({
           accessibilityHint="Dismisses the message"
           accessibilityRole="alert"
           onPress={() => setError(null)}
-          style={[styles.error, { backgroundColor: palette.dangerTint, borderColor: palette.dangerTintBorder }]}
+          style={[
+            styles.error,
+            { backgroundColor: palette.dangerTint, borderColor: palette.dangerTintBorder },
+          ]}
         >
           <Text style={[text.footnote, { color: palette.dangerText }]}>{error}</Text>
         </PressableScale>
@@ -259,7 +266,11 @@ export function Composer({
         ]}
       >
         {images.length > 0 ? (
-          <ScrollView contentContainerStyle={styles.thumbs} horizontal showsHorizontalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={styles.thumbs}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+          >
             {images.map((image) => (
               <View key={image.id}>
                 <Image
@@ -271,7 +282,9 @@ export function Composer({
                   accessibilityLabel={`Remove ${image.name}`}
                   accessibilityRole="button"
                   hitSlop={10}
-                  onPress={() => setImages((current) => current.filter((entry) => entry.id !== image.id))}
+                  onPress={() =>
+                    setImages((current) => current.filter((entry) => entry.id !== image.id))
+                  }
                   style={[styles.thumbRemove, { backgroundColor: palette.primaryFill }]}
                 >
                   <Text style={[text.caption2, { color: palette.onPrimary }]}>✕</Text>
@@ -338,7 +351,9 @@ export function Composer({
               onPress={() => submit("followUp")}
               style={[styles.textAction, { opacity: canSend ? 1 : 0.45 }]}
             >
-              <Text style={[text.subheadline, styles.semibold, { color: palette.accentText }]}>Queue</Text>
+              <Text style={[text.subheadline, styles.semibold, { color: palette.accentText }]}>
+                Queue
+              </Text>
             </PressableScale>
           ) : null}
 
@@ -360,7 +375,12 @@ export function Composer({
               fill={canSend ? palette.accent : palette.primaryDisabledFill}
               onPress={() => submit(running ? "steer" : "followUp")}
             >
-              <Text style={[styles.sendGlyph, { color: canSend ? palette.onAccent : palette.onPrimaryDisabled }]}>
+              <Text
+                style={[
+                  styles.sendGlyph,
+                  { color: canSend ? palette.onAccent : palette.onPrimaryDisabled },
+                ]}
+              >
                 {running ? "↪" : "↑"}
               </Text>
             </RoundButton>
@@ -429,7 +449,10 @@ function ToolbarButton({
       pressedStyle={{ backgroundColor: palette.overlayActive }}
       style={[styles.round, { opacity: disabled ? 0.45 : 1 }]}
     >
-      <Text maxFontSizeMultiplier={maxFontScale.chrome} style={[text.title3, { color: palette.textMuted }]}>
+      <Text
+        maxFontSizeMultiplier={maxFontScale.chrome}
+        style={[text.title3, { color: palette.textMuted }]}
+      >
         {label}
       </Text>
     </PressableScale>
@@ -464,7 +487,9 @@ function RoundButton({
       onPress={onPress}
       style={styles.round}
     >
-      <View style={[styles.roundFill, { backgroundColor: fill, opacity: busy ? 0.6 : 1 }]}>{children}</View>
+      <View style={[styles.roundFill, { backgroundColor: fill, opacity: busy ? 0.6 : 1 }]}>
+        {children}
+      </View>
     </PressableScale>
   );
 }

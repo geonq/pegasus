@@ -148,7 +148,8 @@ function ToolRun({
   const latest = row.tools[row.tools.length - 1];
   const title = latest?.label ?? summary;
   const time = row.durationMs === undefined ? null : formatDuration(row.durationMs);
-  const tone = row.failed > 0 ? palette.dangerText : row.running ? palette.accentText : palette.textMuted;
+  const tone =
+    row.failed > 0 ? palette.dangerText : row.running ? palette.accentText : palette.textMuted;
   return (
     <View
       style={[
@@ -170,10 +171,7 @@ function ToolRun({
           <Text numberOfLines={1} style={[text.subheadline, { color: palette.text }]}>
             {title}
           </Text>
-          <Text
-            maxFontSizeMultiplier={maxFontScale.chrome}
-            style={[text.caption, { color: tone }]}
-          >
+          <Text maxFontSizeMultiplier={maxFontScale.chrome} style={[text.caption, { color: tone }]}>
             {summary}
             {time ? ` · ${time}` : ""}
           </Text>
@@ -191,7 +189,13 @@ function ToolRun({
   );
 }
 
-function ToolLine({ tool, duration }: { readonly tool: TranscriptTool; readonly duration?: number }) {
+function ToolLine({
+  tool,
+  duration,
+}: {
+  readonly tool: TranscriptTool;
+  readonly duration?: number;
+}) {
   const palette = usePalette();
   return (
     <View style={styles.toolLine}>
@@ -207,7 +211,10 @@ function ToolLine({ tool, duration }: { readonly tool: TranscriptTool; readonly 
         ) : null}
       </View>
       {duration !== undefined ? (
-        <Text maxFontSizeMultiplier={maxFontScale.chrome} style={[text.caption, { color: palette.textSoft }]}>
+        <Text
+          maxFontSizeMultiplier={maxFontScale.chrome}
+          style={[text.caption, { color: palette.textSoft }]}
+        >
           {formatDuration(duration)}
         </Text>
       ) : null}
@@ -242,7 +249,12 @@ export function selectionHaptic() {
 
 const styles = StyleSheet.create({
   assistant: { paddingVertical: spacing.xs },
-  divider: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
   rule: { flex: 1, height: StyleSheet.hairlineWidth },
   userColumn: { alignItems: "flex-end", gap: spacing.xs, paddingVertical: spacing.xs },
   userBubble: {
@@ -254,7 +266,12 @@ const styles = StyleSheet.create({
   images: { flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: spacing.xs },
   image: { width: 96, height: 96, borderRadius: radius.md },
   activity: { paddingVertical: spacing.xxs, gap: spacing.xxs },
-  thinking: { minHeight: hitSize.compact, justifyContent: "center", gap: spacing.xs, paddingVertical: spacing.xs },
+  thinking: {
+    minHeight: hitSize.compact,
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
   italic: { fontStyle: "italic" },
   toolCard: { borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
   toolHeader: {

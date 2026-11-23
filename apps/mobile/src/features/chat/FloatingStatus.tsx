@@ -83,7 +83,10 @@ export function FloatingStatus({
               pressedStyle={{ backgroundColor: palette.overlayActive }}
               style={styles.jumpInner}
             >
-              <Text maxFontSizeMultiplier={maxFontScale.chrome} style={[text.headline, { color: palette.text }]}>
+              <Text
+                maxFontSizeMultiplier={maxFontScale.chrome}
+                style={[text.headline, { color: palette.text }]}
+              >
                 ↓
               </Text>
             </PressableScale>

@@ -45,18 +45,26 @@ export function ConnectionBanner() {
     <View
       accessibilityRole="summary"
       accessibilityLiveRegion="polite"
-      style={[
-        styles.banner,
-        { backgroundColor: offline ? palette.warningTint : palette.surface },
-      ]}
+      style={[styles.banner, { backgroundColor: offline ? palette.warningTint : palette.surface }]}
     >
       {offline ? null : <ActivityIndicator size="small" color={palette.textMuted} />}
-      <Text style={[text.footnote, styles.line, { color: offline ? palette.warningText : palette.textMuted }]}>
+      <Text
+        style={[
+          text.footnote,
+          styles.line,
+          { color: offline ? palette.warningText : palette.textMuted },
+        ]}
+      >
         {line}
         {state && offline ? " Showing the last update." : ""}
       </Text>
       {action ? (
-        <Pressable accessibilityRole="button" hitSlop={10} onPress={action.run} style={styles.action}>
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={10}
+          onPress={action.run}
+          style={styles.action}
+        >
           <Text style={[text.footnote, styles.actionText, { color: palette.accentText }]}>
             {action.label}
           </Text>

@@ -88,7 +88,10 @@ export function ApprovalCard({
       </Text>
 
       {dialog.kind === "confirm" && dialog.message ? (
-        <Text selectable style={[styles.message, { color: palette.text, backgroundColor: palette.codeBlock }]}>
+        <Text
+          selectable
+          style={[styles.message, { color: palette.text, backgroundColor: palette.codeBlock }]}
+        >
           {dialog.message}
         </Text>
       ) : null}
@@ -130,7 +133,11 @@ export function ApprovalCard({
           returnKeyType="send"
           style={[
             styles.input,
-            { backgroundColor: palette.background, borderColor: palette.borderDefault, color: palette.text },
+            {
+              backgroundColor: palette.background,
+              borderColor: palette.borderDefault,
+              color: palette.text,
+            },
           ]}
           value={draft}
         />
@@ -146,7 +153,11 @@ export function ApprovalCard({
           placeholderTextColor={palette.textSoft}
           style={[
             styles.editor,
-            { backgroundColor: palette.background, borderColor: palette.borderDefault, color: palette.text },
+            {
+              backgroundColor: palette.background,
+              borderColor: palette.borderDefault,
+              color: palette.text,
+            },
           ]}
           value={draft}
         />
@@ -243,5 +254,10 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   actions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  later: { minHeight: hitSize.min, alignSelf: "center", justifyContent: "center", paddingHorizontal: spacing.lg },
+  later: {
+    minHeight: hitSize.min,
+    alignSelf: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
 });

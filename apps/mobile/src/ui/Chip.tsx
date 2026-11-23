@@ -20,7 +20,13 @@ function toneColors(palette: Palette, tone: Tone) {
 }
 
 /** A small status label, e.g. "Live" or "90 %". Text plus tint, so it never relies on colour alone. */
-export function Badge({ label, tone = "neutral" }: { readonly label: string; readonly tone?: Tone }) {
+export function Badge({
+  label,
+  tone = "neutral",
+}: {
+  readonly label: string;
+  readonly tone?: Tone;
+}) {
   const palette = usePalette();
   const { fill, ink } = toneColors(palette, tone);
   return (

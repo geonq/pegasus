@@ -13,8 +13,22 @@ import type { DesktopAppState } from "../../api/types.ts";
 
 const runtime: RuntimeSnapshot = {
   models: [
-    { providerId: "a", providerName: "A", modelId: "m1", label: "M1", available: true, thinkingLevels: ["off"] },
-    { providerId: "b", providerName: "B", modelId: "m2", label: "M2", available: true, thinkingLevels: ["max", "off", "low", "bogus"] },
+    {
+      providerId: "a",
+      providerName: "A",
+      modelId: "m1",
+      label: "M1",
+      available: true,
+      thinkingLevels: ["off"],
+    },
+    {
+      providerId: "b",
+      providerName: "B",
+      modelId: "m2",
+      label: "M2",
+      available: true,
+      thinkingLevels: ["max", "off", "low", "bogus"],
+    },
   ],
   settings: { defaultProvider: "b", defaultModelId: "m2" },
 };

@@ -26,7 +26,14 @@ const question = {
       ],
     },
     { type: "form", fields: [{ kind: "text", id: "why", label: "Why", required: true }] },
-    { type: "diagram", nodes: [{ id: "a", label: "App" }, { id: "b", label: "Host" }], edges: [{ from: "a", to: "b" }] },
+    {
+      type: "diagram",
+      nodes: [
+        { id: "a", label: "App" },
+        { id: "b", label: "Host" },
+      ],
+      edges: [{ from: "a", to: "b" }],
+    },
     { type: "bogus" },
   ],
 };
@@ -48,11 +55,16 @@ test("a spec keeps known blocks, flattens diagrams to lines and drops unknown on
 test("an answer needs a pick and the required fields, like the PC checks", () => {
   const spec = specFromToolInput(question)!;
   assert.deepEqual(buildAnswer(spec, {}), { missing: 'Pick an option for "Approach".' });
-  assert.deepEqual(buildAnswer(spec, { approach: "small", why: "  " }), { missing: 'Fill in "Why".' });
+  assert.deepEqual(buildAnswer(spec, { approach: "small", why: "  " }), {
+    missing: 'Fill in "Why".',
+  });
   const built = buildAnswer(spec, { approach: "small", why: "less risk" });
   assert.deepEqual(built, { answer: { approach: "small", why: "less risk" } });
   if (!("answer" in built)) throw new Error("expected an answer");
-  assert.deepEqual(describeAnswer(spec, built.answer), ["Approach: Smaller change", "Why: less risk"]);
+  assert.deepEqual(describeAnswer(spec, built.answer), [
+    "Approach: Smaller change",
+    "Why: less risk",
+  ]);
 });
 
 test("an ask_user is open only while its run is live; an answer in the output wins", () => {
@@ -67,7 +79,11 @@ test("an ask_user is open only while its run is live; an answer in the output wi
   } as TranscriptTool;
   assert.deepEqual(questionState(tool, true), { kind: "open", callId: "c1" });
   assert.deepEqual(questionState(tool, false), { kind: "closed" });
-  const answered = { ...tool, status: "success", output: { details: { answer: { a: "b" } } } } as TranscriptTool;
+  const answered = {
+    ...tool,
+    status: "success",
+    output: { details: { answer: { a: "b" } } },
+  } as TranscriptTool;
   assert.deepEqual(questionState(answered, false), { kind: "answered", answer: { a: "b" } });
   assert.deepEqual(questionState({ ...tool, toolName: "show_ui" }, true), { kind: "display" });
 });
@@ -76,7 +92,10 @@ test("permission comes from the pi-permission status; unknown text is null, none
   const state = (text?: string) =>
     ({
       sessionExtensionUiBySession: {
-        "w:s": { pendingDialogs: [], ...(text === undefined ? {} : { statuses: [{ key: "pi-permission", text }] }) },
+        "w:s": {
+          pendingDialogs: [],
+          ...(text === undefined ? {} : { statuses: [{ key: "pi-permission", text }] }),
+        },
       },
     }) as never;
   assert.equal(permissionOf(state("edits"), "w:s"), "edits");

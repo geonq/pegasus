@@ -78,7 +78,13 @@ test("home lists Needs you, Working, Pinned, then projects in sidebar order; sea
   });
   const sections = buildHome({
     workspaces: [
-      { id: "a", name: "Alpha", path: "/a", kind: "primary", sessions: [s("a1"), s("a-run", { status: "running" })] },
+      {
+        id: "a",
+        name: "Alpha",
+        path: "/a",
+        kind: "primary",
+        sessions: [s("a1"), s("a-run", { status: "running" })],
+      },
       {
         id: "b",
         name: "Beta",
@@ -91,7 +97,14 @@ test("home lists Needs you, Working, Pinned, then projects in sidebar order; sea
           s("b-child"),
         ],
       },
-      { id: "bt", name: "Beta wt", path: "/bt", kind: "worktree", rootWorkspaceId: "b", sessions: [s("bt1")] },
+      {
+        id: "bt",
+        name: "Beta wt",
+        path: "/bt",
+        kind: "worktree",
+        rootWorkspaceId: "b",
+        sessions: [s("bt1")],
+      },
     ],
     workspaceOrder: ["b", "a"],
     pinnedSessionOrder: ["b:b-pin"],
@@ -123,10 +136,23 @@ test("home lists Needs you, Working, Pinned, then projects in sidebar order; sea
   );
   assert.equal(sections[3]?.rows[0]?.childCount, 1);
   const found = buildHome(
-    { workspaces: [{ id: "b", name: "Beta", path: "/b", kind: "primary", sessions: [s("x", { preview: "Fix the parser" }), s("y")] }] },
+    {
+      workspaces: [
+        {
+          id: "b",
+          name: "Beta",
+          path: "/b",
+          kind: "primary",
+          sessions: [s("x", { preview: "Fix the parser" }), s("y")],
+        },
+      ],
+    },
     "parser",
   );
-  assert.deepEqual(found.map((section) => [section.title, section.rows.map((row) => row.session.id)]), [["Results", ["x"]]]);
+  assert.deepEqual(
+    found.map((section) => [section.title, section.rows.map((row) => row.session.id)]),
+    [["Results", ["x"]]],
+  );
 });
 
 test("relative time is short", () => {

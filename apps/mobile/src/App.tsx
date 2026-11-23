@@ -76,7 +76,9 @@ function Root() {
                       justifyContent: "center",
                     }}
                   >
-                    <Text style={{ color: palette.accentText, fontSize: type.title }}>Settings</Text>
+                    <Text style={{ color: palette.accentText, fontSize: type.title }}>
+                      Settings
+                    </Text>
                   </Pressable>
                 ),
               })}
@@ -88,7 +90,11 @@ function Root() {
               options={{ title: "New chat", presentation: "modal" }}
             />
             <Stack.Screen name="Review" component={ReviewScreen} options={{ title: "Review" }} />
-            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
+            <Stack.Screen
+              name="Settings"
+              component={SettingsScreen}
+              options={{ title: "Settings" }}
+            />
             <Stack.Screen
               name="Usage"
               component={UsageScreen}

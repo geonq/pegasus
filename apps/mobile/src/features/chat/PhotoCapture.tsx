@@ -57,7 +57,12 @@ export function PhotoCapture({
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="fullScreen" visible={visible}>
+    <Modal
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle="fullScreen"
+      visible={visible}
+    >
       <View style={[styles.screen, { backgroundColor: chrome.window, paddingTop: insets.top }]}>
         {!permission ? (
           <ActivityIndicator color={chrome.textStrong} style={styles.flex} />
@@ -85,7 +90,10 @@ export function PhotoCapture({
               style={styles.flex}
             />
             {error ? (
-              <Text accessibilityRole="alert" style={[text.footnote, styles.error, { color: chrome.dangerText }]}>
+              <Text
+                accessibilityRole="alert"
+                style={[text.footnote, styles.error, { color: chrome.dangerText }]}
+              >
                 {error}
               </Text>
             ) : null}
@@ -101,7 +109,10 @@ export function PhotoCapture({
                 onPress={() => {
                   void shoot();
                 }}
-                style={[styles.shutter, { borderColor: chrome.textStrong, opacity: ready && !busy ? 1 : 0.5 }]}
+                style={[
+                  styles.shutter,
+                  { borderColor: chrome.textStrong, opacity: ready && !busy ? 1 : 0.5 },
+                ]}
               >
                 <View style={[styles.shutterInner, { backgroundColor: chrome.textStrong }]} />
               </PressableScale>
@@ -133,9 +144,9 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: radius.pill,
     borderWidth: 4,
-    
+
     alignItems: "center",
     justifyContent: "center",
   },
-  shutterInner: { width: 56, height: 56, borderRadius: radius.pill, },
+  shutterInner: { width: 56, height: 56, borderRadius: radius.pill },
 });

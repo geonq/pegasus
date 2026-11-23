@@ -6,7 +6,16 @@ import { accountsByFullest } from "../../api/usage";
 import type { AccountLimits } from "../../api/types";
 import { usePegasus } from "../../state/PegasusProvider";
 import { spacing, text, usePalette } from "../../theme";
-import { Badge, Button, ListGroup, ListRow, SectionHeader, Skeleton, Surface, type Tone } from "../../ui";
+import {
+  Badge,
+  Button,
+  ListGroup,
+  ListRow,
+  SectionHeader,
+  Skeleton,
+  Surface,
+  type Tone,
+} from "../../ui";
 import {
   compactCount,
   defaultModel,
@@ -38,8 +47,9 @@ export default function SettingsScreen() {
   const workspaceId = settingsWorkspaceId(state);
   const [loadedRuntime, setLoadedRuntime] = useState<RuntimeSnapshot | undefined>(undefined);
   const runtime =
-    (workspaceId ? (state as StateWithRuntime | null)?.runtimeByWorkspace?.[workspaceId] : undefined) ??
-    loadedRuntime;
+    (workspaceId
+      ? (state as StateWithRuntime | null)?.runtimeByWorkspace?.[workspaceId]
+      : undefined) ?? loadedRuntime;
   const [pcVersion, setPcVersion] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<readonly AccountLimits[] | null>(null);
   const [report, setReport] = useState<UsageReport | null>(null);
@@ -123,7 +133,11 @@ export default function SettingsScreen() {
 
   const pickLevel = () => {
     ActionSheetIOS.showActionSheetWithOptions(
-      { title: "Thinking level", options: ["Cancel", ...levels.map(thinkingLabel)], cancelButtonIndex: 0 },
+      {
+        title: "Thinking level",
+        options: ["Cancel", ...levels.map(thinkingLabel)],
+        cancelButtonIndex: 0,
+      },
       (index) => {
         const level: ThinkingLevel | undefined = levels[index - 1];
         if (level) void apply("setDefaultThinkingLevel", level);
@@ -147,7 +161,11 @@ export default function SettingsScreen() {
       : status.state === "connecting"
         ? { label: "Connecting", tone: "neutral" }
         : status.state === "retrying"
-          ? { label: `Retrying in ${Math.ceil(status.inMs / 1000)} s`, tone: "warning", detail: status.reason }
+          ? {
+              label: `Retrying in ${Math.ceil(status.inMs / 1000)} s`,
+              tone: "warning",
+              detail: status.reason,
+            }
           : { label: "Key revoked", tone: "danger", detail: status.reason };
 
   const signedInSlots = slots?.filter((slot) => slot.signedIn) ?? [];
@@ -159,11 +177,11 @@ export default function SettingsScreen() {
       style={{ backgroundColor: palette.background }}
       contentContainerStyle={styles.content}
     >
-      <ListGroup
-        title="Your PC"
-        {...(connection.detail ? { footer: connection.detail } : {})}
-      >
-        <ListRow label={pairing?.hostName ?? "Not paired"} trailing={<Badge label={connection.label} tone={connection.tone} />} />
+      <ListGroup title="Your PC" {...(connection.detail ? { footer: connection.detail } : {})}>
+        <ListRow
+          label={pairing?.hostName ?? "Not paired"}
+          trailing={<Badge label={connection.label} tone={connection.tone} />}
+        />
         <ListRow label="Address" detail={pairing?.url ?? "—"} />
         {pcVersion ? <ListRow label="Pegasus on the PC" detail={pcVersion} /> : null}
       </ListGroup>
@@ -191,7 +209,10 @@ export default function SettingsScreen() {
       <View style={styles.block}>
         <SectionHeader title="Plan limits" />
         {usageError ? (
-          <Text accessibilityRole="alert" style={[text.subheadline, styles.inset, { color: palette.dangerText }]}>
+          <Text
+            accessibilityRole="alert"
+            style={[text.subheadline, styles.inset, { color: palette.dangerText }]}
+          >
             {usageError}
           </Text>
         ) : accounts === null ? (
@@ -217,7 +238,9 @@ export default function SettingsScreen() {
           {report.totals.apiCost !== undefined ? (
             <ListRow label="At API prices" detail={`$${report.totals.apiCost.toFixed(2)}`} />
           ) : null}
-          {report.models[0] ? <ListRow label="Most used model" detail={report.models[0].label} /> : null}
+          {report.models[0] ? (
+            <ListRow label="Most used model" detail={report.models[0].label} />
+          ) : null}
         </ListGroup>
       ) : null}
 
@@ -237,7 +260,12 @@ export default function SettingsScreen() {
         <ListRow label="Pegasus for iPhone" detail={appVersion} />
       </ListGroup>
 
-      <Button label="Unpair this phone" variant="destructive" onPress={unpair} disabled={!pairing} />
+      <Button
+        label="Unpair this phone"
+        variant="destructive"
+        onPress={unpair}
+        disabled={!pairing}
+      />
     </ScrollView>
   );
 }

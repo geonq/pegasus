@@ -4,11 +4,20 @@ import { hitSize, radius, spacing, text, usePalette } from "../theme";
 import { PressableScale } from "./PressableScale";
 
 /** A section title above a group: sentence case, muted, like the desktop's settings headings. */
-export function SectionHeader({ title, trailing }: { readonly title: string; readonly trailing?: ReactNode }) {
+export function SectionHeader({
+  title,
+  trailing,
+}: {
+  readonly title: string;
+  readonly trailing?: ReactNode;
+}) {
   const palette = usePalette();
   return (
     <View style={styles.header}>
-      <Text accessibilityRole="header" style={[text.footnote, styles.headerText, { color: palette.textMuted }]}>
+      <Text
+        accessibilityRole="header"
+        style={[text.footnote, styles.headerText, { color: palette.textMuted }]}
+      >
         {title}
       </Text>
       {trailing}
@@ -37,7 +46,9 @@ export function ListGroup({
       <View style={[styles.group, { backgroundColor: palette.surface }]}>
         {rows.map((row, index) => (
           <Fragment key={row.key ?? index}>
-            {index > 0 ? <View style={[styles.separator, { backgroundColor: palette.line }]} /> : null}
+            {index > 0 ? (
+              <View style={[styles.separator, { backgroundColor: palette.line }]} />
+            ) : null}
             {row}
           </Fragment>
         ))}

@@ -1,7 +1,15 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { OrchestrationChildThread } from "../../api/types";
 import { PressableScale } from "../../ui";
-import { hitSize, maxFontScale, radius, spacing, text, usePalette, type Palette } from "../../theme";
+import {
+  hitSize,
+  maxFontScale,
+  radius,
+  spacing,
+  text,
+  usePalette,
+  type Palette,
+} from "../../theme";
 
 const STATUS_LABELS: Record<OrchestrationChildThread["status"], string> = {
   queued: "Queued",
@@ -39,9 +47,16 @@ export function SubagentRows({
 }) {
   const palette = usePalette();
   if (agents.length === 0) return null;
-  const active = agents.filter((agent) => agent.status === "running" || agent.status === "waiting").length;
+  const active = agents.filter(
+    (agent) => agent.status === "running" || agent.status === "waiting",
+  ).length;
   return (
-    <View style={[styles.group, { backgroundColor: palette.surface, borderColor: palette.borderDefault }]}>
+    <View
+      style={[
+        styles.group,
+        { backgroundColor: palette.surface, borderColor: palette.borderDefault },
+      ]}
+    >
       <Text
         accessibilityRole="header"
         maxFontSizeMultiplier={maxFontScale.chrome}
@@ -60,13 +75,17 @@ export function SubagentRows({
           pressedStyle={{ backgroundColor: palette.overlayActive }}
           style={[
             styles.row,
-            index > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.line } : null,
+            index > 0
+              ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.line }
+              : null,
           ]}
         >
           <View style={[styles.dot, { backgroundColor: statusColor(palette, agent.status) }]} />
           <View style={styles.body}>
             <Text numberOfLines={1} style={[text.subheadline, { color: palette.text }]}>
-              {agent.role ? <Text style={{ color: palette.textMuted }}>{agent.role} · </Text> : null}
+              {agent.role ? (
+                <Text style={{ color: palette.textMuted }}>{agent.role} · </Text>
+              ) : null}
               {agent.title || "Agent"}
             </Text>
             {agent.latestTranscript ? (
@@ -101,7 +120,12 @@ export function SubagentRows({
 
 const styles = StyleSheet.create({
   group: { borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
-  heading: { fontWeight: "600", paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs },
+  heading: {
+    fontWeight: "600",
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
   row: {
     minHeight: hitSize.min,
     flexDirection: "row",

@@ -44,10 +44,7 @@ export default function NewChatScreen({
     route.params?.workspaceId ?? state?.selectedWorkspaceId ?? "",
   );
   const project = projects.find((entry) => entry.id === workspaceId) ?? projects[0];
-  const runtime = useMemo(
-    () => newChatRuntime(state, project?.id ?? ""),
-    [state, project?.id],
-  );
+  const runtime = useMemo(() => newChatRuntime(state, project?.id ?? ""), [state, project?.id]);
   const [model, setModel] = useState<NewChatModel | undefined>();
   const [level, setLevel] = useState<string | undefined>();
   const [prompt, setPrompt] = useState("");
@@ -113,11 +110,17 @@ export default function NewChatScreen({
 
         <SectionHeader title="Model" />
         {runtime.loaded ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chips}
+          >
             {runtime.models.map((entry) => (
               <Chip
                 key={`${entry.provider}/${entry.modelId}`}
-                label={sameModel(entry, runtime.defaultModel) ? `${entry.label} (default)` : entry.label}
+                label={
+                  sameModel(entry, runtime.defaultModel) ? `${entry.label} (default)` : entry.label
+                }
                 selected={sameModel(entry, shownModel)}
                 onPress={() => setModel(entry)}
               />

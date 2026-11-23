@@ -46,7 +46,9 @@ function lastActive(session: SessionRecord): string {
 function byRecency(a: ChatRow, b: ChatRow): number {
   const left = lastActive(a.session);
   const right = lastActive(b.session);
-  return left === right ? a.session.title.localeCompare(b.session.title) : right.localeCompare(left);
+  return left === right
+    ? a.session.title.localeCompare(b.session.title)
+    : right.localeCompare(left);
 }
 
 function rowsOf(
@@ -112,8 +114,7 @@ export function projectsOf(state: Pick<DesktopAppState, "workspaces" | "workspac
   };
   return state.workspaces
     .filter(
-      (workspace) =>
-        workspace.kind !== "worktree" || !ids.has(workspace.rootWorkspaceId ?? ""),
+      (workspace) => workspace.kind !== "worktree" || !ids.has(workspace.rootWorkspaceId ?? ""),
     )
     .map((workspace, index) => ({ workspace, index }))
     .sort((a, b) => rank(a.workspace.id) - rank(b.workspace.id) || a.index - b.index)
@@ -169,7 +170,12 @@ export function buildHome(
   }
 
   const sections: HomeSection[] = [];
-  const push = (key: string, title: string, rows: readonly ChatRow[], workspace?: WorkspaceRecord) => {
+  const push = (
+    key: string,
+    title: string,
+    rows: readonly ChatRow[],
+    workspace?: WorkspaceRecord,
+  ) => {
     if (rows.length > 0) sections.push({ key, title, rows, ...(workspace ? { workspace } : {}) });
   };
   push(
@@ -179,7 +185,11 @@ export function buildHome(
       .filter((row) => row.section === "needs-you")
       .sort((a, b) => b.pendingDialogs.length - a.pendingDialogs.length),
   );
-  push("working", SECTION_TITLES.working, all.filter((row) => row.section === "working"));
+  push(
+    "working",
+    SECTION_TITLES.working,
+    all.filter((row) => row.section === "working"),
+  );
   const pinOrder = state.pinnedSessionOrder ?? [];
   const pinRank = (row: ChatRow) => {
     const index = pinOrder.indexOf(sessionKey(row.workspace.id, row.session.id));

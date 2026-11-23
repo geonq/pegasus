@@ -3,7 +3,12 @@
  * them (apps/desktop/contracts/desktop-state.ts, generative-ui.ts, session-permission.ts); they are
  * read defensively here so an older PC without a field still opens the chat.
  */
-import type { DesktopAppState, SessionRecord, TranscriptMessage, TranscriptTool } from "../../api/types";
+import type {
+  DesktopAppState,
+  SessionRecord,
+  TranscriptMessage,
+  TranscriptTool,
+} from "../../api/types";
 
 export interface SessionConfig {
   readonly provider?: string;
@@ -30,8 +35,16 @@ export const PERMISSION_OPTIONS: readonly {
 }[] = [
   { value: "plan", label: "Plan", description: "Reads and plans, changes nothing" },
   { value: "ask", label: "Ask first", description: "Asks before each change or command" },
-  { value: "edits", label: "Accept edits", description: "Changes files freely, asks before commands" },
-  { value: "full", label: "Full access", description: "Changes files and runs commands without asking" },
+  {
+    value: "edits",
+    label: "Accept edits",
+    description: "Changes files freely, asks before commands",
+  },
+  {
+    value: "full",
+    label: "Full access",
+    description: "Changes files and runs commands without asking",
+  },
 ];
 
 /** The remote policy's accepted levels, in order (remote-desktop-policy.ts THINKING_LEVELS). */
@@ -285,7 +298,15 @@ function field(value: unknown): UiField[] {
   if (!id || !label) return [];
   if (value.kind === "toggle") return [{ kind: "toggle", id, label }];
   if (value.kind === "select") {
-    return [{ kind: "select", id, label, options: options(value.options), required: value.required === true }];
+    return [
+      {
+        kind: "select",
+        id,
+        label,
+        options: options(value.options),
+        required: value.required === true,
+      },
+    ];
   }
   if (value.kind === "text") {
     const placeholder = str(value.placeholder);
@@ -316,7 +337,9 @@ function node(value: unknown, depth: number): UiNode[] {
       const text = str(value.text);
       const children = [
         ...(text ? [{ type: "text" as const, text }] : []),
-        ...(Array.isArray(value.children) ? value.children.flatMap((child) => node(child, depth + 1)) : []),
+        ...(Array.isArray(value.children)
+          ? value.children.flatMap((child) => node(child, depth + 1))
+          : []),
       ];
       return [{ type: "card", title, ...(subtitle ? { subtitle } : {}), children }];
     }
@@ -327,7 +350,9 @@ function node(value: unknown, depth: number): UiNode[] {
             if (!isRecord(item)) return [];
             const label = str(item.label);
             if (!label) return [];
-            const status = (STATUSES.has(item.status as string) ? item.status : "pending") as ChecklistStatus;
+            const status = (
+              STATUSES.has(item.status as string) ? item.status : "pending"
+            ) as ChecklistStatus;
             const note = str(item.note);
             return [{ label, status, ...(note ? { note } : {}) }];
           })
@@ -350,7 +375,9 @@ function node(value: unknown, depth: number): UiNode[] {
       ];
     }
     case "form":
-      return [{ type: "form", fields: Array.isArray(value.fields) ? value.fields.flatMap(field) : [] }];
+      return [
+        { type: "form", fields: Array.isArray(value.fields) ? value.fields.flatMap(field) : [] },
+      ];
     case "table": {
       const columns = Array.isArray(value.columns) ? value.columns.map(String) : [];
       const rows = Array.isArray(value.rows)
@@ -360,7 +387,9 @@ function node(value: unknown, depth: number): UiNode[] {
     }
     case "progress": {
       const raw = typeof value.value === "number" ? value.value : 0;
-      return [{ type: "progress", label: str(value.label) ?? "", value: Math.min(1, Math.max(0, raw)) }];
+      return [
+        { type: "progress", label: str(value.label) ?? "", value: Math.min(1, Math.max(0, raw)) },
+      ];
     }
     case "callout": {
       const text = str(value.text);
@@ -376,7 +405,9 @@ function node(value: unknown, depth: number): UiNode[] {
     case "diagram": {
       const title = str(value.title);
       const nodes = Array.isArray(value.nodes) ? value.nodes.filter(isRecord) : [];
-      const labelOf = new Map(nodes.map((entry) => [String(entry.id), str(entry.label) ?? String(entry.id)]));
+      const labelOf = new Map(
+        nodes.map((entry) => [String(entry.id), str(entry.label) ?? String(entry.id)]),
+      );
       const edges = Array.isArray(value.edges) ? value.edges.filter(isRecord) : [];
       const lines =
         edges.length > 0
@@ -395,7 +426,9 @@ function node(value: unknown, depth: number): UiNode[] {
       const items = agents.flatMap((agent) => {
         const label = str(agent.label);
         if (!label) return [];
-        const status = (STATUSES.has(agent.status as string) ? agent.status : "pending") as ChecklistStatus;
+        const status = (
+          STATUSES.has(agent.status as string) ? agent.status : "pending"
+        ) as ChecklistStatus;
         const note = str(agent.note) ?? str(agent.role);
         return [{ label, status, ...(note ? { note } : {}) }];
       });
@@ -448,7 +481,8 @@ type Input =
 function inputs(blocks: readonly UiNode[]): Input[] {
   return blocks.flatMap((block): Input[] => {
     if (block.type === "choice") return [{ kind: "choice", node: block }];
-    if (block.type === "form") return block.fields.map((entry) => ({ kind: "field" as const, field: entry }));
+    if (block.type === "form")
+      return block.fields.map((entry) => ({ kind: "field" as const, field: entry }));
     if (block.type === "card") return inputs(block.children);
     return [];
   });
@@ -499,7 +533,9 @@ export function describeAnswer(spec: UiSpec, answer: UiAnswer): string[] {
       const value = answer[input.node.id];
       if (value === undefined) return [];
       const values = Array.isArray(value) ? value : [String(value)];
-      return [`${input.node.label}: ${values.map((entry) => label(input.node.options, entry)).join(", ")}`];
+      return [
+        `${input.node.label}: ${values.map((entry) => label(input.node.options, entry)).join(", ")}`,
+      ];
     }
     const entry = input.field;
     const value = answer[entry.id];

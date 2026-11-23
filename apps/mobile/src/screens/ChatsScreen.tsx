@@ -19,7 +19,12 @@ type Item =
       readonly title: string;
       readonly workspaceId?: string;
     }
-  | { readonly kind: "chat"; readonly key: string; readonly row: ChatRow; readonly showProject: boolean };
+  | {
+      readonly kind: "chat";
+      readonly key: string;
+      readonly row: ChatRow;
+      readonly showProject: boolean;
+    };
 
 /** Sections where chats of several projects mix, so each row names its project. */
 const MIXED = new Set(["needs-you", "working", "pinned", "results"]);
@@ -129,7 +134,10 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
       </View>
     ) : null
   ) : query ? (
-    <EmptyState title="No matching chats" message={`Nothing on this PC matches “${query.trim()}”.`} />
+    <EmptyState
+      title="No matching chats"
+      message={`Nothing on this PC matches “${query.trim()}”.`}
+    />
   ) : (
     <EmptyState
       title="No chats yet"
@@ -176,7 +184,12 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
               ) : null}
             </View>
           ) : (
-            <ChatListRow row={item.row} showProject={item.showProject} actions={actions} nowMs={nowMs} />
+            <ChatListRow
+              row={item.row}
+              showProject={item.showProject}
+              actions={actions}
+              nowMs={nowMs}
+            />
           )
         }
         ListEmptyComponent={empty}

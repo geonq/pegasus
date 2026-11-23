@@ -3,7 +3,15 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -40,12 +48,16 @@ const FOLLOW_THRESHOLD = 120;
  * composer that sends, queues or steers. Everything is drawn from the PC's state; the screen only
  * owns what was typed, which rows are expanded, and whether the person scrolled up.
  */
-export function ChatScreen({ route, navigation }: NativeStackScreenProps<RootStackParamList, "Chat">) {
+export function ChatScreen({
+  route,
+  navigation,
+}: NativeStackScreenProps<RootStackParamList, "Chat">) {
   const { workspaceId, sessionId, title: routeTitle } = route.params;
   const palette = usePalette();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { state, transcript, status, openChat, stop, answer, removeQueued, steerQueued } = usePegasus();
+  const { state, transcript, status, openChat, stop, answer, removeQueued, steerQueued } =
+    usePegasus();
   const actions = useChatActions(workspaceId, sessionId);
   const [openError, setOpenError] = useState<string | null>(null);
   const [opening, setOpening] = useState(0);
@@ -79,7 +91,9 @@ export function ChatScreen({ route, navigation }: NativeStackScreenProps<RootSta
   useFocusEffect(
     useCallback(() => {
       setOpenError(null);
-      openChat({ workspaceId, sessionId }).catch((reason: unknown) => setOpenError(messageOf(reason)));
+      openChat({ workspaceId, sessionId }).catch((reason: unknown) =>
+        setOpenError(messageOf(reason)),
+      );
     }, [openChat, sessionId, workspaceId, opening]),
   );
 
@@ -186,25 +200,28 @@ export function ChatScreen({ route, navigation }: NativeStackScreenProps<RootSta
         session.archivedAt
           ? {
               label: "Unarchive",
-              onPress: () =>
-                actions.unarchive().catch(fail("Could not unarchive the chat")),
+              onPress: () => actions.unarchive().catch(fail("Could not unarchive the chat")),
             }
           : {
               label: "Archive",
               destructive: true,
               onPress: () =>
-                Alert.alert("Archive this chat?", "It leaves the list. You can find it on the PC.", [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Archive",
-                    style: "destructive",
-                    onPress: () =>
-                      actions
-                        .archive()
-                        .then(() => navigation.goBack())
-                        .catch(fail("Could not archive the chat")),
-                  },
-                ]),
+                Alert.alert(
+                  "Archive this chat?",
+                  "It leaves the list. You can find it on the PC.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Archive",
+                      style: "destructive",
+                      onPress: () =>
+                        actions
+                          .archive()
+                          .then(() => navigation.goBack())
+                          .catch(fail("Could not archive the chat")),
+                    },
+                  ],
+                ),
             },
       );
     }
@@ -236,7 +253,9 @@ export function ChatScreen({ route, navigation }: NativeStackScreenProps<RootSta
     body = (
       <View style={styles.center}>
         <EmptyState
-          action={<Button label="Back to chats" onPress={() => navigation.goBack()} variant="secondary" />}
+          action={
+            <Button label="Back to chats" onPress={() => navigation.goBack()} variant="secondary" />
+          }
           message="It was deleted, or this phone may no longer see its project."
           title="This chat is not on the PC"
         />
@@ -246,7 +265,13 @@ export function ChatScreen({ route, navigation }: NativeStackScreenProps<RootSta
     body = (
       <View style={styles.center}>
         <EmptyState
-          action={<Button label="Try again" onPress={() => setOpening((value) => value + 1)} variant="primary" />}
+          action={
+            <Button
+              label="Try again"
+              onPress={() => setOpening((value) => value + 1)}
+              variant="primary"
+            />
+          }
           message={openError}
           title="Could not open this chat"
         />
@@ -273,7 +298,11 @@ export function ChatScreen({ route, navigation }: NativeStackScreenProps<RootSta
           asked ? null : (
             <View style={styles.center}>
               <EmptyState
-                message={running ? "The first reply is on its way." : "Ask for a change, a review or an answer."}
+                message={
+                  running
+                    ? "The first reply is on its way."
+                    : "Ask for a change, a review or an answer."
+                }
                 title={running ? "Working on it" : "Start the conversation"}
               />
             </View>
@@ -369,8 +398,12 @@ export function ChatScreen({ route, navigation }: NativeStackScreenProps<RootSta
               onPress={() => navigation.navigate("Usage", { workspaceId, sessionId })}
               style={styles.limit}
             >
-              <Text maxFontSizeMultiplier={maxFontScale.chrome} style={[text.caption, { color: palette.warningText }]}>
-                {plan.provider} usage {Math.round(plan.usedPercent)}%{limitReset ? ` · ${limitReset}` : ""}
+              <Text
+                maxFontSizeMultiplier={maxFontScale.chrome}
+                style={[text.caption, { color: palette.warningText }]}
+              >
+                {plan.provider} usage {Math.round(plan.usedPercent)}%
+                {limitReset ? ` · ${limitReset}` : ""}
               </Text>
             </PressableScale>
           ) : null}
@@ -404,9 +437,19 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   banner: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, flexDirection: "row" },
   center: { flex: 1, justifyContent: "center" },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.md },
+  content: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.md,
+  },
   footer: { gap: spacing.md, paddingTop: spacing.xs },
   skeleton: { flex: 1, padding: spacing.lg, gap: spacing.md, justifyContent: "flex-end" },
   skeletonUser: { alignItems: "flex-end" },
-  limit: { alignSelf: "center", minHeight: 32, justifyContent: "center", paddingHorizontal: spacing.md },
+  limit: {
+    alignSelf: "center",
+    minHeight: 32,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+  },
 });
