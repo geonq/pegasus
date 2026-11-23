@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActionSheetIOS, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { PegasusClient } from "../../api/client";
 import { accountsByFullest } from "../../api/usage";
 import type { AccountLimits } from "../../api/types";
@@ -9,8 +9,10 @@ import { spacing, text, usePalette } from "../../theme";
 import {
   Badge,
   Button,
+  Icon,
   ListGroup,
   ListRow,
+  NativeMenu,
   SectionHeader,
   Skeleton,
   Surface,
@@ -118,32 +120,38 @@ export default function SettingsScreen() {
   const levels = thinkingLevelsFor(current);
   const currentLevel = runtime?.settings.defaultThinkingLevel;
 
-  const pickModel = () => {
-    const models = (runtime?.models ?? []).filter((model) => model.available);
-    if (models.length === 0) return;
-    const labels = models.map((model) => `${model.label} · ${model.providerName}`);
-    ActionSheetIOS.showActionSheetWithOptions(
-      { title: "Default model", options: ["Cancel", ...labels], cancelButtonIndex: 0 },
-      (index) => {
-        const model = models[index - 1];
-        if (model) void apply("setDefaultModel", model.providerId, model.modelId);
-      },
-    );
-  };
-
-  const pickLevel = () => {
-    ActionSheetIOS.showActionSheetWithOptions(
-      {
-        title: "Thinking level",
-        options: ["Cancel", ...levels.map(thinkingLabel)],
-        cancelButtonIndex: 0,
-      },
-      (index) => {
-        const level: ThinkingLevel | undefined = levels[index - 1];
-        if (level) void apply("setDefaultThinkingLevel", level);
-      },
-    );
-  };
+  // Native picker menus, grouped by provider like the desktop's model picker.
+  const available = (runtime?.models ?? []).filter((model) => model.available);
+  const providers = [...new Set(available.map((model) => model.providerName))];
+  const modelMenu = providers.map((provider) => ({
+    title: provider,
+    items: available
+      .filter((model) => model.providerName === provider)
+      .map((model) => {
+        const selected =
+          model.providerId === current?.providerId && model.modelId === current?.modelId;
+        return {
+          id: `model:${model.providerId}/${model.modelId}`,
+          label: model.label,
+          selected,
+          onPress: () => {
+            if (!selected) void apply("setDefaultModel", model.providerId, model.modelId);
+          },
+        };
+      }),
+  }));
+  const levelMenu = [
+    {
+      items: levels.map((level: ThinkingLevel) => ({
+        id: `level:${level}`,
+        label: thinkingLabel(level),
+        selected: level === currentLevel,
+        onPress: () => {
+          if (level !== currentLevel) void apply("setDefaultThinkingLevel", level);
+        },
+      })),
+    },
+  ];
 
   const unpair = () =>
     Alert.alert(
@@ -180,6 +188,7 @@ export default function SettingsScreen() {
       <ListGroup title="Your PC" {...(connection.detail ? { footer: connection.detail } : {})}>
         <ListRow
           label={pairing?.hostName ?? "Not paired"}
+          leading={<Icon name="desktopcomputer" color={palette.textMuted} />}
           trailing={<Badge label={connection.label} tone={connection.tone} />}
         />
         <ListRow label="Address" detail={pairing?.url ?? "—"} />
@@ -190,19 +199,41 @@ export default function SettingsScreen() {
         title="New chats"
         footer={modelError ?? "What the PC starts new chats with. The PC's Settings change too."}
       >
-        <ListRow
-          label="Default model"
-          detail={runtime ? (current?.label ?? "Not set") : "Loading"}
-          disabled={!runtime || saving}
-          onPress={pickModel}
-        />
-        {levels.length > 0 ? (
+        {runtime && available.length > 0 && !saving ? (
+          <NativeMenu sections={modelMenu} title="Default model">
+            <ListRow
+              label="Default model"
+              detail={current?.label ?? "Not set"}
+              accessory="menu"
+              leading={<Icon name="cpu" color={palette.textMuted} />}
+            />
+          </NativeMenu>
+        ) : (
           <ListRow
-            label="Thinking level"
-            detail={currentLevel ? thinkingLabel(currentLevel) : "Model default"}
-            disabled={saving}
-            onPress={pickLevel}
+            label="Default model"
+            detail={saving ? "Saving…" : runtime ? "No models signed in" : "Loading…"}
+            disabled
+            leading={<Icon name="cpu" color={palette.textMuted} />}
           />
+        )}
+        {levels.length > 0 ? (
+          saving ? (
+            <ListRow
+              label="Thinking level"
+              detail="Saving…"
+              disabled
+              leading={<Icon name="brain" color={palette.textMuted} />}
+            />
+          ) : (
+            <NativeMenu sections={levelMenu} title="Thinking level">
+              <ListRow
+                label="Thinking level"
+                detail={currentLevel ? thinkingLabel(currentLevel) : "Model default"}
+                accessory="menu"
+                leading={<Icon name="brain" color={palette.textMuted} />}
+              />
+            </NativeMenu>
+          )
         ) : null}
       </ListGroup>
 

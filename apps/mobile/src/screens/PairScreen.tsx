@@ -1,15 +1,18 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ActivityIndicator, Linking, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { parsePairingLink } from "../api/pairing";
 import { usePegasus } from "../state/PegasusProvider";
-import { radius, spacing, type, usePalette } from "../theme";
+import { radius, spacing, text, usePalette } from "../theme";
+import { Button, Icon } from "../ui";
 
 /** First run: scan the QR code from Pegasus › Settings › Phone on the PC (or paste its link). */
 export function PairScreen() {
   const palette = usePalette();
+  const insets = useSafeAreaInsets();
   const { pair, linkError } = usePegasus();
   const [permission, requestPermission] = useCameraPermissions();
   const [pasted, setPasted] = useState("");
@@ -17,12 +20,12 @@ export function PairScreen() {
   const [busy, setBusy] = useState(false);
   const handled = useRef(false);
 
-  const tryPair = async (text: string) => {
+  const tryPair = async (link: string) => {
     if (busy) return;
     setBusy(true);
     setError(null);
     try {
-      await pair(parsePairingLink(text));
+      await pair(parsePairingLink(link));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
     } catch (reason) {
       handled.current = false;
@@ -33,22 +36,43 @@ export function PairScreen() {
     }
   };
 
+  const problem = error ?? linkError;
+
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: palette.background }]}>
-      <Text style={[styles.title, { color: palette.text }]}>Pair with your PC</Text>
-      <Text style={[styles.body, { color: palette.textMuted }]}>
-        On your PC open Pegasus › Settings › Phone and choose Show QR code. Both devices need
-        Tailscale on.
-      </Text>
+    <KeyboardAwareScrollView
+      bottomOffset={spacing.xl}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl },
+      ]}
+      keyboardShouldPersistTaps="handled"
+      style={{ backgroundColor: palette.background }}
+    >
+      <View style={styles.hero}>
+        <Icon
+          name="iphone.and.arrow.forward"
+          color={palette.textStrong}
+          size={40}
+          weight="regular"
+        />
+        <Text accessibilityRole="header" style={[text.largeTitle, { color: palette.textStrong }]}>
+          Pair with your PC
+        </Text>
+        <Text style={[text.callout, { color: palette.textMuted }]}>
+          On your PC, open Pegasus › Settings › Phone and choose Show QR code. Both devices need
+          Tailscale turned on.
+        </Text>
+      </View>
 
       <View
         style={[
           styles.camera,
-          { backgroundColor: palette.surfaceRaised, borderColor: palette.line },
+          { backgroundColor: palette.surface, borderColor: palette.borderDefault },
         ]}
       >
         {permission?.granted ? (
           <CameraView
+            accessibilityLabel="Camera, point it at the QR code on your PC"
             style={StyleSheet.absoluteFill}
             barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
             onBarcodeScanned={(result) => {
@@ -58,62 +82,88 @@ export function PairScreen() {
             }}
           />
         ) : (
-          <Pressable
-            accessibilityRole="button"
-            style={[styles.button, { backgroundColor: palette.accent }]}
-            onPress={() => {
-              requestPermission().catch(() => undefined);
-            }}
-          >
-            <Text style={[styles.buttonText, { color: palette.onAccent }]}>
-              Allow camera to scan
-            </Text>
-          </Pressable>
+          <View style={styles.cameraAsk}>
+            <Icon name="qrcode.viewfinder" color={palette.textSoft} size={44} weight="regular" />
+            <Button
+              label={
+                permission && !permission.canAskAgain ? "Open Settings" : "Allow camera to scan"
+              }
+              onPress={() => {
+                if (permission && !permission.canAskAgain) {
+                  Linking.openSettings().catch(() => undefined);
+                } else {
+                  requestPermission().catch(() => undefined);
+                }
+              }}
+              variant="accent"
+            />
+            {permission && !permission.canAskAgain ? (
+              <Text style={[text.footnote, styles.centerText, { color: palette.textMuted }]}>
+                Camera access is off for Pegasus. Turn it on in Settings, or paste the link below.
+              </Text>
+            ) : null}
+          </View>
         )}
-        {busy ? <ActivityIndicator style={styles.spinner} color={palette.accent} /> : null}
+        {busy ? (
+          <View style={[styles.busy, { backgroundColor: palette.scrim }]}>
+            <ActivityIndicator color={palette.onAccent} />
+          </View>
+        ) : null}
       </View>
 
-      <Text style={[styles.caption, { color: palette.textMuted }]}>Or paste the pairing link</Text>
+      <Text style={[text.footnote, styles.caption, { color: palette.textMuted }]}>
+        Or paste the pairing link
+      </Text>
       <View style={styles.pasteRow}>
         <TextInput
+          accessibilityLabel="Pairing link"
           value={pasted}
           onChangeText={setPasted}
+          onSubmitEditing={() => {
+            if (pasted.trim()) tryPair(pasted).catch(() => undefined);
+          }}
           placeholder="pegasus://pair?…"
-          placeholderTextColor={palette.textMuted}
+          placeholderTextColor={palette.textSoft}
           autoCapitalize="none"
           autoCorrect={false}
+          returnKeyType="go"
           style={[
+            text.body,
             styles.input,
-            { color: palette.text, backgroundColor: palette.surface, borderColor: palette.line },
+            { color: palette.text, backgroundColor: palette.surface },
           ]}
         />
-        <Pressable
-          accessibilityRole="button"
+        <Button
+          label="Pair"
+          busy={busy}
           disabled={busy || pasted.trim() === ""}
-          style={[
-            styles.button,
-            { backgroundColor: palette.accent, opacity: pasted.trim() ? 1 : 0.5 },
-          ]}
           onPress={() => {
             tryPair(pasted).catch(() => undefined);
           }}
-        >
-          <Text style={[styles.buttonText, { color: palette.onAccent }]}>Pair</Text>
-        </Pressable>
+          variant="accent"
+        />
       </View>
-      {error || linkError ? (
-        <Text accessibilityRole="alert" style={[styles.error, { color: palette.danger }]}>
-          {error ?? linkError}
-        </Text>
+      {problem ? (
+        <View
+          accessibilityRole="alert"
+          style={[
+            styles.error,
+            { backgroundColor: palette.dangerTint, borderColor: palette.dangerTintBorder },
+          ]}
+        >
+          <Icon name="exclamationmark.triangle.fill" color={palette.dangerText} size={14} />
+          <Text style={[text.footnote, styles.flex, { color: palette.dangerText }]}>
+            {problem} Check that Pegasus is open on the PC and both devices are on Tailscale.
+          </Text>
+        </View>
       ) : null}
-    </SafeAreaView>
+    </KeyboardAwareScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.xl, gap: spacing.md },
-  title: { fontSize: type.large, fontWeight: "700" },
-  body: { fontSize: type.body, lineHeight: 22 },
+  content: { paddingHorizontal: spacing.xl, gap: spacing.md },
+  hero: { gap: spacing.sm, marginBottom: spacing.sm },
   camera: {
     width: "100%",
     aspectRatio: 1,
@@ -122,25 +172,26 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: spacing.md,
+    marginVertical: spacing.sm,
   },
-  spinner: { position: "absolute" },
-  caption: { fontSize: type.caption, textTransform: "uppercase", letterSpacing: 0.6 },
-  pasteRow: { flexDirection: "row", gap: spacing.sm },
+  cameraAsk: { alignItems: "center", gap: spacing.lg, padding: spacing.xl },
+  centerText: { textAlign: "center" },
+  busy: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
+  caption: { fontWeight: "500" },
+  pasteRow: { flexDirection: "row", gap: spacing.sm, alignItems: "center" },
   input: {
     flex: 1,
-    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    fontSize: type.body,
     minHeight: 44,
   },
-  button: {
+  error: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.md,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    minHeight: 44,
-    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  buttonText: { fontSize: type.body, fontWeight: "600" },
-  error: { fontSize: type.body },
+  flex: { flex: 1 },
 });

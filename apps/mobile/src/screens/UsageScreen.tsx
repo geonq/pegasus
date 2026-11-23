@@ -7,7 +7,7 @@ import type { AccountLimits } from "../api/types";
 import { AccountCard, Meter } from "../features/settings/UsageParts";
 import { usePegasus } from "../state/PegasusProvider";
 import { spacing, text, usePalette } from "../theme";
-import { SectionHeader, Skeleton, Surface } from "../ui";
+import { SectionHeader, SheetHeader, Skeleton, Surface } from "../ui";
 import type { RootStackParamList } from "../navigation";
 
 /**
@@ -45,6 +45,7 @@ export function UsageScreen({ route }: NativeStackScreenProps<RootStackParamList
       style={{ backgroundColor: palette.background }}
       contentContainerStyle={styles.content}
     >
+      <SheetHeader title="Usage" subtitle="Plan limits on the PC's accounts" />
       <View style={styles.block}>
         <SectionHeader title="This chat" />
         {plan ? (
