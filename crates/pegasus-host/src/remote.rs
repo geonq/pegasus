@@ -392,6 +392,9 @@ impl Remote {
                 },
             };
         }
+        if path.starts_with("/v1/phone/") {
+            return self.handle_phone(host, &client_id, &method, &path, &headers, body, &origin).await;
+        }
         if method == Method::GET && path == "/v1/events" {
             let has_body = headers.contains_key("transfer-encoding") || header(&headers, "content-length").is_some_and(|l| l != "0");
             if has_body {
@@ -404,7 +407,123 @@ impl Remote {
 
     async fn handle_invoke(&self, host: &Host, client_id: &str, headers: &HeaderMap, body: Incoming) -> Result<Option<Box<serde_json::value::RawValue>>, (u16, String, String, Option<Incoming>)> {
         let fail = |s: u16, c: &str, m: &str| Err((s, c.to_string(), m.to_string(), None));
-        let ct = header(headers, "content-type").unwrap_or("");
+        let value = read_json_object(headers, body).await?;
+        let obj = value.as_object().expect("checked object");
+        if obj.keys().any(|k| k != "method" && k != "args") {
+            return fail(400, "invalid_request", "The request contains an unsupported field.");
+        }
+        let (Some(method), Some(args)) = (obj.get("method").and_then(|m| m.as_str()), obj.get("args").filter(|a| a.is_array())) else {
+            return fail(400, "invalid_request", "The remote method request is invalid.");
+        };
+        self.relay(host, client_id, method, args.clone()).await.map_err(|(s, c, m)| (s, c, m, None))
+    }
+
+    async fn relay(&self, host: &Host, client_id: &str, method: &str, args: serde_json::Value) -> Result<Option<Box<serde_json::value::RawValue>>, (u16, String, String)> {
+        let r = self.invoke(host, client_id, method, args).await;
+        if r.ok {
+            Ok(r.value)
+        } else {
+            let e = r.error.unwrap_or(RemoteError { status: 400, code: "operation_failed".into(), message: "The remote native operation failed.".into() });
+            Err((e.status, e.code, e.message))
+        }
+    }
+
+    /// Phone views (remote-phone.md): the same relayed reads, cut down here instead of on the phone.
+    #[allow(clippy::too_many_arguments)]
+    async fn handle_phone(&self, host: &Host, client_id: &str, method: &Method, path: &str, headers: &HeaderMap, body: Incoming, origin: &str) -> Routed {
+        let brotli = accepts_brotli(headers);
+        let fail = |(s, c, m): (u16, String, String)| error(s, &c, &m, Some(origin));
+        let value = |raw: Option<Box<serde_json::value::RawValue>>| raw.and_then(|r| serde_json::from_str::<serde_json::Value>(r.get()).ok()).unwrap_or(serde_json::Value::Null);
+        let ok = |v: &serde_json::Value| serde_json::to_vec(&serde_json::json!({ "version": 1, "result": v })).unwrap_or_default();
+        match (method.as_str(), path) {
+            ("GET", "/v1/phone/chats") => {
+                if headers.contains_key("transfer-encoding") || header(headers, "content-length").is_some_and(|l| l != "0") {
+                    return Routed::Drain(body, error(400, "unexpected_body", "This route has no body.", Some(origin)));
+                }
+                let state = match self.relay(host, client_id, "getState", serde_json::json!([])).await {
+                    Ok(v) => value(v),
+                    Err(e) => return Routed::Done(fail(e)),
+                };
+                if !state.get("workspaces").is_some_and(|w| w.is_array()) {
+                    return Routed::Done(error(502, "invalid_state", "The desktop state was not readable.", Some(origin)));
+                }
+                let list = crate::phone::chat_list(&state);
+                let etag = format!("\"{}\"", list["etag"].as_str().unwrap_or(""));
+                let mut resp = if header(headers, "if-none-match").is_some_and(|m| m.split(',').any(|t| t.trim() == etag)) {
+                    let mut r = base_json(304, vec![], Some(origin), false);
+                    r.headers_mut().remove("content-type");
+                    r
+                } else {
+                    json_response(200, ok(&list), brotli, origin).await
+                };
+                if let Ok(v) = HeaderValue::from_str(&etag) {
+                    resp.headers_mut().insert("etag", v);
+                }
+                Routed::Done(resp)
+            }
+            ("POST", "/v1/phone/transcript") => {
+                #[derive(serde::Deserialize)]
+                #[serde(deny_unknown_fields, rename_all = "camelCase")]
+                struct Input {
+                    workspace_id: String,
+                    session_id: String,
+                    limit: Option<usize>,
+                    before: Option<String>,
+                }
+                let input: Input = match read_input(headers, body).await {
+                    Ok(i) => i,
+                    Err(r) => return r,
+                };
+                let t = match self.relay(host, client_id, "getSelectedTranscript", serde_json::json!([])).await {
+                    Ok(v) => value(v),
+                    Err(e) => return Routed::Done(fail(e)),
+                };
+                let limit = input.limit.unwrap_or(crate::phone::DEFAULT_PAGE);
+                match crate::phone::transcript_page(&t, &input.workspace_id, &input.session_id, limit, input.before.as_deref()) {
+                    Ok(page) => Routed::Done(json_response(200, ok(&page), brotli, origin).await),
+                    Err(crate::phone::PageError::NotSelected) => Routed::Done(error(409, "not_selected", "Open the chat first (selectSession), then page it.", Some(origin))),
+                    Err(crate::phone::PageError::UnknownEntry) => Routed::Done(error(410, "unknown_entry", "That entry is gone; load the newest page again.", Some(origin))),
+                }
+            }
+            ("POST", "/v1/phone/diff") => {
+                #[derive(serde::Deserialize)]
+                #[serde(deny_unknown_fields, rename_all = "camelCase")]
+                struct Input {
+                    review_id: String,
+                    file_id: String,
+                    max_bytes: Option<usize>,
+                }
+                let input: Input = match read_input(headers, body).await {
+                    Ok(i) => i,
+                    Err(r) => return r,
+                };
+                let args = serde_json::json!([{ "reviewId": input.review_id, "fileId": input.file_id }]);
+                let mut file = match self.relay(host, client_id, "getReviewFile", args).await {
+                    Ok(v) => value(v),
+                    Err(e) => return Routed::Done(fail(e)),
+                };
+                // An issue (stale, unavailable) passes through as the desktop sent it.
+                if let Some(patch) = file.get("patch").and_then(|p| p.as_str()).map(str::to_owned) {
+                    let max = input.max_bytes.unwrap_or(crate::phone::DEFAULT_DIFF_BYTES);
+                    let parsed = tokio::task::spawn_blocking(move || crate::phone::parse_patch(&patch, max)).await.unwrap_or_default();
+                    if let Some(o) = file.as_object_mut() {
+                        o.remove("patch");
+                        o.insert("diff".into(), parsed);
+                    }
+                }
+                Routed::Done(json_response(200, ok(&file), brotli, origin).await)
+            }
+            _ => Routed::Drain(body, error(404, "not_found", "The remote desktop route was not found.", Some(origin))),
+        }
+    }
+}
+
+type BodyFail = (u16, String, String, Option<Incoming>);
+
+/// A bounded `application/json` object body, with the same rules as /v1/invoke.
+async fn read_json_object(headers: &HeaderMap, body: Incoming) -> Result<serde_json::Value, BodyFail> {
+    let fail = |s: u16, c: &str, m: &str| Err((s, c.to_string(), m.to_string(), None));
+    let ct = header(headers, "content-type").unwrap_or("");
         if ct.split(';').next().unwrap_or("").trim().to_ascii_lowercase() != "application/json" {
             return Err((415, "unsupported_media_type".into(), "Content-Type must be application/json.".into(), Some(body)));
         }
@@ -417,25 +536,25 @@ impl Remote {
             Ok(b) => b.to_bytes(),
             Err(_) => return fail(413, "body_too_large", "The request body exceeds its size limit."),
         };
-        let value: serde_json::Value = match serde_json::from_slice(&body) {
-            Ok(v @ serde_json::Value::Object(_)) => v,
-            _ => return fail(400, "invalid_json", "A JSON object is required."),
-        };
-        let obj = value.as_object().expect("checked object");
-        if obj.keys().any(|k| k != "method" && k != "args") {
-            return fail(400, "invalid_request", "The request contains an unsupported field.");
-        }
-        let (Some(method), Some(args)) = (obj.get("method").and_then(|m| m.as_str()), obj.get("args").filter(|a| a.is_array())) else {
-            return fail(400, "invalid_request", "The remote method request is invalid.");
-        };
-        let r = self.invoke(host, client_id, method, args.clone()).await;
-        if r.ok {
-            Ok(r.value)
-        } else {
-            let e = r.error.unwrap_or(RemoteError { status: 400, code: "operation_failed".into(), message: "The remote native operation failed.".into() });
-            Err((e.status, e.code, e.message, None))
-        }
+    match serde_json::from_slice(&body) {
+        Ok(v @ serde_json::Value::Object(_)) => Ok(v),
+        _ => fail(400, "invalid_json", "A JSON object is required."),
     }
+}
+
+/// A phone route's typed input; any failure is already the reply.
+async fn read_input<T: serde::de::DeserializeOwned>(headers: &HeaderMap, body: Incoming) -> Result<T, Routed> {
+    let origin = header(headers, "origin").unwrap_or("").to_string();
+    match read_json_object(headers, body).await {
+        Ok(v) => serde_json::from_value(v).map_err(|_| Routed::Done(error(400, "invalid_request", "The phone request is invalid.", Some(&origin)))),
+        Err((s, c, m, rest)) => Err(match rest {
+            Some(b) => Routed::Drain(b, error(s, &c, &m, Some(&origin))),
+            None => Routed::Done(error(s, &c, &m, Some(&origin))),
+        }),
+    }
+}
+
+impl Remote {
 
     async fn handle_events(self: &Arc<Self>, host: &Arc<Host>, client_id: &str, headers: &HeaderMap, origin: &str, kill: Arc<Notify>) -> Response<Body> {
         if !header(headers, "accept").is_some_and(|a| a.split(',').any(|v| v.trim().starts_with("text/event-stream"))) {

@@ -10,6 +10,7 @@ mod detach;
 mod files;
 mod host;
 mod log;
+mod phone;
 mod quick_commands;
 mod remote;
 mod review;

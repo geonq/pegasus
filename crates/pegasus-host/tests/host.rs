@@ -309,6 +309,183 @@ async fn remote_api_serves_native_clients_without_origin_and_only_binds_tailscal
     assert_eq!(http(port, &head, "{}").await.0, 401);
 }
 
+/// One raw request; returns (status, headers, decoded body, bytes on the wire for the body).
+async fn http_raw(port: u16, head: &str, body: &str) -> (u16, String, String, usize) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+    let req = format!("{head}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+    s.write_all(req.as_bytes()).await.unwrap();
+    let mut out = vec![];
+    s.read_to_end(&mut out).await.unwrap();
+    let split = out.windows(4).position(|w| w == b"\r\n\r\n").unwrap() + 4;
+    let headers = String::from_utf8_lossy(&out[..split]).to_ascii_lowercase();
+    let status = headers.split(' ').nth(1).and_then(|c| c.parse().ok()).unwrap_or(0);
+    let wire = &out[split..];
+    let decoded = if headers.contains("content-encoding: br") {
+        let mut d = String::new();
+        std::io::Read::read_to_string(&mut brotli::Decompressor::new(wire, 4096), &mut d).unwrap();
+        d
+    } else {
+        String::from_utf8_lossy(wire).into_owned()
+    };
+    (status, headers, decoded, wire.len())
+}
+
+/// Varied prose (xorshift over a word list), so Brotli compresses it about as well as real chats.
+fn words(seed: u64, n: usize) -> String {
+    const W: [&str; 32] = ["host", "phone", "route", "paging", "delta", "review", "diff", "hunk", "token", "stream", "error", "cargo", "test", "build", "merge", "state",
+        "render", "window", "commit", "branch", "cache", "budget", "bytes", "latency", "session", "entry", "title", "preview", "status", "unread", "project", "chat"];
+    let mut x = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
+    (0..n).map(|_| { x ^= x << 13; x ^= x >> 7; x ^= x << 17; if x % 7 == 0 { format!("{}{}", W[(x >> 8) as usize % 32], x % 997) } else { W[(x >> 8) as usize % 32].to_string() } })
+        .collect::<Vec<_>>().join(" ")
+}
+
+/// A desktop state and a long transcript shaped like the real ones (apps/mobile/src/api/types.ts).
+fn fake_desktop(sessions_per_ws: usize, entries: usize) -> (Value, Value, Value) {
+    let mut workspaces = vec![];
+    let mut usage = serde_json::Map::new();
+    for w in 0..12 {
+        let sessions: Vec<Value> = (0..sessions_per_ws).map(|s| {
+            usage.insert(format!("w{w}:s{s}"), json!({"subscription": true, "totals": {"cost": 1.5, "input": 120000, "output": 9000, "cacheRead": 800000},
+                "planLimits": {"provider": "anthropic", "reportedAt": "2026-11-23T10:00:00Z", "limits": [{"windowMinutes": 300, "usedPercent": 41.5, "resetsAt": "2026-11-23T15:00:00Z"}, {"windowMinutes": 10080, "usedPercent": 12.0}]}}));
+            json!({"id": format!("s{s}-0b6f3c9e-5d2a-4f1b-9c3e"), "title": words((w * 1000 + s) as u64, 6),
+                "updatedAt": format!("2026-11-{:02}T10:{:02}:00.000Z", 1 + s % 28, s % 60), "lastInteractedAt": format!("2026-11-{:02}T09:00:00.000Z", 1 + s % 28),
+                "preview": words((w * 1000 + s) as u64 + 7, 80),
+                "status": if s == 0 { "running" } else { "idle" }, "hasUnseenUpdate": s % 5 == 0, "runningSince": if s == 0 { json!("2026-11-23T10:00:00Z") } else { Value::Null },
+                "cwd": format!("D:/Pi/projects/p{w}"), "sessionFile": format!("D:/Pi/pi-ecosystem/.state/agent/sessions/p{w}/2026-11-23T10-00-00_{s}.jsonl"),
+                "model": {"provider": "anthropic", "id": "claude-opus-5-5", "thinkingLevel": "high"}})
+        }).collect();
+        workspaces.push(json!({"id": format!("w{w}"), "name": format!("Project {w}"), "path": format!("D:/Pi/projects/p{w}"), "kind": "local", "sessions": sessions}));
+    }
+    let state = json!({"revision": 4242, "workspaces": workspaces, "selectedWorkspaceId": "w0", "selectedSessionId": "s0-0b6f3c9e-5d2a-4f1b-9c3e",
+        "sessionUsageBySession": usage, "workspaceOrder": (0..12).map(|w| format!("w{w}")).collect::<Vec<_>>(), "pinnedSessionOrder": ["w0:s1-0b6f3c9e-5d2a-4f1b-9c3e"]});
+    let items: Vec<Value> = (0..entries).map(|i| match i % 4 {
+        0 => json!({"kind": "message", "id": format!("e{i}"), "role": "user", "text": words(i as u64, 40), "createdAt": "2026-11-23T10:00:00Z"}),
+        1 => json!({"kind": "thinking", "id": format!("e{i}"), "text": words(i as u64, 120), "createdAt": "2026-11-23T10:00:00Z", "durationMs": 2300}),
+        2 => json!({"kind": "tool", "id": format!("e{i}"), "toolName": "project_shell", "status": "success", "label": words(i as u64 + 3, 4),
+            "detail": words(i as u64 + 5, if i % 40 == 2 { 6000 } else { 300 }), "createdAt": "2026-11-23T10:00:00Z"}),
+        _ => json!({"kind": "message", "id": format!("e{i}"), "role": "assistant", "text": words(i as u64 + 9, 150), "createdAt": "2026-11-23T10:00:00Z"}),
+    }).collect();
+    let transcript = json!({"workspaceId": "w0", "sessionId": "s0-0b6f3c9e-5d2a-4f1b-9c3e", "transcript": items});
+    let mut patch = String::from("diff --git a/src/remote.rs b/src/remote.rs\nindex 1111111..2222222 100644\n--- a/src/remote.rs\n+++ b/src/remote.rs\n");
+    for h in 0..200 {
+        patch.push_str(&format!("@@ -{0},11 +{0},13 @@ impl Remote {{\n", 1 + h * 40));
+        for l in 0..14 {
+            let tag = if l < 10 { ' ' } else if l < 12 { '-' } else { '+' };
+            if tag == '-' && l == 11 { continue; }
+            patch.push_str(&format!("{tag}        let {} = {};\n", words((h * 100 + l) as u64, 1), words((h * 100 + l) as u64 + 1, 8)));
+        }
+        patch.push_str(&format!("+        // hunk {h}\n"));
+    }
+    let file = json!({"state": "available", "reviewId": "r1", "fileId": "f1", "patch": patch, "coverage": {"state": "complete", "notes": []}});
+    (state, transcript, file)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn phone_routes_shrink_the_wire_and_keep_auth() {
+    let root = std::env::temp_dir().join(format!("pegasus-host-phone-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let ep = endpoint("phone");
+    let _host = spawn(&ep, &root, 600);
+    let mut c = connect(&ep).await;
+    let port = { let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap(); l.local_addr().unwrap().port() };
+    let token = "p".repeat(40);
+    let ok = call(&mut c, 1, "remote.serve", json!({"port": port, "allowedOrigins": ["file://"],
+        "clients": [{"id": "phone", "tokenSha256": sha256_hex(&token)}]})).await;
+    assert!(ok.get("result").is_some(), "{ok}");
+    let (state, transcript, file) = fake_desktop(40, 2000);
+    // The fake desktop: answers every relayed read with the canned payloads.
+    tokio::spawn(async move {
+        let mut id = 10;
+        loop {
+            let v = recv(&mut c).await;
+            if v["event"] != "remoteInvoke" { continue; }
+            let value = match v["data"]["method"].as_str().unwrap() {
+                "getState" => state.clone(),
+                "getSelectedTranscript" => transcript.clone(),
+                "getReviewFile" => file.clone(),
+                _ => Value::Null,
+            };
+            id += 1;
+            send(&mut c, json!({"v":2,"id":id,"method":"remote.reply","params":{"requestId": v["data"]["requestId"], "ok": true, "value": value}})).await;
+        }
+    });
+    let auth = format!("Host: 127.0.0.1:{port}\r\nAuthorization: Bearer {token}\r\nAccept-Encoding: br\r\n");
+    let post = |path: &str| format!("POST {path} HTTP/1.1\r\n{auth}Content-Type: application/json\r\n");
+    let get = |path: &str| format!("GET {path} HTTP/1.1\r\n{auth}");
+    let timed = async |head: String, body: &str| {
+        let t = Instant::now();
+        let r = http_raw(port, &head, body).await;
+        (r, t.elapsed().as_secs_f64() * 1000.0)
+    };
+    let report = |name: &str, r: &(u16, String, String, usize), ms: f64| eprintln!("MEASURE {name}: status {} wire {} B, json {} B, {ms:.1} ms", r.0, r.3, r.2.len());
+
+    // Before: what the phone calls today.
+    let (st, ms) = timed(post("/v1/invoke"), r#"{"method":"getState","args":[]}"#).await;
+    report("invoke getState", &st, ms);
+    let (tr, ms) = timed(post("/v1/invoke"), r#"{"method":"getSelectedTranscript","args":[]}"#).await;
+    report("invoke getSelectedTranscript", &tr, ms);
+    let (rf, ms) = timed(post("/v1/invoke"), r#"{"method":"getReviewFile","args":[{"reviewId":"r1","fileId":"f1"}]}"#).await;
+    report("invoke getReviewFile", &rf, ms);
+    assert_eq!(st.0, 200);
+
+    // After: the phone routes.
+    let (chats, ms) = timed(get("/v1/phone/chats"), "").await;
+    report("phone/chats", &chats, ms);
+    assert_eq!(chats.0, 200, "{}", chats.2);
+    let list: Value = serde_json::from_str(&chats.2).unwrap();
+    assert_eq!(list["result"]["chats"].as_array().unwrap().len(), 12 * 40);
+    let etag = list["result"]["etag"].as_str().unwrap().to_string();
+    assert!(chats.1.contains(&format!("etag: \"{etag}\"")), "{}", chats.1);
+    let (same, ms) = timed(format!("GET /v1/phone/chats HTTP/1.1\r\n{auth}If-None-Match: \"{etag}\"\r\n"), "").await;
+    report("phone/chats unchanged (304)", &same, ms);
+    assert_eq!((same.0, same.3), (304, 0));
+    assert!(chats.3 * 2 < st.3, "chat list {} B vs state {} B", chats.3, st.3);
+
+    let (page, ms) = timed(post("/v1/phone/transcript"), r#"{"workspaceId":"w0","sessionId":"s0-0b6f3c9e-5d2a-4f1b-9c3e","limit":50}"#).await;
+    report("phone/transcript newest 50", &page, ms);
+    assert_eq!(page.0, 200, "{}", page.2);
+    let p: Value = serde_json::from_str(&page.2).unwrap();
+    assert_eq!((p["result"]["start"].as_u64(), p["result"]["total"].as_u64()), (Some(1950), Some(2000)));
+    assert!(page.3 * 10 < tr.3, "page {} B vs transcript {} B", page.3, tr.3);
+    let (older, ms) = timed(post("/v1/phone/transcript"), r#"{"workspaceId":"w0","sessionId":"s0-0b6f3c9e-5d2a-4f1b-9c3e","limit":50,"before":"e1950"}"#).await;
+    report("phone/transcript older 50", &older, ms);
+    assert_eq!(serde_json::from_str::<Value>(&older.2).unwrap()["result"]["entries"][49]["id"], "e1949");
+    let wrong = http_raw(port, &post("/v1/phone/transcript"), r#"{"workspaceId":"w0","sessionId":"other"}"#).await;
+    assert_eq!(wrong.0, 409, "{}", wrong.2);
+    let gone = http_raw(port, &post("/v1/phone/transcript"), r#"{"workspaceId":"w0","sessionId":"s0-0b6f3c9e-5d2a-4f1b-9c3e","before":"nope"}"#).await;
+    assert_eq!(gone.0, 410);
+    let extra = http_raw(port, &post("/v1/phone/transcript"), r#"{"workspaceId":"w0","sessionId":"s","x":1}"#).await;
+    assert_eq!(extra.0, 400);
+
+    let (diff, ms) = timed(post("/v1/phone/diff"), r#"{"reviewId":"r1","fileId":"f1"}"#).await;
+    report("phone/diff default cap", &diff, ms);
+    let d: Value = serde_json::from_str(&diff.2).unwrap();
+    assert_eq!(d["result"]["diff"]["files"][0]["hunks"].as_array().unwrap().len(), 200, "{}", &diff.2[..300]);
+    assert!(d["result"].get("patch").is_none());
+    let (capped, ms) = timed(post("/v1/phone/diff"), r#"{"reviewId":"r1","fileId":"f1","maxBytes":4096}"#).await;
+    report("phone/diff maxBytes 4096", &capped, ms);
+    let cd: Value = serde_json::from_str(&capped.2).unwrap();
+    assert_eq!(cd["result"]["diff"]["truncated"], true);
+    assert!(capped.2.len() < 4096 + 8192, "{} B", capped.2.len());
+
+    // Same gate as every other route: no token, a wrong token, a foreign origin or Host are refused.
+    for path in ["/v1/phone/chats", "/v1/phone/transcript", "/v1/phone/diff"] {
+        let m = if path.ends_with("chats") { "GET" } else { "POST" };
+        let none = format!("{m} {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\n");
+        assert_eq!(http_raw(port, &none, "{}").await.0, 401, "{path}");
+        let bad = format!("{m} {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\n", "q".repeat(40));
+        assert_eq!(http_raw(port, &bad, "{}").await.0, 401, "{path}");
+        let origin = format!("{m} {path} HTTP/1.1\r\n{auth}Origin: https://evil.example\r\nContent-Type: application/json\r\n");
+        assert_eq!(http_raw(port, &origin, "{}").await.0, 403, "{path}");
+        let host = format!("{m} {path} HTTP/1.1\r\nHost: evil.example:{port}\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\n");
+        assert_eq!(http_raw(port, &host, "{}").await.0, 400, "{path}");
+    }
+    assert_eq!(http_raw(port, &get("/v1/phone/nope"), "").await.0, 404);
+    assert_eq!(http_raw(port, &get("/v1/phone/chats?x=1"), "").await.0, 400);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn phone_updates_are_served_without_a_token_but_only_to_known_hosts() {
     let root = std::env::temp_dir().join(format!("pegasus-host-updates-{}", std::process::id()));
