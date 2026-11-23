@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parsePairingLink } from "./pairing.ts";
 import { SseParser } from "./sse.ts";
-import { orderChats, waitingLabel } from "./chats.ts";
+import { buildHome, orderChats, relativeTime, waitingLabel } from "./chats.ts";
 import { planStatus } from "./usage.ts";
 
 const token = "a".repeat(43);
@@ -33,6 +33,112 @@ test("SSE frames split across chunks, comments and CRLF are parsed", () => {
   assert.deepEqual(p.push("1}\r\n\r\n"), [{ event: "stateChanged", data: '{"a":1}' }]);
 });
 
+test("bug A: only a waiting dialog or an unseen failure needs you, as on the desktop", () => {
+  const s = (id: string, extra: Record<string, unknown>) => ({
+    id,
+    title: id,
+    updatedAt: "2026-11-10T10:00:00.000Z",
+    preview: "",
+    status: "idle" as const,
+    hasUnseenUpdate: false,
+    ...extra,
+  });
+  const rows = orderChats([
+    {
+      id: "w",
+      name: "pegasus",
+      path: "D:/Pi/pi-gui",
+      kind: "primary",
+      sessions: [
+        s("finished-unseen", { hasUnseenUpdate: true }),
+        s("failed-seen", { status: "failed" }),
+        s("failed-unseen", { status: "failed", hasUnseenUpdate: true }),
+      ],
+    },
+  ]);
+  assert.deepEqual(
+    rows.map((row) => [row.session.id, row.section, row.unread]),
+    [
+      ["failed-unseen", "needs-you", false],
+      ["failed-seen", "recent", false],
+      ["finished-unseen", "recent", true],
+    ],
+  );
+});
+
+test("home lists Needs you, Working, Pinned, then projects in sidebar order; search is flat", () => {
+  const s = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    title: id,
+    updatedAt: "2026-11-10T10:00:00.000Z",
+    preview: "",
+    status: "idle" as const,
+    hasUnseenUpdate: false,
+    ...extra,
+  });
+  const sections = buildHome({
+    workspaces: [
+      { id: "a", name: "Alpha", path: "/a", kind: "primary", sessions: [s("a1"), s("a-run", { status: "running" })] },
+      {
+        id: "b",
+        name: "Beta",
+        path: "/b",
+        kind: "primary",
+        sessions: [
+          s("b-old", { updatedAt: "2026-11-01T10:00:00.000Z", preview: "fix the parser" }),
+          s("b-new", { lastInteractedAt: "2026-11-12T10:00:00.000Z" }),
+          s("b-pin", { pinnedAt: "2026-11-10T10:00:00.000Z" }),
+          s("b-child"),
+        ],
+      },
+      { id: "bt", name: "Beta wt", path: "/bt", kind: "worktree", rootWorkspaceId: "b", sessions: [s("bt1")] },
+    ],
+    workspaceOrder: ["b", "a"],
+    pinnedSessionOrder: ["b:b-pin"],
+    sessionExtensionUiBySession: {
+      "a:a1": { pendingDialogs: [{ kind: "input", requestId: "r", title: "Name?" }] },
+    },
+    orchestrationChildren: [
+      {
+        id: "c",
+        title: "child",
+        status: "complete",
+        latestTranscript: "",
+        parentWorkspaceId: "b",
+        parentSessionId: "b-new",
+        childWorkspaceId: "b",
+        childSessionId: "b-child",
+        updatedAt: "2026-11-10T10:00:00.000Z",
+      },
+    ],
+  });
+  assert.deepEqual(
+    sections.map((section) => [section.title, section.rows.map((row) => row.session.id)]),
+    [
+      ["Needs you", ["a1"]],
+      ["Working", ["a-run"]],
+      ["Pinned", ["b-pin"]],
+      ["Beta", ["b-new", "bt1", "b-old"]],
+    ],
+  );
+  assert.equal(sections[3]?.rows[0]?.childCount, 1);
+  const found = buildHome(
+    { workspaces: [{ id: "b", name: "Beta", path: "/b", kind: "primary", sessions: [s("x", { preview: "Fix the parser" }), s("y")] }] },
+    "parser",
+  );
+  assert.deepEqual(found.map((section) => [section.title, section.rows.map((row) => row.session.id)]), [["Results", ["x"]]]);
+});
+
+test("relative time is short", () => {
+  const now = Date.parse("2026-11-23T12:00:00.000Z");
+  assert.equal(relativeTime("2026-11-23T11:59:40.000Z", now), "now");
+  assert.equal(relativeTime("2026-11-23T11:55:00.000Z", now), "5m");
+  assert.equal(relativeTime("2026-11-23T09:00:00.000Z", now), "3h");
+  assert.equal(relativeTime("2026-11-20T12:00:00.000Z", now), "3d");
+  assert.equal(relativeTime("2026-11-02T12:00:00.000Z", now), "3w");
+  assert.equal(relativeTime("bad", now), "");
+});
+
 test("chats needing you come first, then running, then the newest", () => {
   const s = (id: string, extra: Record<string, unknown>) => ({
     id,
@@ -52,7 +158,7 @@ test("chats needing you come first, then running, then the newest", () => {
       sessions: [
         s("old", { updatedAt: "2026-11-09T10:00:00.000Z" }),
         s("running", { status: "running" }),
-        s("failed", { status: "failed" }),
+        s("failed", { status: "failed", hasUnseenUpdate: true }),
         s("unseen", { hasUnseenUpdate: true }),
         s("archived", { archivedAt: "2026-11-10T09:00:00.000Z", hasUnseenUpdate: true }),
       ],
@@ -62,8 +168,8 @@ test("chats needing you come first, then running, then the newest", () => {
     ordered.map((chat) => [chat.session.id, chat.section]),
     [
       ["failed", "needs-you"],
-      ["unseen", "needs-you"],
       ["running", "working"],
+      ["unseen", "recent"],
       ["old", "recent"],
     ],
   );

@@ -1,179 +1,236 @@
 import { LegendList } from "@legendapp/list/react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useMemo } from "react";
+import * as Haptics from "expo-haptics";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { orderChats, SECTION_TITLES, waitingLabel, type ChatRow } from "../api/chats";
-import { StatusDot } from "../components/StatusDot";
-import { usePegasus } from "../state/PegasusProvider";
-import { radius, spacing, type, usePalette } from "../theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { buildHome, type ChatRow } from "../api/chats";
+import { ChatListRow, type ChatRowActions } from "../features/home/ChatListRow";
+import { ConnectionBanner } from "../features/home/ConnectionBanner";
 import type { RootStackParamList } from "../navigation";
+import { usePegasus } from "../state/PegasusProvider";
+import { Button, EmptyState, Skeleton } from "../ui";
+import { hitSize, radius, spacing, text, usePalette, weight } from "../theme";
 
-type Row =
-  | { readonly kind: "header"; readonly title: string; readonly key: string }
-  | (ChatRow & { readonly kind: "chat"; readonly key: string });
+type Item =
+  | {
+      readonly kind: "header";
+      readonly key: string;
+      readonly title: string;
+      readonly workspaceId?: string;
+    }
+  | { readonly kind: "chat"; readonly key: string; readonly row: ChatRow; readonly showProject: boolean };
 
-/** Every chat on the PC: Needs you, then Working, then Recent, like the desktop sidebar. */
+/** Sections where chats of several projects mix, so each row names its project. */
+const MIXED = new Set(["needs-you", "working", "pinned", "results"]);
+
+/**
+ * Every chat on the PC, laid out like the desktop sidebar: Needs you, Working, Pinned, then each
+ * project. Search in the header, pull to refresh, swipe a row for pin, archive and mark read.
+ */
 export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackParamList, "Chats">) {
   const palette = usePalette();
-  const { state, status, pairing, forget } = usePegasus();
+  const insets = useSafeAreaInsets();
+  const { state, status, refresh, setPinned, archive, unarchive, markRead } = usePegasus();
+  const [query, setQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  // Relative times tick once a minute, not on every state change.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
-  const rows = useMemo<Row[]>(() => {
-    const out: Row[] = [];
-    let section: string | undefined;
-    for (const chat of orderChats(
-      state?.workspaces ?? [],
-      state?.sessionExtensionUiBySession ?? {},
-    )) {
-      if (chat.section !== section) {
-        section = chat.section;
-        out.push({ kind: "header", title: SECTION_TITLES[chat.section], key: `h:${chat.section}` });
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerSearchBarOptions: {
+        placeholder: "Search chats",
+        hideWhenScrolling: true,
+        autoCapitalize: "none",
+        onChangeText: (event) => setQuery(event.nativeEvent.text),
+        onCancelButtonPress: () => setQuery(""),
+      },
+    });
+  }, [navigation]);
+
+  const items = useMemo<Item[]>(() => {
+    if (!state) return [];
+    const out: Item[] = [];
+    for (const section of buildHome(state, query)) {
+      out.push({
+        kind: "header",
+        key: `h:${section.key}`,
+        title: section.title,
+        ...(section.workspace ? { workspaceId: section.workspace.id } : {}),
+      });
+      for (const row of section.rows) {
+        out.push({
+          kind: "chat",
+          key: `${section.key}/${row.workspace.id}/${row.session.id}`,
+          row,
+          showProject: MIXED.has(section.key),
+        });
       }
-      out.push({ ...chat, kind: "chat", key: `${chat.workspace.id}/${chat.session.id}` });
     }
     return out;
-  }, [state]);
+  }, [state, query]);
 
-  const banner =
-    status.state === "retrying"
-      ? `${status.reason} Retrying in ${Math.round(status.inMs / 1000)} s. Showing the last update.`
-      : status.state === "revoked"
-        ? status.reason
-        : status.state === "connecting" && !state
-          ? `Connecting to ${pairing?.hostName ?? "your PC"}…`
-          : null;
+  const fail = (what: string) => (reason: unknown) =>
+    Alert.alert(what, reason instanceof Error ? reason.message : String(reason));
+
+  const actions = useMemo<ChatRowActions>(
+    () => ({
+      open: (row) =>
+        navigation.navigate("Chat", {
+          workspaceId: row.workspace.id,
+          sessionId: row.session.id,
+          title: row.session.title,
+        }),
+      setPinned: (row, pinned) => {
+        void Haptics.selectionAsync().catch(() => undefined);
+        setPinned({ workspaceId: row.workspace.id, sessionId: row.session.id }, pinned).catch(
+          fail(pinned ? "Could not pin" : "Could not unpin"),
+        );
+      },
+      archive: (row) => {
+        const target = { workspaceId: row.workspace.id, sessionId: row.session.id };
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+        archive(target)
+          .then(() =>
+            Alert.alert("Chat archived", row.session.title || "Untitled chat", [
+              { text: "Undo", onPress: () => void unarchive(target).catch(fail("Could not undo")) },
+              { text: "OK", style: "cancel" },
+            ]),
+          )
+          .catch(fail("Could not archive"));
+      },
+      markRead: (row) => {
+        markRead({ workspaceId: row.workspace.id, sessionId: row.session.id }).catch(
+          fail("Could not mark read"),
+        );
+      },
+    }),
+    [navigation, setPinned, archive, unarchive, markRead],
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    refresh()
+      .catch(() => undefined)
+      .finally(() => setRefreshing(false));
+  }, [refresh]);
+
+  const empty = !state ? (
+    status.state === "connecting" ? (
+      <View style={styles.skeletons}>
+        {[0, 1, 2, 3, 4].map((index) => (
+          <Skeleton key={index} height={52} rounded={radius.md} />
+        ))}
+      </View>
+    ) : null
+  ) : query ? (
+    <EmptyState title="No matching chats" message={`Nothing on this PC matches “${query.trim()}”.`} />
+  ) : (
+    <EmptyState
+      title="No chats yet"
+      message="Start one here, or on the PC; it shows up live."
+      action={<Button label="New chat" onPress={() => navigation.navigate("NewChat")} />}
+    />
+  );
 
   return (
     <View style={[styles.screen, { backgroundColor: palette.background }]}>
-      {banner ? (
-        <View style={[styles.banner, { backgroundColor: palette.surfaceRaised }]}>
-          <Text style={[styles.bannerText, { color: palette.textMuted }]}>{banner}</Text>
-          {status.state === "revoked" ? (
-            <Pressable
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={() => {
-                forget().catch((reason: unknown) =>
-                  Alert.alert("Could not unpair", String(reason)),
-                );
-              }}
-            >
-              <Text style={[styles.bannerAction, { color: palette.accentText }]}>Pair again</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
       <LegendList
-        data={rows}
-        keyExtractor={(row) => row.key}
-        estimatedItemSize={64}
+        data={items}
+        keyExtractor={(item) => item.key}
+        estimatedItemSize={60}
         contentInsetAdjustmentBehavior="automatic"
-        getItemType={(row) => row.kind}
+        keyboardDismissMode="on-drag"
+        getItemType={(item) => item.kind}
         recycleItems
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        extraData={nowMs}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+        ListHeaderComponent={<ConnectionBanner />}
         renderItem={({ item }) =>
           item.kind === "header" ? (
-            <Text style={[styles.header, { color: palette.textMuted }]}>{item.title}</Text>
+            <View style={styles.header}>
+              <Text
+                accessibilityRole="header"
+                numberOfLines={1}
+                style={[text.footnote, styles.headerText, { color: palette.textMuted }]}
+              >
+                {item.title}
+              </Text>
+              {item.workspaceId ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`New chat in ${item.title}`}
+                  hitSlop={10}
+                  onPress={() => navigation.navigate("NewChat", { workspaceId: item.workspaceId })}
+                  style={styles.headerAction}
+                >
+                  <Text style={[text.headline, { color: palette.textMuted }]}>+</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() =>
-                navigation.navigate("Chat", {
-                  workspaceId: item.workspace.id,
-                  sessionId: item.session.id,
-                  title: item.session.title,
-                })
-              }
-              style={({ pressed }) => [
-                styles.row,
-                {
-                  backgroundColor: pressed ? palette.surfaceRaised : palette.surface,
-                  borderColor: palette.line,
-                },
-              ]}
-            >
-              <StatusDot section={item.section} />
-              <View style={styles.rowText}>
-                <Text numberOfLines={1} style={[styles.rowTitle, { color: palette.text }]}>
-                  {item.session.title || "Untitled chat"}
-                </Text>
-                <Text numberOfLines={1} style={[styles.rowDetail, { color: palette.textMuted }]}>
-                  {waitingLabel(item.pendingDialogs) ??
-                    (item.session.status === "running" && item.session.currentStep
-                      ? item.session.currentStep
-                      : item.session.status === "failed"
-                        ? "Stopped with an error"
-                        : item.session.preview || item.workspace.name)}
-                </Text>
-              </View>
-              {item.pendingDialogs.length > 0 ? (
-                <View style={[styles.waitChip, { backgroundColor: palette.warning }]}>
-                  <Text style={[styles.waitChipText, { color: palette.background }]}>
-                    {item.pendingDialogs.length}
-                  </Text>
-                </View>
-              ) : (
-                <Text style={[styles.project, { color: palette.textMuted }]} numberOfLines={1}>
-                  {item.workspace.name}
-                </Text>
-              )}
-            </Pressable>
+            <ChatListRow row={item.row} showProject={item.showProject} actions={actions} nowMs={nowMs} />
           )
         }
-        ListEmptyComponent={
-          state ? (
-            <Text style={[styles.empty, { color: palette.textMuted }]}>
-              No chats yet on this PC.
-            </Text>
-          ) : null
-        }
+        ListEmptyComponent={empty}
       />
+      {state ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="New chat"
+          onPress={() => navigation.navigate("NewChat")}
+          style={({ pressed }) => [
+            styles.fab,
+            {
+              bottom: insets.bottom + spacing.lg,
+              backgroundColor: palette.primaryFill,
+              shadowColor: palette.shadow,
+              transform: [{ scale: pressed ? 0.97 : 1 }],
+            },
+          ]}
+        >
+          <Text style={[text.headline, { color: palette.onPrimary }]}>New chat</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  banner: {
+  skeletons: { gap: spacing.sm, padding: spacing.lg },
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingLeft: spacing.xl,
+    paddingRight: spacing.md,
+    paddingTop: spacing.lg,
+    minHeight: hitSize.compact + spacing.lg,
   },
-  bannerText: { flex: 1, fontSize: type.caption, lineHeight: 16 },
-  bannerAction: { fontSize: type.caption, fontWeight: "600" },
-  waitChip: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
+  headerText: { flex: 1, fontWeight: weight.semibold },
+  headerAction: {
+    minWidth: hitSize.compact,
+    minHeight: hitSize.compact,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 6,
   },
-  waitChipText: { fontSize: type.caption, fontWeight: "700" },
-  header: {
-    fontSize: type.caption,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
+  fab: {
+    position: "absolute",
+    right: spacing.lg,
+    minHeight: hitSize.min + 4,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xs,
-  },
-  row: {
-    flexDirection: "row",
+    borderRadius: radius.pill,
     alignItems: "center",
-    gap: spacing.md,
-    marginHorizontal: spacing.lg,
-    marginVertical: 3,
-    paddingHorizontal: spacing.lg,
-    minHeight: 60,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
   },
-  rowText: { flex: 1, gap: 2 },
-  rowTitle: { fontSize: type.body, fontWeight: "600" },
-  rowDetail: { fontSize: 14 },
-  project: { fontSize: type.caption, maxWidth: 96 },
-  empty: { textAlign: "center", marginTop: 48, fontSize: type.body },
 });

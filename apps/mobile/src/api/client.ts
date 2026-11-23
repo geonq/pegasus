@@ -14,6 +14,18 @@ export class PegasusError extends Error {
 }
 
 const MAX_STREAM_CHARS = 32 * 1024 * 1024;
+/**
+ * The host writes a keep-alive comment after 15 s without events (crates/pegasus-host/src/remote.rs
+ * HEARTBEAT). Silence well past that means the link died without an error (Wi-Fi to cellular, the
+ * phone slept), so the stream is dropped and opened again.
+ */
+const SILENCE_LIMIT_MS = 40_000;
+
+export interface EventStream {
+  readonly stop: () => void;
+  /** Drops the current stream and connects now, skipping any backoff (app came to the front). */
+  readonly reconnect: () => void;
+}
 
 export type StreamStatus =
   | { readonly state: "connecting" }
@@ -62,20 +74,33 @@ export class PegasusClient {
 
   /**
    * Follows the event stream until `stop()` is called, reconnecting with backoff (1 s up to 30 s).
-   * Each (re)connect starts with the current state and transcript, so nothing needs replaying.
+   * Each (re)connect starts with the current state and transcript (status "live" comes first), so
+   * nothing needs replaying.
    */
   follow(
     onEvent: (event: RemoteEvent) => void,
     onStatus: (status: StreamStatus) => void,
-  ): () => void {
+  ): EventStream {
     let stopped = false;
     let xhr: XMLHttpRequest | undefined;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let attempt = 0;
     let recycle = false;
+    let lastByteAt = Date.now();
+    let restartNow = false;
+
+    const watchdog = setInterval(() => {
+      if (stopped || retryTimer || !xhr) return;
+      if (Date.now() - lastByteAt > SILENCE_LIMIT_MS) {
+        restartNow = false;
+        xhr.abort();
+      }
+    }, 5_000);
 
     const connect = () => {
+      retryTimer = undefined;
       if (stopped) return;
+      lastByteAt = Date.now();
       onStatus({ state: "connecting" });
       const parser = new SseParser();
       let seen = 0;
@@ -88,6 +113,8 @@ export class PegasusClient {
       // Uncompressed: a streaming decoder may hold events back until more bytes arrive.
       request.setRequestHeader("Accept-Encoding", "identity");
       request.onprogress = () => {
+        if (xhr !== request) return;
+        lastByteAt = Date.now();
         const text = request.responseText;
         const chunk = text.slice(seen);
         seen = text.length;
@@ -118,14 +145,18 @@ export class PegasusClient {
         retryTimer = setTimeout(connect, inMs);
       };
       if (recycle) recycle = false;
-      request.onerror = () => retry(`Cannot reach ${this.pairing.hostName}.`);
+      request.onerror = () => {
+        if (xhr === request) retry(`Cannot reach ${this.pairing.hostName}.`);
+      };
       request.onabort = () => {
-        if (stopped) return;
+        if (stopped || xhr !== request) return;
         if (broken) retry("Pegasus sent an unreadable update.");
-        else connect();
+        else if (recycle || restartNow) connect();
+        else retry(`Lost the connection to ${this.pairing.hostName}.`);
+        restartNow = false;
       };
       request.onload = () => {
-        if (stopped) return;
+        if (stopped || xhr !== request) return;
         if (request.status === 401) {
           // Retrying a refused key cannot fix it and would hammer the PC; only pairing does.
           stopped = true;
@@ -138,10 +169,24 @@ export class PegasusClient {
     };
 
     connect();
-    return () => {
-      stopped = true;
-      if (retryTimer) clearTimeout(retryTimer);
-      xhr?.abort();
+    return {
+      stop: () => {
+        stopped = true;
+        clearInterval(watchdog);
+        if (retryTimer) clearTimeout(retryTimer);
+        xhr?.abort();
+      },
+      reconnect: () => {
+        if (stopped) return;
+        attempt = 0;
+        if (retryTimer) {
+          clearTimeout(retryTimer);
+          connect();
+          return;
+        }
+        restartNow = true;
+        xhr?.abort();
+      },
     };
   }
 }

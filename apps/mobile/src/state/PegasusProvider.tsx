@@ -8,16 +8,17 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Linking, Platform, Settings } from "react-native";
-import { PegasusClient, PegasusError, type StreamStatus } from "../api/client";
+import { AppState, Linking, Platform, Settings } from "react-native";
+import { PegasusClient, PegasusError, type EventStream, type StreamStatus } from "../api/client";
+import { initialLiveState, reduceLive, type LiveInput, type LiveState } from "../api/live-state";
 import { parsePairingLink } from "../api/pairing";
-import {
-  applyTranscriptDelta,
-  type AccountLimits,
-  type DesktopAppState,
-  type Pairing,
-  type PendingDialogAnswer,
-  type SelectedTranscript,
+import type {
+  AccountLimits,
+  DesktopAppState,
+  Pairing,
+  PendingDialogAnswer,
+  SelectedTranscript,
+  StartThreadInput,
 } from "../api/types";
 import { forgetPairing, loadPairing, savePairing } from "../storage/pairing-store";
 
@@ -36,6 +37,8 @@ interface PegasusContextValue {
   readonly transcript: SelectedTranscript | null;
   readonly pair: (pairing: Pairing) => Promise<void>;
   readonly forget: () => Promise<void>;
+  /** Pulls the whole state now (pull to refresh) and reconnects a stream that is waiting to retry. */
+  readonly refresh: () => Promise<void>;
   /** Opens the chat in this phone's own view on the PC; the transcript then streams in. */
   readonly openChat: (target: ChatTarget) => Promise<void>;
   /**
@@ -48,6 +51,14 @@ interface PegasusContextValue {
   readonly answer: (target: ChatTarget, answer: PendingDialogAnswer) => Promise<void>;
   readonly removeQueued: (messageId: string) => Promise<void>;
   readonly steerQueued: (messageId: string) => Promise<void>;
+  readonly setPinned: (target: ChatTarget, pinned: boolean) => Promise<void>;
+  readonly archive: (target: ChatTarget) => Promise<void>;
+  readonly unarchive: (target: ChatTarget) => Promise<void>;
+  readonly markRead: (target: ChatTarget) => Promise<void>;
+  /** Asks the PC to load a project's models; they arrive in `runtimeByWorkspace`. */
+  readonly loadRuntime: (workspaceId: string) => Promise<void>;
+  /** Starts a chat in this phone's view and returns it (the PC selects the new chat). */
+  readonly startThread: (input: StartThreadInput) => Promise<ChatTarget>;
   /** The PC's signed-in accounts and plan windows, for the Usage screen. */
   readonly accountLimits: () => Promise<readonly AccountLimits[]>;
 }
@@ -60,13 +71,24 @@ export function usePegasus(): PegasusContextValue {
   return value;
 }
 
+function isState(value: unknown): value is DesktopAppState {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as { workspaces?: unknown }).workspaces) &&
+    typeof (value as { revision?: unknown }).revision === "number"
+  );
+}
+
 export function PegasusProvider({ children }: { readonly children: ReactNode }) {
   const [pairing, setPairing] = useState<Pairing | null | undefined>(undefined);
   const [status, setStatus] = useState<StreamStatus>({ state: "connecting" });
-  const [state, setState] = useState<DesktopAppState | null>(null);
-  const [transcript, setTranscript] = useState<SelectedTranscript | null>(null);
+  const [live, setLive] = useState<LiveState>(initialLiveState);
+  const liveRef = useRef<LiveState>(initialLiveState);
   const clientRef = useRef<PegasusClient | null>(null);
-  const transcriptSequenceRef = useRef(0);
+  const streamRef = useRef<EventStream | null>(null);
+  /** Feeds one input through the reducer; set while a client is connected. */
+  const feedRef = useRef<(input: LiveInput) => void>(() => undefined);
 
   useEffect(() => {
     loadPairing()
@@ -117,32 +139,45 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
     }
     const client = new PegasusClient(pairing);
     clientRef.current = client;
-    const stop = client.follow((event) => {
-      if (event.type === "stateChanged") {
-        // Revisions only grow; the host already drops stale snapshots, this keeps a reconnect honest.
-        setState((current) =>
-          current && current.revision > event.state.revision ? current : event.state,
-        );
-      } else if (event.type === "selectedTranscriptChanged") {
-        transcriptSequenceRef.current = 0;
-        setTranscript(event.transcript);
-      } else if (event.type === "sessionTranscriptDelta") {
-        const delta = event.delta;
-        if (delta.sequence !== transcriptSequenceRef.current + 1) {
-          void client
-            .invoke("getSelectedTranscript")
-            .then((value) => setTranscript(value as SelectedTranscript | null));
-          transcriptSequenceRef.current = delta.sequence;
-          return;
-        }
-        transcriptSequenceRef.current = delta.sequence;
-        setTranscript((current) => applyTranscriptDelta(current, delta));
+    let active = true;
+    const feed = (input: LiveInput) => {
+      if (!active) return;
+      const result = reduceLive(liveRef.current, input);
+      liveRef.current = result.live;
+      setLive(result.live);
+      if (result.pullTranscript) {
+        client
+          .invoke<SelectedTranscript | null>("getSelectedTranscript")
+          .then((transcript) => feed({ kind: "pulledTranscript", transcript }))
+          .catch(() => undefined);
       }
-    }, setStatus);
+    };
+    feedRef.current = feed;
+    const stream = client.follow(
+      (event) => feed({ kind: "event", event }),
+      (next) => {
+        // `ready` comes before the stream's first state: that state is a new baseline.
+        if (next.state === "live") feed({ kind: "streamOpened" });
+        if (active) setStatus(next);
+      },
+    );
+    streamRef.current = stream;
+    // Back from the background: iOS froze the socket, so start a fresh stream (it opens with the
+    // whole current state) instead of waiting for the silence watchdog or a backoff timer.
+    let appState = AppState.currentState;
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (appState !== "active" && next === "active") stream.reconnect();
+      appState = next;
+    });
     return () => {
-      stop();
-      setState(null);
-      setTranscript(null);
+      active = false;
+      subscription.remove();
+      stream.stop();
+      streamRef.current = null;
+      feedRef.current = () => undefined;
+      liveRef.current = initialLiveState;
+      setLive(initialLiveState);
+      setStatus({ state: "connecting" });
     };
   }, [pairing]);
 
@@ -152,13 +187,24 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
     return current;
   }, []);
 
+  /** Runs a call that returns the PC's state after it, and shows that state at once. */
+  const act = useCallback(
+    async (method: string, ...args: readonly unknown[]): Promise<DesktopAppState | null> => {
+      const result = await client().invoke<unknown>(method, ...args);
+      if (!isState(result)) return null;
+      feedRef.current({ kind: "actionState", state: result });
+      return result;
+    },
+    [client],
+  );
+
   const value = useMemo<PegasusContextValue>(
     () => ({
       pairing,
       linkError,
       status,
-      state,
-      transcript,
+      state: live.state,
+      transcript: live.transcript,
       pair: async (next) => {
         // Prove the address and key work before keeping them.
         await new PegasusClient(next).invoke("getAppVersion");
@@ -168,6 +214,11 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
       forget: async () => {
         await forgetPairing();
         setPairing(null);
+      },
+      refresh: async () => {
+        if (status.state !== "live") streamRef.current?.reconnect();
+        const state = await client().invoke<unknown>("getState");
+        if (isState(state)) feedRef.current({ kind: "pulledState", state });
       },
       openChat: async (target) => {
         await client().invoke("selectSession", target);
@@ -196,12 +247,35 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
       steerQueued: async (messageId) => {
         await client().invoke("steerQueuedComposerMessage", messageId);
       },
+      setPinned: async (target, pinned) => {
+        await act("setSessionPinned", target, pinned);
+      },
+      archive: async (target) => {
+        await act("archiveSession", target);
+      },
+      unarchive: async (target) => {
+        await act("unarchiveSession", target);
+      },
+      markRead: async (target) => {
+        await act("markSessionRead", target);
+      },
+      loadRuntime: async (workspaceId) => {
+        await act("loadWorkspaceRuntime", workspaceId);
+      },
+      startThread: async (input) => {
+        const state = await act("startThread", input);
+        // A foreground start selects the new chat in this phone's view (app-store-worktree.ts).
+        if (!state?.selectedSessionId) {
+          throw new PegasusError("The PC started the chat but did not open it.", "no_session");
+        }
+        return { workspaceId: state.selectedWorkspaceId, sessionId: state.selectedSessionId };
+      },
       accountLimits: async () => {
         const limits = await client().invoke<readonly AccountLimits[]>("getAccountLimits");
         return limits;
       },
     }),
-    [pairing, linkError, status, state, transcript, client],
+    [pairing, linkError, status, live, client, act],
   );
 
   return <PegasusContext.Provider value={value}>{children}</PegasusContext.Provider>;

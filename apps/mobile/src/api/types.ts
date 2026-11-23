@@ -13,6 +13,8 @@ export interface SessionRecord {
   readonly updatedAt: string;
   readonly archivedAt?: string;
   readonly pinnedAt?: string;
+  /** When the owner last sent to or opened the chat; the desktop sorts by it. */
+  readonly lastInteractedAt?: string;
   readonly preview: string;
   readonly status: SessionStatus;
   readonly runningSince?: string;
@@ -25,6 +27,8 @@ export interface WorkspaceRecord {
   readonly name: string;
   readonly path: string;
   readonly kind: string;
+  /** A worktree's project; the desktop lists its chats under that project. */
+  readonly rootWorkspaceId?: string;
   readonly sessions: readonly SessionRecord[];
 }
 
@@ -141,6 +145,9 @@ export interface DesktopAppState {
   readonly queuedComposerMessages?: readonly QueuedComposerMessage[];
   readonly sessionUsageBySession?: Readonly<Record<string, SessionUsageSnapshot>>;
   readonly orchestrationChildren?: readonly OrchestrationChildThread[];
+  /** The sidebar's project order and pinned order (`workspaceId:sessionId` keys). */
+  readonly workspaceOrder?: readonly string[];
+  readonly pinnedSessionOrder?: readonly string[];
 }
 
 export interface TranscriptMessage {
@@ -234,6 +241,16 @@ export function applyTranscriptDelta(
     }
   }
   return { workspaceId: delta.workspaceId, sessionId: delta.sessionId, transcript };
+}
+
+/** What `startThread` takes (apps/desktop/contracts/desktop-state.ts StartThreadInput). */
+export interface StartThreadInput {
+  readonly rootWorkspaceId: string;
+  readonly environment: "local" | "worktree";
+  readonly prompt?: string;
+  readonly provider?: string;
+  readonly modelId?: string;
+  readonly thinkingLevel?: string;
 }
 
 export type RemoteEvent =
