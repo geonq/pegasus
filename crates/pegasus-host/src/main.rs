@@ -15,6 +15,7 @@ mod remote;
 mod review;
 mod runtime;
 mod terminals;
+mod updates;
 
 use host::{event_frame, Conn, Host};
 use pegasus_core::protocol::MAX_REQUEST;

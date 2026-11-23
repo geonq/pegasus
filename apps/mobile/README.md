@@ -29,6 +29,26 @@ cd ios && xcodebuild -workspace Pegasus.xcworkspace -scheme Pegasus -configurati
 
 Your iPhone: `pnpm ios:device` with the phone connected and your Apple Development team selected.
 
+## Updates over the air (from the PC)
+
+JS changes reach the phone without the Mac: the Pegasus host on the PC serves
+`GET /v1/updates/manifest` and `/v1/updates/assets/<sha256>.<ext>` (expo-updates protocol v1, no
+token, only on 127.0.0.1 and the Tailscale IP) from `D:\Pi\pi-ecosystem\.state\mobile-updates`.
+
+```powershell
+node apps/mobile/scripts/publish-update.mjs [--json]              # export, sign, switch latest, keep 5
+node apps/mobile/scripts/publish-update.mjs --rollback <id> [--json]  # republish an older update's code
+```
+
+- Signing: the app embeds `updates/certificate.pem` and accepts only manifests signed by
+  `.state\mobile-updates\keys\private-key.pem` (never in the repo). A new key pair means a new
+  native install.
+- `runtimeVersion` uses the fingerprint policy, so an update only reaches builds with identical
+  native code. A native change (new module, version bump, config) needs one install from the Mac;
+  until then the PC answers that build with "no update".
+- The app checks on launch and on returning to the foreground; a downloaded update starts on the next
+  launch, or at once from the "Update ready" prompt.
+
 ## How it connects
 
 - Pairing: QR code or `pegasus://pair?v=1&url=http://<PC tailscale ip>:47219&token=…&name=…`

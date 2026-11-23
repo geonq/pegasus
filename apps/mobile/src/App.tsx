@@ -6,6 +6,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import NewChatScreen from "./features/home/NewChatScreen";
 import ReviewScreen from "./features/review/ReviewScreen";
 import SettingsScreen from "./features/settings/SettingsScreen";
+import { UpdatePrompt } from "./features/updates/UpdatePrompt";
 import type { RootStackParamList } from "./navigation";
 import { ChatScreen } from "./screens/ChatScreen";
 import { ChatsScreen } from "./screens/ChatsScreen";
@@ -108,6 +109,7 @@ export default function App() {
       <SafeAreaProvider>
         <PegasusProvider>
           <Root />
+          <UpdatePrompt />
         </PegasusProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -270,7 +270,7 @@ async fn http(port: u16, head: &str, body: &str) -> (u16, String) {
     let mut out = String::new();
     s.read_to_string(&mut out).await.unwrap();
     let status = out.split(' ').nth(1).and_then(|c| c.parse().ok()).unwrap_or(0);
-    (status, out.split("\r\n\r\n").nth(1).unwrap_or("").to_string())
+    (status, out.splitn(2, "\r\n\r\n").nth(1).unwrap_or("").to_string())
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -307,4 +307,48 @@ async fn remote_api_serves_native_clients_without_origin_and_only_binds_tailscal
     // Without a token it is refused before anything reaches the provider.
     let head = format!("POST /v1/invoke HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: application/json\r\n");
     assert_eq!(http(port, &head, "{}").await.0, 401);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn phone_updates_are_served_without_a_token_but_only_to_known_hosts() {
+    let root = std::env::temp_dir().join(format!("pegasus-host-updates-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let updates = root.join("mobile-updates");
+    let id = "0b6f3c9e-5d2a-4f1b-9c3e-7a8d6e5f4c3b";
+    std::fs::create_dir_all(updates.join("updates").join(id)).unwrap();
+    std::fs::create_dir_all(updates.join("assets")).unwrap();
+    std::fs::write(updates.join("latest.json"), format!(r#"{{"rv1":"{id}"}}"#)).unwrap();
+    std::fs::write(updates.join("updates").join(id).join("manifest.json"), format!(r#"{{"id":"{id}","runtimeVersion":"rv1"}}"#)).unwrap();
+    std::fs::write(updates.join("updates").join(id).join("signature"), r#"sig="abc", keyid="main""#).unwrap();
+    let asset = "a".repeat(64) + ".hbc";
+    std::fs::write(updates.join("assets").join(&asset), "bundle").unwrap();
+    let ep = endpoint("updates");
+    let _host = Proc(Command::new(env!("CARGO_BIN_EXE_pegasus-host"))
+        .args(["--endpoint", &ep, "--sessions-root"]).arg(root.join("sessions"))
+        .args(["--idle-exit-secs", "600"])
+        .env("PEGASUS_MOBILE_UPDATES_DIR", &updates)
+        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+        .spawn().unwrap());
+    let mut c = connect(&ep).await;
+    let port = { let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap(); l.local_addr().unwrap().port() };
+    let ok = call(&mut c, 1, "remote.serve", json!({"port": port, "allowedOrigins": ["file://"],
+        "clients": [{"id": "phone", "tokenSha256": sha256_hex(&"t".repeat(40))}]})).await;
+    assert!(ok.get("result").is_some(), "{ok}");
+
+    // What the iOS client sends (FileDownloader.swift), no Authorization.
+    let head = format!("GET /v1/updates/manifest HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAccept: multipart/mixed,application/expo+json,application/json\r\nExpo-Platform: ios\r\nExpo-Protocol-Version: 1\r\nExpo-Runtime-Version: rv1\r\n");
+    let (status, body) = http(port, &head, "").await;
+    assert_eq!(status, 200, "{body}");
+    assert!(body.contains(&format!("expo-signature: sig=\"abc\", keyid=\"main\"\r\n\r\n{{\"id\":\"{id}\"")), "{body}");
+    let head = format!("GET /v1/updates/assets/{asset} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n");
+    assert_eq!(http(port, &head, "").await, (200, "bundle".to_string()));
+    let head = format!("GET /v1/updates/assets/../latest.json HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n");
+    assert_eq!(http(port, &head, "").await.0, 404);
+    // DNS rebinding: a page on another name cannot reach these routes either.
+    let head = format!("GET /v1/updates/assets/{asset} HTTP/1.1\r\nHost: evil.example:{port}\r\n");
+    assert_eq!(http(port, &head, "").await.0, 400);
+    // Everything else still needs the token.
+    let head = format!("GET /v1/events HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n");
+    assert_eq!(http(port, &head, "").await.0, 401);
+    let _ = std::fs::remove_dir_all(&root);
 }

@@ -140,6 +140,16 @@ impl Host {
         self.terminals.running()
     }
 
+    /// `<.state>/mobile-updates`: the sessions root is `<.state>/agent/sessions`. The publisher
+    /// (apps/mobile/scripts/publish-update.mjs) honours the same override.
+    pub fn mobile_updates_dir(&self) -> std::path::PathBuf {
+        if let Some(d) = std::env::var_os("PEGASUS_MOBILE_UPDATES_DIR").filter(|d| !d.is_empty()) {
+            return d.into();
+        }
+        let state = self.sessions_root.parent().and_then(|p| p.parent()).unwrap_or(&self.sessions_root);
+        state.join("mobile-updates")
+    }
+
     pub fn client_connected(&self) -> u32 {
         *self.last_change.lock().unwrap_or_else(|p| p.into_inner()) = Instant::now();
         self.clients.fetch_add(1, Ordering::SeqCst) + 1

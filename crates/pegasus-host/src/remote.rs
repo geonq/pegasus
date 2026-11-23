@@ -87,6 +87,8 @@ struct Server {
     origins: HashSet<String>,
     /// sha256(token) hex -> client id
     clients: HashMap<String, String>,
+    /// Published phone app updates (crate::updates), served without a token.
+    updates_dir: std::path::PathBuf,
     stop: Arc<Notify>,
 }
 
@@ -180,6 +182,7 @@ impl Remote {
             hosts: addrs.iter().map(|ip| format!("{ip}:{}", p.port)).collect(),
             origins: p.allowed_origins.into_iter().collect(),
             clients,
+            updates_dir: host.mobile_updates_dir(),
             stop: Arc::new(Notify::new()),
         });
         *lock(&self.server) = Some(server.clone());
@@ -346,6 +349,15 @@ impl Remote {
         if !header(&headers, "host").is_some_and(|h| server.hosts.contains(h)) {
             crate::info!("remote request with Host {:?}; allowed {:?}", header(&headers, "host"), server.hosts);
             return early!(error(400, "invalid_host", "The loopback Host header is invalid.", None));
+        }
+        // Phone app updates: read-only and signed by the publisher, so they need no token (the app
+        // fetches them before it can read its pairing). Still only on these binds and Host names.
+        if req.method() == Method::GET && crate::updates::is_update_path(req.uri().path()) {
+            if req.uri().query().is_some() {
+                return early!(error(400, "invalid_url", "The request URL is not allowed.", None));
+            }
+            let reply = crate::updates::handle(&server.updates_dir, req.uri().path(), &headers).await;
+            return early!(reply.map(BoxBody::new));
         }
         // Browsers always send Origin on these requests, so a present one must be allowed. A native
         // app (the phone) sends none; it still needs its bearer token.
