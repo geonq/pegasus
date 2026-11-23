@@ -1,106 +1,93 @@
 import { LegendList, type LegendListRef } from "@legendapp/list/react-native";
+import { useHeaderHeight } from "@react-navigation/elements";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { pendingDialogsOf, sessionKey } from "../api/chats";
-import type {
-  OrchestrationChildThread,
-  PendingDialogAnswer,
-  QueuedComposerMessage,
-  TranscriptItem,
-  TranscriptTool,
-} from "../api/types";
-import { formatDuration, groupTranscript, toolsSummary, type WorkLogRow } from "../api/worklog";
+import type { PendingDialogAnswer, TranscriptItem } from "../api/types";
 import { LIMIT_WARNING_PERCENT, planStatus, resetsIn } from "../api/usage";
+import { groupTranscript } from "../api/worklog";
 import { ApprovalCard } from "../components/ApprovalCard";
-import { Markdown } from "../components/Markdown";
-import { usePegasus } from "../state/PegasusProvider";
-import { radius, spacing, type, usePalette } from "../theme";
+import { messageOf, useChatActions } from "../features/chat/actions";
+import { ChatMenuButton, ChatTitle, type ChatMenuItem } from "../features/chat/ChatHeader";
+import { Composer } from "../features/chat/Composer";
+import { FloatingStatus } from "../features/chat/FloatingStatus";
+import { SubagentRows } from "../features/chat/SubagentRows";
+import { selectionHaptic, TranscriptRow } from "../features/chat/TranscriptRow";
+import { hasRuntime, modelsOf, permissionOf, sessionConfigOf } from "../features/chat/wire";
 import type { RootStackParamList } from "../navigation";
+import { usePegasus } from "../state/PegasusProvider";
+import { Button, EmptyState, PressableScale, Skeleton } from "../ui";
+import { maxFontScale, radius, spacing, text, usePalette } from "../theme";
 
-const CHILD_STATUS_LABELS: Record<OrchestrationChildThread["status"], string> = {
-  queued: "Queued",
-  running: "Working",
-  waiting: "Waiting for you",
-  complete: "Done",
-  failed: "Failed",
-};
+/** Past this many points from the end, the person is reading back: stop following, offer a jump. */
+const FOLLOW_THRESHOLD = 120;
 
 /**
- * One chat: its work log as it streams in, and the composer that sends, queues or steers.
- * Everything here is drawn from the PC's state; the only state the screen owns is what was typed,
- * which tool runs are expanded, and the last answer that was sent (a receipt, not a copy of it).
+ * One chat: its work log as it streams in, approvals and questions inline at its end, and the
+ * composer that sends, queues or steers. Everything is drawn from the PC's state; the screen only
+ * owns what was typed, which rows are expanded, and whether the person scrolled up.
  */
-export function ChatScreen({
-  route,
-  navigation,
-}: NativeStackScreenProps<RootStackParamList, "Chat">) {
-  const { workspaceId, sessionId, title } = route.params;
+export function ChatScreen({ route, navigation }: NativeStackScreenProps<RootStackParamList, "Chat">) {
+  const { workspaceId, sessionId, title: routeTitle } = route.params;
   const palette = usePalette();
   const insets = useSafeAreaInsets();
-  const { state, transcript, status, openChat, send, stop, answer, removeQueued, steerQueued } =
-    usePegasus();
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const headerHeight = useHeaderHeight();
+  const { state, transcript, status, openChat, stop, answer, removeQueued, steerQueued } = usePegasus();
+  const actions = useChatActions(workspaceId, sessionId);
+  const [openError, setOpenError] = useState<string | null>(null);
+  const [opening, setOpening] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
-  const [receipt, setReceipt] = useState<string | null>(null);
-  // A clock, not a stored duration: elapsed is recomputed every second while a turn is live.
-  const [now, setNow] = useState(() => Date.now());
+  const [awayFromEnd, setAwayFromEnd] = useState(false);
   const list = useRef<LegendListRef>(null);
 
-  const session = useMemo(
-    () =>
-      state?.workspaces.find((w) => w.id === workspaceId)?.sessions.find((s) => s.id === sessionId),
-    [state, workspaceId, sessionId],
-  );
+  const workspace = state?.workspaces.find((entry) => entry.id === workspaceId);
+  const session = workspace?.sessions.find((entry) => entry.id === sessionId);
   const running = session?.status === "running";
   const live = status.state === "live";
-
-  useEffect(() => {
-    navigation.setOptions({
-      title: title || "Chat",
-      headerRight: () => (
-        <Pressable
-          accessibilityRole="button"
-          hitSlop={12}
-          onPress={() => navigation.navigate("Usage", { workspaceId, sessionId })}
-        >
-          <Text style={{ color: palette.accentText, fontSize: 17 }}>Usage</Text>
-        </Pressable>
+  const key = sessionKey(workspaceId, sessionId);
+  const config = sessionConfigOf(session);
+  const models = useMemo(() => modelsOf(state, workspaceId), [state, workspaceId]);
+  const modelsLoaded = hasRuntime(state, workspaceId);
+  const permission = permissionOf(state, key);
+  const pending = pendingDialogsOf(state?.sessionExtensionUiBySession, workspaceId, sessionId);
+  const asked = pending[0];
+  const queued = state?.queuedComposerMessages ?? [];
+  const agents = useMemo(
+    () =>
+      (state?.orchestrationChildren ?? []).filter(
+        (child) => child.parentWorkspaceId === workspaceId && child.parentSessionId === sessionId,
       ),
-    });
-  }, [navigation, palette.accentText, sessionId, title, workspaceId]);
+    [state?.orchestrationChildren, workspaceId, sessionId],
+  );
+  const plan = planStatus(state?.sessionUsageBySession?.[key]);
 
-  // Opening a chat also tells the PC which chat this phone is looking at, so the transcript,
-  // the queue and the answers all belong to the chat on screen after coming back from a child.
+  // Opening a chat also tells the PC which chat this phone is looking at, so the transcript, the
+  // queue and sendText all belong to the chat on screen after coming back from a child.
   useFocusEffect(
     useCallback(() => {
-      openChat({ workspaceId, sessionId }).catch((reason: unknown) =>
-        setError(reason instanceof Error ? reason.message : String(reason)),
-      );
-    }, [openChat, sessionId, workspaceId]),
+      setOpenError(null);
+      openChat({ workspaceId, sessionId }).catch((reason: unknown) => setOpenError(messageOf(reason)));
+    }, [openChat, sessionId, workspaceId, opening]),
   );
 
+  // The model list comes with the project's runtime, which the PC loads on request.
   useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [running]);
+    if (live && workspace && !modelsLoaded) actions.loadRuntime().catch(() => undefined);
+  }, [actions, live, modelsLoaded, workspace]);
 
-  // Only this chat's transcript, once the PC has switched this phone's view to it.
   const items = useMemo(
     () =>
       transcript?.workspaceId === workspaceId && transcript.sessionId === sessionId
@@ -109,44 +96,38 @@ export function ChatScreen({
     [transcript, workspaceId, sessionId],
   );
   const rows = useMemo(() => groupTranscript(items ?? []), [items]);
-  const pending = pendingDialogsOf(state?.sessionExtensionUiBySession, workspaceId, sessionId);
-  const asked = pending[0];
-  const queued = state?.queuedComposerMessages ?? [];
-  const children = (state?.orchestrationChildren ?? []).filter(
-    (child) => child.parentWorkspaceId === workspaceId && child.parentSessionId === sessionId,
-  );
-  const plan = planStatus(state?.sessionUsageBySession?.[sessionKey(workspaceId, sessionId)]);
+  const lastRowId = rows[rows.length - 1]?.id;
 
-  const submit = async (mode: "send" | "steer") => {
-    const text = draft.trim();
-    if (!text || sending) return;
-    setSending(true);
-    setError(null);
-    try {
-      await send(text, mode);
-      setDraft("");
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
-      list.current?.scrollToEnd({ animated: true });
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
-    } finally {
-      setSending(false);
+  // A new approval or question is news even when the phone is in hand: a warning tap.
+  const askedId = asked?.requestId;
+  useEffect(() => {
+    if (!askedId) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
+  }, [askedId]);
+
+  // The run ending is the moment the person was waiting for.
+  const wasRunning = useRef(running);
+  useEffect(() => {
+    if (wasRunning.current && !running) {
+      Haptics.notificationAsync(
+        session?.status === "failed"
+          ? Haptics.NotificationFeedbackType.Error
+          : Haptics.NotificationFeedbackType.Success,
+      ).catch(() => undefined);
     }
-  };
+    wasRunning.current = running;
+  }, [running, session?.status]);
 
-  const submitAnswer = async (next: PendingDialogAnswer) => {
-    await answer({ workspaceId, sessionId }, next);
-    const sent =
-      "confirmed" in next
-        ? next.confirmed
-          ? "Allowed"
-          : "Declined"
-        : "cancelled" in next
-          ? "Not now"
-          : "Answer sent";
-    const at = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    setReceipt(`${sent} · ${at}`);
-  };
+  const jumpToLatest = useCallback(() => {
+    setAwayFromEnd(false);
+    list.current?.scrollToEnd({ animated: true }).catch(() => undefined);
+  }, []);
+
+  const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distance = contentSize.height - layoutMeasurement.height - contentOffset.y;
+    setAwayFromEnd(distance > FOLLOW_THRESHOLD);
+  }, []);
 
   const toggle = useCallback((id: string) => {
     setExpanded((current) => {
@@ -155,243 +136,261 @@ export function ChatScreen({
       else next.add(id);
       return next;
     });
-    Haptics.selectionAsync().catch(() => undefined);
+    selectionHaptic();
   }, []);
+
+  const submitAnswer = useCallback(
+    (next: PendingDialogAnswer) => answer({ workspaceId, sessionId }, next),
+    [answer, sessionId, workspaceId],
+  );
+
+  const openReview = useCallback(() => {
+    // The Review screen is registered by the review feature; older builds without it say so.
+    if (!navigation.getState().routeNames.includes("Review" as keyof RootStackParamList)) {
+      Alert.alert("Review is not available", "This build of the app has no review screen yet.");
+      return;
+    }
+    (navigation.navigate as (name: string, params: object) => void)("Review", {
+      workspaceId,
+      sessionId,
+    });
+  }, [navigation, sessionId, workspaceId]);
+
+  const title = session?.title || routeTitle || "Chat";
+  const model = models.find(
+    (entry) => entry.providerId === config.provider && entry.modelId === config.modelId,
+  );
+  const subtitle = [workspace?.name, model?.label ?? config.modelId].filter(Boolean).join(" · ");
+  const headerStatus = !live
+    ? "offline"
+    : asked
+      ? "waiting"
+      : running
+        ? "working"
+        : session?.status === "failed"
+          ? "failed"
+          : "idle";
+
+  const menu = useMemo<ChatMenuItem[]>(() => {
+    const fail = (label: string) => (reason: unknown) => Alert.alert(label, messageOf(reason));
+    const items: ChatMenuItem[] = [
+      { label: "Review changes", onPress: openReview },
+      { label: "Usage", onPress: () => navigation.navigate("Usage", { workspaceId, sessionId }) },
+    ];
+    if (session) {
+      items.push({
+        label: session.pinnedAt ? "Unpin" : "Pin",
+        onPress: () => actions.setPinned(!session.pinnedAt).catch(fail("Could not change the pin")),
+      });
+      items.push(
+        session.archivedAt
+          ? {
+              label: "Unarchive",
+              onPress: () =>
+                actions.unarchive().catch(fail("Could not unarchive the chat")),
+            }
+          : {
+              label: "Archive",
+              destructive: true,
+              onPress: () =>
+                Alert.alert("Archive this chat?", "It leaves the list. You can find it on the PC.", [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Archive",
+                    style: "destructive",
+                    onPress: () =>
+                      actions
+                        .archive()
+                        .then(() => navigation.goBack())
+                        .catch(fail("Could not archive the chat")),
+                  },
+                ]),
+            },
+      );
+    }
+    return items;
+  }, [actions, navigation, openReview, session, sessionId, workspaceId]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: () => <ChatTitle status={headerStatus} subtitle={subtitle} title={title} />,
+      headerRight: () => <ChatMenuButton items={menu} />,
+    });
+  }, [headerStatus, menu, navigation, subtitle, title]);
 
   const banner =
     status.state === "retrying"
-      ? `${status.reason} Retrying in ${Math.round(status.inMs / 1000)} s · showing the last update.`
+      ? `${status.reason} Retrying in ${Math.round(status.inMs / 1000)} s. Showing the last update.`
       : status.state === "revoked"
         ? status.reason
-        : null;
-  const limitReset = plan ? resetsIn(plan.resetsAt, now) : null;
-  const canSend = live && !sending;
+        : status.state === "connecting" && state
+          ? "Reconnecting…"
+          : null;
+
+  const limitReset = plan ? resetsIn(plan.resetsAt, Date.now()) : null;
+  const sessionGone = Boolean(state) && !session;
+  const since = running && session?.runningSince ? Date.parse(session.runningSince) : NaN;
+
+  let body: ReactNode;
+  if (sessionGone) {
+    body = (
+      <View style={styles.center}>
+        <EmptyState
+          action={<Button label="Back to chats" onPress={() => navigation.goBack()} variant="secondary" />}
+          message="It was deleted, or this phone may no longer see its project."
+          title="This chat is not on the PC"
+        />
+      </View>
+    );
+  } else if (items === null && openError) {
+    body = (
+      <View style={styles.center}>
+        <EmptyState
+          action={<Button label="Try again" onPress={() => setOpening((value) => value + 1)} variant="primary" />}
+          message={openError}
+          title="Could not open this chat"
+        />
+      </View>
+    );
+  } else if (items === null) {
+    body = (
+      <View accessibilityLabel="Loading the chat" accessible style={styles.skeleton}>
+        <View style={styles.skeletonUser}>
+          <Skeleton height={40} rounded={radius.lg} width="60%" />
+        </View>
+        <Skeleton width="92%" />
+        <Skeleton width="84%" />
+        <Skeleton width="70%" />
+        <Skeleton height={44} rounded={radius.md} />
+        <Skeleton width="88%" />
+        <Skeleton width="56%" />
+      </View>
+    );
+  } else {
+    body = (
+      <LegendList
+        ListEmptyComponent={
+          asked ? null : (
+            <View style={styles.center}>
+              <EmptyState
+                message={running ? "The first reply is on its way." : "Ask for a change, a review or an answer."}
+                title={running ? "Working on it" : "Start the conversation"}
+              />
+            </View>
+          )
+        }
+        ListFooterComponent={
+          <View style={styles.footer}>
+            {agents.length > 0 ? (
+              <SubagentRows
+                agents={agents}
+                onOpen={(agent) =>
+                  navigation.push("Chat", {
+                    workspaceId: agent.childWorkspaceId,
+                    sessionId: agent.childSessionId,
+                    title: agent.title,
+                  })
+                }
+              />
+            ) : null}
+            {asked ? (
+              <ApprovalCard
+                dialog={asked}
+                key={asked.requestId}
+                onAnswer={submitAnswer}
+                waiting={pending.length}
+              />
+            ) : null}
+          </View>
+        }
+        alignItemsAtEnd
+        contentContainerStyle={styles.content}
+        data={rows}
+        estimatedItemSize={88}
+        extraData={expanded}
+        getItemType={(row) => row.kind}
+        initialScrollIndex={Math.max(0, rows.length - 1)}
+        keyExtractor={(row) => row.id}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+        maintainScrollAtEnd
+        maintainScrollAtEndThreshold={0.15}
+        maintainVisibleContentPosition
+        onScroll={onScroll}
+        ref={list}
+        renderItem={({ item }) => (
+          <TranscriptRow
+            expanded={expanded.has(item.id)}
+            isLast={item.id === lastRowId}
+            onToggle={toggle}
+            row={item}
+            sessionId={sessionId}
+            sessionRunning={running}
+            workspaceId={workspaceId}
+          />
+        )}
+        scrollEventThrottle={64}
+      />
+    );
+  }
 
   return (
     <KeyboardAvoidingView
-      style={[styles.screen, { backgroundColor: palette.background }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={insets.top + 44}
+      keyboardVerticalOffset={headerHeight}
+      style={[styles.screen, { backgroundColor: palette.background }]}
     >
       {banner ? (
-        <Text
-          style={[
-            styles.banner,
-            { color: palette.textMuted, backgroundColor: palette.surfaceRaised },
-          ]}
+        <View
+          accessibilityLiveRegion="polite"
+          style={[styles.banner, { backgroundColor: palette.warningTint }]}
         >
-          {banner}
-        </Text>
-      ) : null}
-
-      <View style={styles.turnBar}>
-        <Text
-          style={[styles.turnState, { color: running ? palette.accentText : palette.textMuted }]}
-        >
-          {running
-            ? "● Working"
-            : session?.status === "failed"
-              ? "Stopped with an error"
-              : "Updated"}
-        </Text>
-        <Text numberOfLines={1} style={[styles.turnDetail, { color: palette.textMuted }]}>
-          {running && session?.runningSince
-            ? `${formatDuration(now - Date.parse(session.runningSince))}${session.currentStep ? ` · ${session.currentStep}` : ""}`
-            : session
-              ? `${formatDuration(now - Date.parse(session.updatedAt))} ago`
-              : ""}
-        </Text>
-      </View>
-
-      {children.length > 0 ? (
-        <View style={styles.children}>
-          {children.slice(0, 4).map((child) => (
-            <Pressable
-              accessibilityRole="button"
-              key={child.id}
-              onPress={() =>
-                navigation.push("Chat", {
-                  workspaceId: child.childWorkspaceId,
-                  sessionId: child.childSessionId,
-                  title: child.title,
-                })
-              }
-              style={({ pressed }) => [
-                styles.childRow,
-                { backgroundColor: pressed ? palette.surfaceRaised : palette.surface },
-              ]}
-            >
-              <Text numberOfLines={1} style={[styles.childTitle, { color: palette.text }]}>
-                {child.role ? `${child.role} · ` : ""}
-                {child.title || "Agent"}
-              </Text>
-              <Text
-                style={[
-                  styles.childStatus,
-                  {
-                    color:
-                      child.status === "failed"
-                        ? palette.danger
-                        : child.status === "waiting"
-                          ? palette.warning
-                          : palette.textMuted,
-                  },
-                ]}
-              >
-                {CHILD_STATUS_LABELS[child.status]}
-              </Text>
-            </Pressable>
-          ))}
+          <Text style={[text.footnote, styles.flex, { color: palette.warningText }]}>{banner}</Text>
         </View>
       ) : null}
 
-      {items === null ? (
-        <View style={styles.loading}>
-          <ActivityIndicator color={palette.accent} />
-        </View>
-      ) : (
-        <LegendList
-          ref={list}
-          data={rows}
-          keyExtractor={(row) => row.id}
-          estimatedItemSize={80}
-          initialScrollIndex={Math.max(0, rows.length - 1)}
-          maintainScrollAtEnd
-          maintainVisibleContentPosition
-          alignItemsAtEnd
-          contentContainerStyle={styles.content}
-          getItemType={(row) => row.kind}
-          renderItem={({ item }) => (
-            <Row expanded={expanded.has(item.id)} onToggle={toggle} row={item} />
-          )}
-        />
-      )}
+      <View style={styles.flex}>{body}</View>
 
-      {error ? (
-        <Text accessibilityRole="alert" style={[styles.error, { color: palette.danger }]}>
-          {error}
-        </Text>
-      ) : null}
-
-      {receipt ? (
-        <Text style={[styles.receipt, { color: palette.textMuted }]}>{receipt}</Text>
-      ) : null}
-
-      {asked ? (
-        <ApprovalCard
-          dialog={asked}
-          key={asked.requestId}
-          onAnswer={submitAnswer}
-          waiting={pending.length}
-        />
-      ) : (
+      {!sessionGone ? (
         <>
-          {items !== null && queued.length > 0 ? (
-            <View style={styles.queue}>
-              <Text style={[styles.queueTitle, { color: palette.textMuted }]}>
-                {queued.length === 1 ? "1 queued" : `${queued.length} queued`}
-              </Text>
-              {queued.map((message) => (
-                <QueuedRow
-                  disabled={!live}
-                  key={message.id}
-                  message={message}
-                  onRemove={() => {
-                    removeQueued(message.id).catch((reason: unknown) =>
-                      setError(reason instanceof Error ? reason.message : String(reason)),
-                    );
-                  }}
-                  onSteer={() => {
-                    steerQueued(message.id).catch((reason: unknown) =>
-                      setError(reason instanceof Error ? reason.message : String(reason)),
-                    );
-                  }}
-                />
-              ))}
-            </View>
-          ) : null}
-
+          <FloatingStatus
+            onJump={jumpToLatest}
+            showJump={awayFromEnd && items !== null && rows.length > 0}
+            working={
+              running && !Number.isNaN(since)
+                ? { since, ...(session?.currentStep ? { step: session.currentStep } : {}) }
+                : null
+            }
+          />
           {plan && plan.usedPercent >= LIMIT_WARNING_PERCENT ? (
-            <Pressable
+            <PressableScale
+              accessibilityHint="Opens usage"
               accessibilityRole="button"
               onPress={() => navigation.navigate("Usage", { workspaceId, sessionId })}
               style={styles.limit}
             >
-              <Text style={[styles.limitText, { color: palette.warning }]}>
-                {plan.provider} usage {Math.round(plan.usedPercent)}%
-                {limitReset ? ` · ${limitReset}` : ""}
+              <Text maxFontSizeMultiplier={maxFontScale.chrome} style={[text.caption, { color: palette.warningText }]}>
+                {plan.provider} usage {Math.round(plan.usedPercent)}%{limitReset ? ` · ${limitReset}` : ""}
               </Text>
-            </Pressable>
+            </PressableScale>
           ) : null}
-
-          <View
-            style={[
-              styles.composer,
-              {
-                backgroundColor: palette.surface,
-                borderColor: palette.line,
-                paddingBottom: Math.max(insets.bottom, spacing.sm),
-              },
-            ]}
-          >
-            <TextInput
-              editable={!sending}
-              multiline
-              onChangeText={setDraft}
-              placeholder={
-                !live ? "Reconnecting — cannot send" : running ? "Steer this run…" : "Message"
-              }
-              placeholderTextColor={palette.textMuted}
-              style={[styles.input, { color: palette.text }]}
-              value={draft}
-            />
-            {running && draft.trim() ? (
-              <Pressable
-                accessibilityLabel="Queue for the next turn"
-                accessibilityRole="button"
-                disabled={!canSend}
-                onPress={() => {
-                  submit("send").catch(() => undefined);
-                }}
-                style={styles.queueButton}
-              >
-                <Text style={[styles.queueButtonText, { color: palette.accentText }]}>Queue</Text>
-              </Pressable>
-            ) : null}
-            {running ? (
-              <Pressable
-                accessibilityLabel="Stop"
-                accessibilityRole="button"
-                onPress={() => {
-                  stop({ workspaceId, sessionId }).catch((reason: unknown) =>
-                    setError(reason instanceof Error ? reason.message : String(reason)),
-                  );
-                }}
-                style={[styles.roundButton, { backgroundColor: palette.surfaceRaised }]}
-              >
-                <View style={[styles.stopGlyph, { backgroundColor: palette.text }]} />
-              </Pressable>
-            ) : null}
-            <Pressable
-              accessibilityLabel={running ? "Steer this run" : "Send"}
-              accessibilityRole="button"
-              disabled={!draft.trim() || !canSend}
-              onPress={() => {
-                submit(running ? "steer" : "send").catch(() => undefined);
-              }}
-              style={[
-                styles.roundButton,
-                {
-                  backgroundColor: palette.accent,
-                  opacity: draft.trim() && canSend ? 1 : 0.4,
-                },
-              ]}
-            >
-              <Text style={[styles.sendGlyph, { color: palette.onAccent }]}>↑</Text>
-            </Pressable>
-          </View>
+          <Composer
+            actions={actions}
+            bottomInset={insets.bottom}
+            config={config}
+            live={live}
+            models={models}
+            modelsLoaded={modelsLoaded}
+            onRemoveQueued={removeQueued}
+            onSent={jumpToLatest}
+            onSteerQueued={steerQueued}
+            onStop={() => stop({ workspaceId, sessionId })}
+            permission={permission}
+            queued={items === null ? [] : queued}
+            running={running}
+          />
         </>
-      )}
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -400,260 +399,14 @@ function isShown(item: TranscriptItem): boolean {
   return ["message", "thinking", "tool", "activity", "custom"].includes(item.kind);
 }
 
-const Row = memo(function Row({
-  row,
-  expanded,
-  onToggle,
-}: {
-  readonly row: WorkLogRow;
-  readonly expanded: boolean;
-  readonly onToggle: (id: string) => void;
-}) {
-  const palette = usePalette();
-  if (row.kind === "message") {
-    if (row.item.role === "assistant") {
-      return (
-        <View style={styles.assistant}>
-          <Markdown text={row.item.text} />
-        </View>
-      );
-    }
-    if (row.item.role !== "user") {
-      return (
-        <Text style={[styles.divider, { color: palette.textMuted }]}>
-          — {row.item.role === "compactionSummary" ? "Compacted" : "Branched"} —
-        </Text>
-      );
-    }
-    return (
-      <View style={[styles.userBubble, { backgroundColor: palette.userBubble }]}>
-        <Text selectable style={[styles.userText, { color: palette.text }]}>
-          {row.item.text}
-        </Text>
-      </View>
-    );
-  }
-  if (row.kind === "custom") {
-    return (
-      <View style={styles.assistant}>
-        <Markdown text={row.text} />
-      </View>
-    );
-  }
-  if (row.kind === "activity") {
-    return (
-      <Text numberOfLines={2} style={[styles.activity, { color: palette.textMuted }]}>
-        {row.label}
-      </Text>
-    );
-  }
-  if (row.kind === "thinking") {
-    const duration = row.durationMs === undefined ? null : formatDuration(row.durationMs);
-    return (
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => onToggle(row.id)}
-        style={styles.thinkingRow}
-      >
-        <Text
-          numberOfLines={expanded ? undefined : 2}
-          style={[styles.thinking, { color: palette.textMuted }]}
-        >
-          {duration ? `Thought for ${duration}` : "Thinking…"}
-          {expanded && row.text ? `\n${row.text}` : ""}
-        </Text>
-      </Pressable>
-    );
-  }
-  const summary = toolsSummary(row.tools.length, row.failed, row.running);
-  return (
-    <View style={styles.group}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        onPress={() => onToggle(row.id)}
-        style={styles.groupHeader}
-      >
-        <Text numberOfLines={1} style={[styles.groupTitle, { color: palette.text }]}>
-          {row.tools[row.tools.length - 1]?.label ?? summary}
-        </Text>
-        <Text
-          style={[
-            styles.groupSummary,
-            { color: row.failed > 0 ? palette.danger : palette.textMuted },
-          ]}
-        >
-          {summary}
-        </Text>
-      </Pressable>
-      {expanded ? row.tools.map((tool) => <ToolLine key={tool.id} tool={tool} />) : null}
-    </View>
-  );
-});
-
-function ToolLine({ tool }: { readonly tool: TranscriptTool }) {
-  const palette = usePalette();
-  const color =
-    tool.status === "error"
-      ? palette.danger
-      : tool.status === "running"
-        ? palette.accentText
-        : palette.textMuted;
-  return (
-    <Text numberOfLines={3} style={[styles.tool, { color }]}>
-      {tool.status === "running" ? "● " : tool.status === "error" ? "✕ " : "✓ "}
-      {tool.label}
-    </Text>
-  );
-}
-
-function QueuedRow({
-  message,
-  disabled,
-  onSteer,
-  onRemove,
-}: {
-  readonly message: QueuedComposerMessage;
-  readonly disabled: boolean;
-  readonly onSteer: () => void;
-  readonly onRemove: () => void;
-}) {
-  const palette = usePalette();
-  return (
-    <View style={[styles.queuedRow, { borderColor: palette.line }]}>
-      <Text numberOfLines={2} style={[styles.queuedText, { color: palette.text }]}>
-        {message.text}
-      </Text>
-      <Pressable
-        accessibilityLabel="Steer now"
-        accessibilityRole="button"
-        disabled={disabled}
-        hitSlop={8}
-        onPress={onSteer}
-      >
-        <Text
-          style={[
-            styles.queuedAction,
-            { color: disabled ? palette.textMuted : palette.accentText },
-          ]}
-        >
-          Steer
-        </Text>
-      </Pressable>
-      <Pressable
-        accessibilityLabel="Remove from the queue"
-        accessibilityRole="button"
-        disabled={disabled}
-        hitSlop={8}
-        onPress={onRemove}
-      >
-        <Text style={[styles.queuedRemove, { color: palette.textMuted }]}>✕</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  banner: { fontSize: type.caption, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  turnBar: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
-  turnState: { fontSize: 13, fontWeight: "600" },
-  turnDetail: { flex: 1, fontSize: 13 },
-  children: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs, gap: 2 },
-  childRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    minHeight: 36,
-  },
-  childTitle: { flex: 1, fontSize: 14, fontWeight: "500" },
-  childStatus: { fontSize: type.caption, fontWeight: "600" },
-  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  content: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.sm },
-  userBubble: {
-    alignSelf: "flex-end",
-    maxWidth: "86%",
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md + 2,
-    paddingVertical: spacing.sm + 2,
-    marginVertical: spacing.xs,
-  },
-  userText: { fontSize: type.body, lineHeight: 22 },
-  assistant: { marginVertical: spacing.xs },
-  divider: { textAlign: "center", fontSize: type.caption, marginVertical: spacing.sm },
-  activity: { fontSize: type.caption, fontStyle: "italic" },
-  thinkingRow: { paddingVertical: 2 },
-  thinking: { fontSize: 14, fontStyle: "italic", lineHeight: 20 },
-  group: { marginVertical: 2 },
-  groupHeader: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-    paddingVertical: 4,
-  },
-  groupTitle: { flex: 1, fontSize: 14, fontWeight: "500" },
-  groupSummary: { fontSize: type.caption },
-  tool: {
-    fontSize: 13,
-    lineHeight: 19,
-    fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }),
-    paddingLeft: spacing.md,
-  },
-  error: { fontSize: 14, paddingHorizontal: spacing.lg, paddingVertical: spacing.xs },
-  receipt: { fontSize: type.caption, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
-  queue: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  queueTitle: {
-    fontSize: type.caption,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  queuedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingVertical: spacing.xs,
-  },
-  queuedText: { flex: 1, fontSize: 14, lineHeight: 19 },
-  queuedAction: { fontSize: 14, fontWeight: "600" },
-  queuedRemove: { fontSize: 15 },
-  limit: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
-  limitText: { fontSize: type.caption, fontWeight: "600" },
-  composer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  input: { flex: 1, fontSize: type.body, maxHeight: 140, paddingVertical: 10 },
-  queueButton: { minHeight: 36, justifyContent: "center", paddingHorizontal: spacing.xs },
-  queueButtonText: { fontSize: 15, fontWeight: "600" },
-  roundButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
-  stopGlyph: { width: 12, height: 12, borderRadius: 2 },
-  sendGlyph: { fontSize: 18, fontWeight: "700", marginTop: -2 },
+  flex: { flex: 1 },
+  banner: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, flexDirection: "row" },
+  center: { flex: 1, justifyContent: "center" },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: spacing.md },
+  footer: { gap: spacing.md, paddingTop: spacing.xs },
+  skeleton: { flex: 1, padding: spacing.lg, gap: spacing.md, justifyContent: "flex-end" },
+  skeletonUser: { alignItems: "flex-end" },
+  limit: { alignSelf: "center", minHeight: 32, justifyContent: "center", paddingHorizontal: spacing.md },
 });
