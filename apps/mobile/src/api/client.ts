@@ -178,8 +178,7 @@ export class PegasusClient {
           // An unreadable frame: start from a whole state, not from the frames around it.
           lastEventId = undefined;
           retry("Pegasus sent an unreadable update.");
-        }
-        else if (recycle || restartNow) connect();
+        } else if (recycle || restartNow) connect();
         else retry(`Lost the connection to ${this.pairing.hostName}.`);
         restartNow = false;
       };

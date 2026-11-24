@@ -62,13 +62,13 @@ included) nothing more is added and `truncated` is true. A review issue (`stale`
 
 Synthetic desktop: 12 projects x 40 chats, a 2000-entry transcript, a 200-hunk patch.
 
-| Call | Wire | JSON | Time |
-|---|---|---|---|
-| invoke getState | 84,042 B | 619,988 B | 107 ms |
-| phone/chats | 30,764 B | 195,800 B | 93 ms |
-| phone/chats, unchanged (304) | 0 B | 0 B | 53 ms |
+| Call                         | Wire      | JSON        | Time    |
+| ---------------------------- | --------- | ----------- | ------- |
+| invoke getState              | 84,042 B  | 619,988 B   | 107 ms  |
+| phone/chats                  | 30,764 B  | 195,800 B   | 93 ms   |
+| phone/chats, unchanged (304) | 0 B       | 0 B         | 53 ms   |
 | invoke getSelectedTranscript | 998,164 B | 4,241,571 B | 1180 ms |
-| phone/transcript, newest 50 | 15,657 B | 64,794 B | 72 ms |
-| invoke getReviewFile | 49,833 B | 216,316 B | 47 ms |
-| phone/diff (default cap) | 50,483 B | 230,721 B | 78 ms |
-| phone/diff maxBytes 4096 | 1,160 B | 4,048 B | 5 ms |
+| phone/transcript, newest 50  | 15,657 B  | 64,794 B    | 72 ms   |
+| invoke getReviewFile         | 49,833 B  | 216,316 B   | 47 ms   |
+| phone/diff (default cap)     | 50,483 B  | 230,721 B   | 78 ms   |
+| phone/diff maxBytes 4096     | 1,160 B   | 4,048 B     | 5 ms    |

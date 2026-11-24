@@ -140,8 +140,12 @@ export function phoneApi(pairing: Pairing) {
     chats: async (etag?: string): Promise<ChatList | null> =>
       (await request<ChatList>(pairing, "/v1/phone/chats", { method: "GET", etag })).result,
     transcriptPage: async (input: TranscriptPageInput): Promise<TranscriptPage> =>
-      (await request<TranscriptPage>(pairing, "/v1/phone/transcript", { method: "POST", body: input }))
-        .result as TranscriptPage,
+      (
+        await request<TranscriptPage>(pairing, "/v1/phone/transcript", {
+          method: "POST",
+          body: input,
+        })
+      ).result as TranscriptPage,
     diff: async (reviewId: string, fileId: string, maxBytes?: number): Promise<PhoneDiffResult> =>
       (
         await request<PhoneDiffResult>(pairing, "/v1/phone/diff", {

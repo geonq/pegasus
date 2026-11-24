@@ -129,7 +129,10 @@ export function PermissionSelector({
           <span>{active?.label ?? "Permissions"}</span>
         </button>
         {open ? (
-          <div className="model-selector__dropdown permission-menu" onWheel={(event) => event.stopPropagation()}>
+          <div
+            className="model-selector__dropdown permission-menu"
+            onWheel={(event) => event.stopPropagation()}
+          >
             <div className="model-selector__group-title">Permissions</div>
             {PERMISSION_OPTIONS.map((option) => {
               const isActive = option.value === permission;

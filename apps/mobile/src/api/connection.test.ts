@@ -28,7 +28,11 @@ function clock() {
   };
 }
 
-const retrying: StreamStatus = { state: "retrying", inMs: 250, reason: "Lost the connection to PC." };
+const retrying: StreamStatus = {
+  state: "retrying",
+  inMs: 250,
+  reason: "Lost the connection to PC.",
+};
 
 test("bug 1: a reconnect that is live again within the grace time shows nothing", () => {
   const c = clock();

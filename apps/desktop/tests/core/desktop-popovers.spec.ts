@@ -82,7 +82,9 @@ test("popovers, the permission menu and the sidebar toggle tooltip sit where the
       const button = await rect(toggle);
       const tip = await rect(tooltip);
       expect(tip.x).toBeGreaterThanOrEqual(button.x + button.width + 4);
-      expect(Math.abs(tip.y + tip.height / 2 - (button.y + button.height / 2))).toBeLessThanOrEqual(1);
+      expect(Math.abs(tip.y + tip.height / 2 - (button.y + button.height / 2))).toBeLessThanOrEqual(
+        1,
+      );
 
       // Model picker over the transcript.
       await window.mouse.move(400, 400);
@@ -98,7 +100,9 @@ test("popovers, the permission menu and the sidebar toggle tooltip sit where the
           (child as HTMLElement).style.visibility = "hidden";
       });
       const through = spreadContrast(
-        await window.screenshot({ clip: { x: box.x + 8, y: box.y + 8, width: box.width - 16, height: box.height - 16 } }),
+        await window.screenshot({
+          clip: { x: box.x + 8, y: box.y + 8, width: box.width - 16, height: box.height - 16 },
+        }),
       );
       console.log(`[proof] ${mode} model picker see-through contrast ${through.toFixed(2)}`);
       expect(through).toBeLessThan(1.5);
@@ -107,7 +111,9 @@ test("popovers, the permission menu and the sidebar toggle tooltip sit where the
       // Permission menu: every label whole, its description below it.
       const chip = window.getByRole("button", { name: /^Permissions:/ });
       await chip.click();
-      const menu = window.locator(".model-selector", { has: chip }).locator(".model-selector__dropdown");
+      const menu = window
+        .locator(".model-selector", { has: chip })
+        .locator(".model-selector__dropdown");
       await expect(menu).toBeVisible();
       await captureProof(window, `permission-menu-${mode}.png`);
       await expectAcrylic(menu);
