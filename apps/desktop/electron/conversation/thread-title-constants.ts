@@ -13,6 +13,9 @@ export function promptTitle(prompt: string, limit = 48): string {
     .split(/\n\s*\n/)
     .map((paragraph) =>
       paragraph
+        .split("\n")
+        .filter((line) => !isBoilerplateLine(line))
+        .join("\n")
         .replace(/https?:\/\/\S+/g, " ")
         .replace(/[`*_#>|]+/g, " ")
         .replace(/\s+/g, " ")
@@ -32,6 +35,16 @@ export function promptTitle(prompt: string, limit = 48): string {
   const wordEnd = cut.lastIndexOf(" ");
   const short = (wordEnd > limit / 2 ? cut.slice(0, wordEnd) : cut).replace(/[,;:-]+$/, "");
   return `${short.charAt(0).toUpperCase()}${short.slice(1)}…`;
+}
+
+/**
+ * A setup line a parent writes before the task ("Workspace: D:/Pi/projects/x (Windows)",
+ * "Load skills `code` and `ui` before starting."): it names where or how, never what.
+ */
+function isBoilerplateLine(line: string): boolean {
+  return /^\s*(?:[-*]\s*)?(?:(?:workspace|project|cwd|working directory|directory|repo|repository|path|role|model|skills?)\s*:|load (?:the )?skills?\b|read_skill\b)/i.test(
+    line,
+  );
 }
 
 /** A leading role line such as "You are a Seher worker." or "Act as the reviewer.". */

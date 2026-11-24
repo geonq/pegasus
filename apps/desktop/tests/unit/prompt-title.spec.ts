@@ -22,4 +22,15 @@ test("prompt titles read like the task, without machine markup", () => {
     "Fix the login bug",
   );
   expect(promptTitle("You are a Seher worker.")).toBe("You are a Seher worker");
+  // Setup lines a parent writes above the task say where or how, not what (owner's phone, talosv2).
+  expect(
+    promptTitle(
+      "Workspace: D:/Pi/projects/talosv2 (Windows)\nResearch broker margin rules. Cite sources.",
+    ),
+  ).toBe("Research broker margin rules");
+  expect(
+    promptTitle(
+      "[PI_CHILD_ROLE=planner]\nLoad skills `code` and `data` (read_skill) before starting.\nProject: talosv2\n\nSize the credit line we can draw.",
+    ),
+  ).toBe("Size the credit line we can draw");
 });
