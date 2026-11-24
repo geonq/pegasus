@@ -304,6 +304,10 @@ export const motion = {
   easeInOut: Easing.bezier(0.4, 0, 0.2, 1),
   /** Pressables shrink to this, like the desktop's :active. */
   pressScale: 0.97,
+  /** Springs (Reanimated withSpring), critically damped: state changes and popovers. */
+  spring: { duration: 260, dampingRatio: 1 },
+  /** After a gesture that carried momentum (sheet flick, swipe release): a touch of give. */
+  springFlick: { duration: 340, dampingRatio: 0.86 },
 } as const;
 
 /**

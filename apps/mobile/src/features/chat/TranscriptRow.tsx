@@ -4,7 +4,7 @@ import { Image, Platform, StyleSheet, Text, View } from "react-native";
 import type { TranscriptTool } from "../../api/types";
 import { formatDuration, toolsSummary, type WorkLogRow } from "../../api/worklog";
 import { Markdown } from "../../components/Markdown";
-import { Icon, PressableScale } from "../../ui";
+import { Icon, PressableScale, Spinner } from "../../ui";
 import { hitSize, maxFontScale, radius, spacing, text, usePalette } from "../../theme";
 import { GenerativeUiCard } from "./GenerativeUiCard";
 import { messageImages } from "./wire";
@@ -119,6 +119,7 @@ export const TranscriptRow = memo(function TranscriptRow({
         accessibilityState={{ expanded }}
         onPress={() => onToggle(row.id)}
         style={styles.thinking}
+        pressedStyle={{ opacity: 0.6 }}
       >
         <View style={styles.thinkingLine}>
           <Icon name="brain" color={palette.textSoft} size={12} />
@@ -160,7 +161,7 @@ function ToolRun({
     <View
       style={[
         styles.toolCard,
-        { backgroundColor: palette.surface, borderColor: palette.borderDefault },
+        { backgroundColor: palette.surfaceElevated, borderColor: palette.borderDefault },
       ]}
     >
       <PressableScale
@@ -235,12 +236,17 @@ function ToolLine({
 /** A shape per status, so it never relies on colour alone. */
 function StatusGlyph({ status }: { readonly status: TranscriptTool["status"] }) {
   const palette = usePalette();
+  if (status === "running") {
+    return (
+      <View accessible accessibilityLabel="Running" style={styles.glyph}>
+        <Spinner size={12} />
+      </View>
+    );
+  }
   const [name, color, label] =
-    status === "running"
-      ? (["circle.dotted", palette.accentText, "Running"] as const)
-      : status === "error"
-        ? (["xmark.circle.fill", palette.dangerText, "Failed"] as const)
-        : (["checkmark.circle.fill", palette.successText, "Done"] as const);
+    status === "error"
+      ? (["xmark.circle.fill", palette.dangerText, "Failed"] as const)
+      : (["checkmark.circle.fill", palette.successText, "Done"] as const);
   return (
     <View accessible accessibilityLabel={label} style={styles.glyph}>
       <Icon name={name} color={color} size={14} />
@@ -266,6 +272,7 @@ const styles = StyleSheet.create({
   userBubble: {
     maxWidth: "86%",
     borderRadius: radius.lg,
+    borderBottomRightRadius: radius.sm2,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md2,
   },
@@ -280,7 +287,11 @@ const styles = StyleSheet.create({
   },
   italic: { fontStyle: "italic" },
   thinkingLine: { flexDirection: "row", alignItems: "center", gap: spacing.sm2 },
-  toolCard: { borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  toolCard: {
+    borderRadius: radius.float,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
   toolHeader: {
     minHeight: hitSize.min,
     flexDirection: "row",

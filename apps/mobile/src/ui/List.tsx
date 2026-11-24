@@ -2,6 +2,8 @@ import { Children, Fragment, isValidElement, type ReactNode } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { hitSize, radius, spacing, text, usePalette } from "../theme";
 import { Icon } from "./Icon";
+import { MenuButton } from "./MenuButton";
+import type { MenuSection } from "./menu-model";
 import { PressableScale } from "./PressableScale";
 
 /** A section title above a group: sentence case, muted, like the desktop's settings headings. */
@@ -44,11 +46,16 @@ export function ListGroup({
   return (
     <View style={styles.groupWrap}>
       {title ? <SectionHeader title={title} /> : null}
-      <View style={[styles.group, { backgroundColor: palette.surface }]}>
+      <View
+        style={[
+          styles.group,
+          { backgroundColor: palette.surfaceElevated, borderColor: palette.borderDefault },
+        ]}
+      >
         {rows.map((row, index) => (
           <Fragment key={row.key ?? index}>
             {index > 0 ? (
-              <View style={[styles.separator, { backgroundColor: palette.line }]} />
+              <View style={[styles.separator, { backgroundColor: palette.borderDefault }]} />
             ) : null}
             {row}
           </Fragment>
@@ -72,6 +79,9 @@ export interface ListRowProps {
   readonly onPress?: () => void;
   /** The trailing accessory when the row opens a menu instead of a screen. */
   readonly accessory?: "chevron" | "menu";
+  /** Makes the row a picker: tapping opens this Pegasus menu next to it. */
+  readonly menu?: readonly MenuSection[];
+  readonly menuTitle?: string;
   readonly tone?: "default" | "danger" | "accent";
   readonly disabled?: boolean;
   readonly accessibilityHint?: string;
@@ -89,6 +99,8 @@ export function ListRow({
   disabled,
   accessibilityHint,
   accessory,
+  menu,
+  menuTitle,
 }: ListRowProps) {
   const palette = usePalette();
   const { fontScale } = useWindowDimensions();
@@ -117,13 +129,25 @@ export function ListRow({
         </Text>
       ) : null}
       {trailing}
-      {accessory === "menu" ? (
+      {accessory === "menu" || menu ? (
         <Icon name="chevron.up.chevron.down" color={palette.textSoft} size={12} />
       ) : onPress || accessory === "chevron" ? (
         <Icon name="chevron.right" color={palette.textSoft} size={13} weight="semibold" />
       ) : null}
     </View>
   );
+  if (menu && !disabled) {
+    return (
+      <MenuButton
+        accessibilityLabel={detail ? `${label}, ${detail}` : label}
+        sections={menu}
+        {...(menuTitle ? { title: menuTitle } : {})}
+        {...(accessibilityHint ? { accessibilityHint } : {})}
+      >
+        {content}
+      </MenuButton>
+    );
+  }
   if (!onPress) return content;
   return (
     <PressableScale
@@ -147,9 +171,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },
-  headerText: { fontWeight: "500", flexShrink: 1 },
+  headerText: { fontWeight: "600", flexShrink: 1 },
   groupWrap: { gap: spacing.sm2 },
-  group: { borderRadius: radius.md, overflow: "hidden" },
+  // The desktop's floating card: --surface on the page, a hairline, 14 pt corners.
+  group: { borderRadius: radius.float, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth },
   separator: { height: StyleSheet.hairlineWidth, marginLeft: spacing.lg },
   footer: { paddingHorizontal: spacing.lg },
   row: {

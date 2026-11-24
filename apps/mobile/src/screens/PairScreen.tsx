@@ -1,13 +1,13 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { useRef, useState } from "react";
-import { ActivityIndicator, Linking, StyleSheet, Text, TextInput, View } from "react-native";
+import { Linking, StyleSheet, Text, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { parsePairingLink } from "../api/pairing";
 import { usePegasus } from "../state/PegasusProvider";
 import { radius, spacing, text, usePalette } from "../theme";
-import { Button, Icon } from "../ui";
+import { Button, Icon, Spinner } from "../ui";
 
 /** First run: scan the QR code from Pegasus › Settings › Phone on the PC (or paste its link). */
 export function PairScreen() {
@@ -49,12 +49,14 @@ export function PairScreen() {
       style={{ backgroundColor: palette.background }}
     >
       <View style={styles.hero}>
-        <Icon
-          name="iphone.and.arrow.forward"
-          color={palette.textStrong}
-          size={40}
-          weight="regular"
-        />
+        <View style={[styles.mark, { backgroundColor: palette.primaryFill }]}>
+          <Icon
+            name="iphone.and.arrow.forward"
+            color={palette.onPrimary}
+            size={26}
+            weight="semibold"
+          />
+        </View>
         <Text accessibilityRole="header" style={[text.largeTitle, { color: palette.textStrong }]}>
           Pair with your PC
         </Text>
@@ -67,7 +69,7 @@ export function PairScreen() {
       <View
         style={[
           styles.camera,
-          { backgroundColor: palette.surface, borderColor: palette.borderDefault },
+          { backgroundColor: palette.surfaceElevated, borderColor: palette.borderDefault },
         ]}
       >
         {permission?.granted ? (
@@ -106,7 +108,7 @@ export function PairScreen() {
         )}
         {busy ? (
           <View style={[styles.busy, { backgroundColor: palette.scrim }]}>
-            <ActivityIndicator color={palette.onAccent} />
+            <Spinner color={palette.onAccent} size={18} />
           </View>
         ) : null}
       </View>
@@ -130,7 +132,11 @@ export function PairScreen() {
           style={[
             text.body,
             styles.input,
-            { color: palette.text, backgroundColor: palette.surface },
+            {
+              color: palette.textStrong,
+              backgroundColor: palette.surfaceElevated,
+              borderColor: palette.borderDefault,
+            },
           ]}
         />
         <Button
@@ -163,11 +169,19 @@ export function PairScreen() {
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: spacing.xl, gap: spacing.md },
-  hero: { gap: spacing.sm, marginBottom: spacing.sm },
+  hero: { gap: spacing.md, marginBottom: spacing.sm },
+  mark: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.float,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.xs,
+  },
   camera: {
     width: "100%",
     aspectRatio: 1,
-    borderRadius: radius.lg,
+    borderRadius: radius.composer + 6,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
     alignItems: "center",
@@ -182,6 +196,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.md,
     minHeight: 44,
   },

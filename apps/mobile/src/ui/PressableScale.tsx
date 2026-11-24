@@ -1,5 +1,11 @@
-import { useState, type ReactNode } from "react";
-import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
+import { useState, type ReactNode, type Ref } from "react";
+import {
+  Pressable,
+  type HostInstance,
+  type PressableProps,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -15,6 +21,7 @@ export interface PressableScaleProps extends Omit<PressableProps, "style" | "chi
   /** Drawn while pressed, over `style` (usually an overlay background). */
   readonly pressedStyle?: StyleProp<ViewStyle>;
   readonly children?: ReactNode;
+  readonly ref?: Ref<HostInstance>;
 }
 
 /**
@@ -27,6 +34,7 @@ export function PressableScale({
   children,
   onPressIn,
   onPressOut,
+  ref,
   ...rest
 }: PressableScaleProps) {
   const reduceMotion = useReducedMotion();
@@ -36,6 +44,7 @@ export function PressableScale({
   return (
     <AnimatedPressable
       {...rest}
+      ref={ref}
       onPressIn={(event) => {
         setPressed(true);
         if (!reduceMotion) {

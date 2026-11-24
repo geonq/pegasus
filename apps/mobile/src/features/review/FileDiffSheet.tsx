@@ -1,19 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { radius, spacing, type, usePalette } from "../../theme";
+import { maxFontScale, radius, spacing, text, usePalette, weight } from "../../theme";
+import { BarButton, Button, GlassCard, Icon, Layer, Spinner, TopBar } from "../../ui";
 import { DiffView } from "./DiffView";
-import { Button } from "./GitActionsSheet";
 import { errorMessage, type ReviewApi } from "./review-api";
 import {
   buildComment,
@@ -113,180 +103,178 @@ export function FileDiffSheet({
   const actions = file ? stageActionsFor(review.scope, file) : [];
 
   return (
-    <Modal
-      visible={file !== null}
-      animationType="slide"
-      presentationStyle="fullScreen"
-      onRequestClose={close}
-    >
+    <Layer visible={file !== null}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={[styles.sheet, { backgroundColor: palette.background, paddingTop: insets.top }]}
+        style={styles.sheet}
       >
         {file && parts ? (
           <>
-            <View style={[styles.header, { borderColor: palette.line }]}>
-              <View style={styles.headerText}>
-                <Text
-                  accessibilityRole="header"
-                  numberOfLines={1}
-                  style={[styles.title, { color: palette.text }]}
-                >
-                  {parts.name}
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  ellipsizeMode="head"
-                  style={[styles.sub, { color: palette.textMuted }]}
-                >
-                  {statusOf(file.status).label}
-                  {file.previousPath
-                    ? ` from ${file.previousPath}`
-                    : parts.folder
-                      ? ` · ${parts.folder}`
-                      : ""}
-                </Text>
-              </View>
-              <Pressable accessibilityRole="button" hitSlop={12} onPress={close}>
-                <Text style={[styles.link, { color: palette.accentText }]}>Close</Text>
-              </Pressable>
-            </View>
+            <TopBar
+              center={
+                <View accessibilityRole="header" accessible style={styles.title}>
+                  <Text
+                    maxFontSizeMultiplier={maxFontScale.chrome}
+                    numberOfLines={1}
+                    style={[text.headline, { color: palette.textStrong }]}
+                  >
+                    {parts.name}
+                  </Text>
+                  <Text
+                    ellipsizeMode="head"
+                    maxFontSizeMultiplier={maxFontScale.chrome}
+                    numberOfLines={1}
+                    style={[text.caption, { color: palette.textMuted }]}
+                  >
+                    {statusOf(file.status).label}
+                    {file.previousPath
+                      ? ` from ${file.previousPath}`
+                      : parts.folder
+                        ? ` · ${parts.folder}`
+                        : ""}
+                  </Text>
+                </View>
+              }
+              trailing={
+                <BarButton accessibilityLabel="Close" icon="xmark" onPress={close} tone="filled" />
+              }
+            />
             <View style={[styles.toolbar, { borderColor: palette.line }]}>
               <Button
-                label={file.reviewed ? "Reviewed ✓" : "Mark reviewed"}
-                primary={!file.reviewed}
                 disabled={busy}
+                label={file.reviewed ? "Reviewed" : "Mark reviewed"}
                 onPress={() => onToggleReviewed(file)}
+                style={styles.flex}
+                variant={file.reviewed ? "secondary" : "primary"}
               />
               {actions.map((action) => (
                 <Button
+                  disabled={busy}
                   key={action}
                   label={action === "stage" ? "Stage" : "Unstage"}
-                  disabled={busy}
                   onPress={() => onStage(file, action)}
+                  variant="secondary"
                 />
               ))}
             </View>
             {loadError ? (
-              <Text accessibilityRole="alert" style={[styles.message, { color: palette.danger }]}>
+              <Text
+                accessibilityRole="alert"
+                style={[text.subheadline, styles.message, { color: palette.dangerText }]}
+              >
                 {loadError}
               </Text>
             ) : result === null ? (
-              <ActivityIndicator color={palette.accent} style={styles.message} />
+              <View accessibilityLabel="Loading the diff" style={styles.message}>
+                <Spinner color={palette.textMuted} size={16} />
+              </View>
             ) : result.state !== "available" ? (
-              <Text accessibilityRole="alert" style={[styles.message, { color: palette.danger }]}>
+              <Text
+                accessibilityRole="alert"
+                style={[text.subheadline, styles.message, { color: palette.dangerText }]}
+              >
                 {result.message}
               </Text>
             ) : rows.length === 0 ? (
-              <Text style={[styles.message, { color: palette.textMuted }]}>
+              <Text style={[text.subheadline, styles.message, { color: palette.textMuted }]}>
                 {result.summary ?? "No line changes to show."}
               </Text>
             ) : (
               <DiffView
-                rows={rows}
-                palette={palette}
                 commented={commented}
                 onLongPressRow={(row, index) => {
                   setDraft("");
                   setComposing({ row, index });
                 }}
+                palette={palette}
+                rows={rows}
               />
             )}
             {composing ? (
-              <View
-                style={[
-                  styles.composer,
-                  {
-                    backgroundColor: palette.surface,
-                    borderColor: palette.line,
-                    paddingBottom: insets.bottom + spacing.sm,
-                  },
-                ]}
-              >
-                <Text numberOfLines={1} style={[styles.quote, { color: palette.textMuted }]}>
-                  Comment on line{" "}
-                  {composing.row.kind === "removed"
-                    ? composing.row.oldNumber
-                    : composing.row.newNumber}
-                  : {composing.row.text.trim()}
-                </Text>
-                <TextInput
-                  autoFocus
-                  multiline
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder="What should the agent change here?"
-                  placeholderTextColor={palette.textMuted}
-                  style={[
-                    styles.input,
-                    {
-                      color: palette.text,
-                      backgroundColor: palette.background,
-                      borderColor: palette.line,
-                    },
-                  ]}
-                />
-                <View style={styles.row}>
-                  <Button label="Cancel" onPress={() => setComposing(null)} />
-                  <Button
-                    primary
-                    label="Add comment"
-                    disabled={!draft.trim()}
-                    onPress={saveComment}
+              <View style={[styles.dock, { paddingBottom: insets.bottom + spacing.sm }]}>
+                <GlassCard padded={false} style={styles.composer}>
+                  <Text
+                    numberOfLines={1}
+                    style={[text.caption, styles.quote, { color: palette.textMuted }]}
+                  >
+                    Line{" "}
+                    {composing.row.kind === "removed"
+                      ? composing.row.oldNumber
+                      : composing.row.newNumber}
+                    : {composing.row.text.trim()}
+                  </Text>
+                  <TextInput
+                    accessibilityLabel="Comment"
+                    autoFocus
+                    multiline
+                    onChangeText={setDraft}
+                    placeholder="What should the agent change here?"
+                    placeholderTextColor={palette.textSoft}
+                    style={[text.body, styles.input, { color: palette.textStrong }]}
+                    value={draft}
                   />
-                </View>
+                  <View style={styles.row}>
+                    <Button
+                      label="Cancel"
+                      onPress={() => setComposing(null)}
+                      style={styles.flex}
+                      variant="secondary"
+                    />
+                    <Button
+                      disabled={!draft.trim()}
+                      label="Add comment"
+                      onPress={saveComment}
+                      style={styles.flex}
+                    />
+                  </View>
+                </GlassCard>
               </View>
             ) : (
-              <Text
+              <View
                 style={[
                   styles.hint,
-                  { color: palette.textMuted, paddingBottom: insets.bottom + spacing.sm },
+                  { borderColor: palette.line, paddingBottom: insets.bottom + spacing.sm },
                 ]}
               >
-                Long-press a line to comment on it.
-              </Text>
+                <Icon color={palette.textSoft} name="hand.tap" size={12} />
+                <Text style={[text.caption, { color: palette.textMuted }]}>
+                  Long-press a line to comment on it.
+                </Text>
+              </View>
             )}
           </>
         ) : null}
       </KeyboardAvoidingView>
-    </Modal>
+    </Layer>
   );
 }
 
 const styles = StyleSheet.create({
   sheet: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerText: { flex: 1, gap: 2 },
-  title: { fontSize: type.title, fontWeight: "600" },
-  sub: { fontSize: type.caption },
-  link: { fontSize: type.body, fontWeight: "600" },
+  flex: { flex: 1, minWidth: 0 },
+  title: { alignItems: "center", maxWidth: "100%" },
   toolbar: {
     flexDirection: "row",
     gap: spacing.sm,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  message: { padding: spacing.lg, fontSize: 15, lineHeight: 21, alignSelf: "flex-start" },
-  composer: { gap: spacing.sm, padding: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
+  message: { padding: spacing.xl, alignItems: "center" },
+  dock: { paddingHorizontal: spacing.gutter, paddingTop: spacing.sm },
+  composer: { gap: spacing.sm, padding: spacing.md, borderRadius: radius.composer },
   quote: {
-    fontSize: type.caption,
     fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }),
+    fontWeight: weight.medium,
   },
-  input: {
-    minHeight: 64,
-    maxHeight: 140,
-    fontSize: type.body,
-    padding: spacing.sm,
-    borderRadius: radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
+  input: { minHeight: 64, maxHeight: 140, paddingVertical: spacing.xs },
   row: { flexDirection: "row", gap: spacing.sm },
-  hint: { fontSize: type.caption, textAlign: "center", paddingTop: spacing.sm },
+  hint: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm2,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
 });

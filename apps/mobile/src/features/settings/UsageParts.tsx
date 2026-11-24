@@ -57,7 +57,7 @@ export function AccountCard({
 }) {
   const palette = usePalette();
   return (
-    <Surface>
+    <Surface tone="float" style={{ gap: spacing.md }}>
       <Text style={[text.headline, { color: palette.textStrong }]}>{account.name}</Text>
       {account.windows.length === 0 ? (
         <Text style={[text.footnote, { color: palette.textMuted }]}>

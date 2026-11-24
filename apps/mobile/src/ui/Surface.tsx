@@ -1,7 +1,6 @@
-import { BlurView } from "expo-blur";
 import type { ReactNode } from "react";
-import { AccessibilityInfo, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
-import { useEffect, useState } from "react";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { GlassFill } from "./Glass";
 import { elevation, material, radius, spacing, usePalette, useScheme } from "../theme";
 
 export interface SurfaceProps {
@@ -32,7 +31,8 @@ export function Surface({ tone = "muted", padded = true, style, children }: Surf
             ...elevation(scheme, "card"),
           }
         : {
-            backgroundColor: palette.sidebar,
+            // Phone cards share the list groups' fill, so every card on a screen reads as one kind.
+            backgroundColor: palette.surfaceElevated,
             borderRadius: radius.float,
             borderWidth: StyleSheet.hairlineWidth,
             borderColor: palette.borderDefault,
@@ -42,17 +42,13 @@ export function Surface({ tone = "muted", padded = true, style, children }: Surf
 }
 
 /**
- * The desktop's one glass for anything floating over content (polish.css: --surface-float over
- * blur + saturate): a system material blur under the translucent float fill. With Reduce
- * Transparency on it is fully opaque, like the desktop's prefers-reduced-transparency rule.
- * The blur sits in its own clipped layer so the card's shadow is not clipped with it.
+ * A card on the desktop's one glass, for anything floating over content (toasts, the composer,
+ * floating pills). The blur layer is clipped on its own so the card's shadow is not.
  */
 export function GlassCard({ padded = true, style, children }: Omit<SurfaceProps, "tone">) {
-  const palette = usePalette();
   const scheme = useScheme();
-  const reduceTransparency = useReduceTransparency();
   const flat = StyleSheet.flatten(style) ?? {};
-  const corner = flat.borderRadius ?? radius.float;
+  const corner = typeof flat.borderRadius === "number" ? flat.borderRadius : radius.float;
   return (
     <View
       style={[
@@ -63,46 +59,11 @@ export function GlassCard({ padded = true, style, children }: Omit<SurfaceProps,
         style,
       ]}
     >
-      <View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, { borderRadius: corner, overflow: "hidden" }]}
-      >
-        {reduceTransparency ? (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: palette.surfaceElevated }]} />
-        ) : (
-          <>
-            <BlurView
-              intensity={material.blur}
-              style={StyleSheet.absoluteFill}
-              tint={scheme === "dark" ? "systemThinMaterialDark" : "systemThinMaterialLight"}
-            />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: material[scheme].fill }]} />
-          </>
-        )}
-      </View>
+      <GlassFill radius={corner} />
       {children}
     </View>
   );
 }
-
-export function useReduceTransparency(): boolean {
-  const [reduce, setReduce] = useState(false);
-  useEffect(() => {
-    let live = true;
-    AccessibilityInfo.isReduceTransparencyEnabled()
-      .then((value) => {
-        if (live) setReduce(value);
-      })
-      .catch(() => undefined);
-    const subscription = AccessibilityInfo.addEventListener("reduceTransparencyChanged", setReduce);
-    return () => {
-      live = false;
-      subscription.remove();
-    };
-  }, []);
-  return reduce;
-}
-
 const styles = StyleSheet.create({
   // 16 pt sides, like ListRow, so card text lines up with SectionHeader and list labels.
   padded: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg, gap: spacing.sm },

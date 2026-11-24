@@ -88,35 +88,6 @@ export function Skeleton({
   );
 }
 
-/** The title row of a sheet: a grabber, a title and an optional trailing action (e.g. Done). */
-export function SheetHeader({
-  title,
-  subtitle,
-  trailing,
-}: {
-  readonly title: string;
-  readonly subtitle?: string;
-  readonly trailing?: ReactNode;
-}) {
-  const palette = usePalette();
-  return (
-    <View style={styles.sheet}>
-      <View style={[styles.grabber, { backgroundColor: palette.lineStrong }]} />
-      <View style={styles.sheetRow}>
-        <View style={styles.sheetTitles}>
-          <Text accessibilityRole="header" style={[text.headline, { color: palette.textStrong }]}>
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text style={[text.footnote, { color: palette.textMuted }]}>{subtitle}</Text>
-          ) : null}
-        </View>
-        {trailing}
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   empty: {
     alignItems: "center",
@@ -127,13 +98,4 @@ const styles = StyleSheet.create({
   center: { textAlign: "center" },
   icon: { marginBottom: spacing.xs },
   action: { marginTop: spacing.sm },
-  sheet: {
-    paddingTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    gap: spacing.md,
-  },
-  grabber: { alignSelf: "center", width: 36, height: 5, borderRadius: radius.pill },
-  sheetRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  sheetTitles: { flex: 1, gap: 2 },
 });

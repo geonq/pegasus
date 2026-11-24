@@ -1,8 +1,8 @@
 import * as Haptics from "expo-haptics";
 import { useMemo, useState } from "react";
-import { Platform, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { TranscriptTool } from "../../api/types";
-import { Button, PressableScale } from "../../ui";
+import { Button, Icon, PressableScale, Spinner, Switch } from "../../ui";
 import {
   hitSize,
   maxFontScale,
@@ -54,12 +54,7 @@ export function GenerativeUiCard({
 
   if (!spec) {
     // A spec the phone cannot read: show it as the plain step it is.
-    return (
-      <Text style={[text.footnote, { color: palette.textMuted }]}>
-        {tool.status === "error" ? "✕ " : "✓ "}
-        {tool.label}
-      </Text>
-    );
+    return <Text style={[text.footnote, { color: palette.textMuted }]}>{tool.label}</Text>;
   }
 
   const open = state.kind === "open";
@@ -254,14 +249,19 @@ function Block({
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    text.subheadline,
-                    { color: selected ? palette.accentText : palette.textMuted },
-                  ]}
-                >
-                  {block.multiple ? (selected ? "☑" : "☐") : selected ? "◉" : "○"}
-                </Text>
+                <Icon
+                  color={selected ? palette.accentText : palette.textSoft}
+                  name={
+                    block.multiple
+                      ? selected
+                        ? "checkmark.square.fill"
+                        : "square"
+                      : selected
+                        ? "largecircle.fill.circle"
+                        : "circle"
+                  }
+                  size={18}
+                />
                 <View style={styles.flex}>
                   <Text style={[text.subheadline, { color: palette.text }]}>{option.label}</Text>
                   {option.description ? (
@@ -305,7 +305,6 @@ function Block({
                     accessibilityLabel={entry.label}
                     disabled={disabled}
                     onValueChange={(next) => onChange(entry.id, next)}
-                    trackColor={{ true: palette.accent, false: palette.lineStrong }}
                     value={draft[entry.id] === true}
                   />
                 </View>
@@ -481,22 +480,38 @@ function CheckGlyph({
   readonly status: ChecklistStatus;
   readonly palette: Palette;
 }) {
-  const [glyph, color, label] =
+  const label =
     status === "done"
-      ? ["✓", palette.successText, "Done"]
+      ? "Done"
       : status === "running"
-        ? ["●", palette.accentText, "In progress"]
+        ? "In progress"
         : status === "failed"
-          ? ["✕", palette.dangerText, "Failed"]
-          : ["○", palette.textSoft, "Pending"];
+          ? "Failed"
+          : "Pending";
   return (
-    <Text
-      accessibilityLabel={label}
-      maxFontSizeMultiplier={maxFontScale.chrome}
-      style={[text.subheadline, styles.glyph, { color }]}
-    >
-      {glyph}
-    </Text>
+    <View accessible accessibilityLabel={label} style={styles.glyph}>
+      {status === "running" ? (
+        <Spinner color={palette.accentText} size={13} />
+      ) : (
+        <Icon
+          color={
+            status === "done"
+              ? palette.successText
+              : status === "failed"
+                ? palette.dangerText
+                : palette.textSoft
+          }
+          name={
+            status === "done"
+              ? "checkmark.circle.fill"
+              : status === "failed"
+                ? "xmark.circle.fill"
+                : "circle"
+          }
+          size={16}
+        />
+      )}
+    </View>
   );
 }
 
@@ -520,7 +535,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   semibold: { fontWeight: "600" },
   checkRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
-  glyph: { width: 20, textAlign: "center" },
+  glyph: { width: 20, height: 20, alignItems: "center", justifyContent: "center" },
   option: {
     minHeight: hitSize.min,
     flexDirection: "row",

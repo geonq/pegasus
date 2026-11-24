@@ -14,10 +14,23 @@ export { ListGroup, ListRow, SectionHeader, type ListRowProps } from "./List";
 export { Button, IconButton, type ButtonProps } from "./Button";
 /** Badge: a tinted status label. Chip: a selectable pill. */
 export { Badge, Chip, type Tone } from "./Chip";
-/** EmptyState, loading Skeleton blocks and the SheetHeader of a bottom sheet. */
-export { EmptyState, SheetHeader, Skeleton } from "./Feedback";
+/** EmptyState and loading Skeleton blocks. */
+export { EmptyState, Skeleton } from "./Feedback";
 /** An SF Symbol (expo-symbols), decorative, scaled with Dynamic Type. */
 export { Icon, type IconName } from "./Icon";
-/** The system menu (SwiftUI Menu / ContextMenu via @expo/ui) built from sections of items. */
-export { NativeMenu } from "./NativeMenu";
+/** The Pegasus popover menu, bottom sheet, confirm dialog and toast host (useOverlay). */
+export { OverlayProvider, useOverlay, type ConfirmOptions, type ToastOptions } from "./Overlay";
+/** A control that opens the Pegasus popover menu next to itself. */
+export { MenuButton } from "./MenuButton";
 export type { MenuItem, MenuSection } from "./menu-model";
+/** Switch, SegmentedControl, the sidebar StatusDot and the running Spinner. */
+export { SegmentedControl, Spinner, StatusDot, Switch, type DotStatus } from "./Controls";
+/** A row with custom swipe actions (gesture-handler + reanimated). */
+export { SwipeRow, type SwipeAction } from "./SwipeRow";
+/** The custom top bar that replaces the navigation bar, its buttons and the page title. */
+export { BarButton, PageTitle, TopBar } from "./TopBar";
+/** The shared floating material as a fill layer. */
+export { GlassFill, useReduceTransparency } from "./Glass";
+
+/** A full-screen page sliding up over everything, in place of the system Modal. */
+export { Layer } from "./Layer";

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { photoName } from "../features/chat/photo-name.ts";
 import { homeItems } from "../features/home/home-items.ts";
-import { menuActions, menuItemById, type MenuSection } from "../ui/menu-model.ts";
 import { buildHome } from "./chats.ts";
 import { initialLiveState, reduceLive } from "./live-state.ts";
 import { TranscriptCache, transcriptFor } from "./transcript-cache.ts";
@@ -122,39 +121,6 @@ test("status sections carry an icon and a count; project rows do not name their 
   );
   // A search with no hits has no sections at all, so the empty state can say so.
   assert.deepEqual(homeItems(buildHome(stateWith(1, []), "nothing")), []);
-});
-
-test("menus: one untitled section stays flat, several become inline groups; disabled items do not fire", () => {
-  let fired = "";
-  const sections: MenuSection[] = [
-    {
-      items: [
-        { id: "pin", label: "Pin", icon: "pin", onPress: () => (fired = "pin") },
-        { id: "off", label: "Off", disabled: true, onPress: () => (fired = "off") },
-      ],
-    },
-    {
-      title: "Danger",
-      items: [{ id: "archive", label: "Archive", destructive: true, onPress: () => undefined }],
-    },
-    { items: [] },
-  ];
-  const tree = menuActions(sections);
-  assert.equal(tree.length, 2);
-  assert.equal(tree[0]?.displayInline, true);
-  assert.deepEqual(tree[1]?.subactions?.[0]?.attributes, { destructive: true });
-  assert.deepEqual(
-    menuActions([sections[0] as MenuSection]).map((action) => action.id),
-    ["pin", "off"],
-  );
-  menuItemById(sections, "pin")?.onPress();
-  assert.equal(fired, "pin");
-  assert.equal(menuItemById(sections, "off"), undefined);
-  assert.equal(menuItemById(sections, "missing"), undefined);
-  const picker = menuActions([
-    { items: [{ id: "a", label: "A", selected: true, onPress: () => undefined }] },
-  ]);
-  assert.equal(picker[0]?.state, "on");
 });
 
 test("photo names keep the library name as .jpg, else the time, numbered within one pick", () => {

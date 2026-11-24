@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { ActivityIndicator, StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
+import { StyleSheet, Text, type StyleProp, type ViewStyle } from "react-native";
+import { Spinner } from "./Controls";
 import { hitSize, radius, spacing, text, usePalette, type Palette } from "../theme";
 import { PressableScale } from "./PressableScale";
 
@@ -65,7 +66,7 @@ export function Button({
       style={[styles.button, { backgroundColor: fill, borderColor: border }, style]}
       pressedStyle={styles.pressed}
     >
-      {busy ? <ActivityIndicator color={ink} /> : null}
+      {busy ? <Spinner color={ink} size={12} /> : null}
       <Text style={[text.headline, { color: ink }]}>{label}</Text>
     </PressableScale>
   );

@@ -61,7 +61,8 @@ export function ApprovalCard({
         styles.card,
         {
           backgroundColor: palette.surfaceElevated,
-          borderColor: confirm ? palette.warning : palette.accent,
+          borderColor: palette.borderDefault,
+          borderLeftColor: confirm ? palette.warning : palette.accent,
         },
       ]}
     >
@@ -215,7 +216,8 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
     borderRadius: radius.float,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderLeftWidth: 3,
   },
   head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   badge: { paddingHorizontal: spacing.sm2, paddingVertical: spacing.xxs, borderRadius: radius.sm2 },

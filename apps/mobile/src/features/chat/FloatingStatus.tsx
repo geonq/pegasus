@@ -1,18 +1,8 @@
 import { useEffect, useState } from "react";
 import { formatDuration } from "../../api/worklog";
 import { StyleSheet, Text, View } from "react-native";
-import Animated, {
-  cancelAnimation,
-  FadeIn,
-  FadeOut,
-  ReduceMotion,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
-import { GlassCard, Icon, PressableScale } from "../../ui";
+import Animated, { FadeIn, FadeOut, ReduceMotion } from "react-native-reanimated";
+import { GlassCard, Icon, PressableScale, Spinner } from "../../ui";
 import { hitSize, maxFontScale, motion, radius, spacing, text, usePalette } from "../../theme";
 
 const ENTER = FadeIn.duration(motion.slow).reduceMotion(ReduceMotion.System);
@@ -56,7 +46,7 @@ export function FloatingStatus({
               accessible
               style={styles.pillInner}
             >
-              <PulseDot />
+              <Spinner size={12} />
               <Text
                 maxFontSizeMultiplier={maxFontScale.chrome}
                 numberOfLines={1}
@@ -92,24 +82,6 @@ export function FloatingStatus({
   );
 }
 
-/** Pulses while working; with Reduce Motion it holds still (the label already says Working). */
-function PulseDot() {
-  const palette = usePalette();
-  const reduceMotion = useReducedMotion();
-  const opacity = useSharedValue(1);
-  useEffect(() => {
-    if (reduceMotion) {
-      cancelAnimation(opacity);
-      opacity.value = 1;
-      return;
-    }
-    opacity.value = withRepeat(withTiming(0.3, { duration: 800 }), -1, true);
-    return () => cancelAnimation(opacity);
-  }, [opacity, reduceMotion]);
-  const animated = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return <Animated.View style={[styles.dot, { backgroundColor: palette.accent }, animated]} />;
-}
-
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
@@ -129,7 +101,6 @@ const styles = StyleSheet.create({
   },
   flexText: { flexShrink: 1 },
   semibold: { fontWeight: "600" },
-  dot: { width: 8, height: 8, borderRadius: radius.pill },
   jump: { borderRadius: radius.pill },
   jumpInner: {
     width: hitSize.min,

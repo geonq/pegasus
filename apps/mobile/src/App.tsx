@@ -1,9 +1,10 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { ActivityIndicator, View, useColorScheme } from "react-native";
+import { View, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { DemoDirector } from "./demo/DemoDirector";
 import NewChatScreen from "./features/home/NewChatScreen";
 import ReviewScreen from "./features/review/ReviewScreen";
 import SettingsScreen from "./features/settings/SettingsScreen";
@@ -15,6 +16,7 @@ import { PairScreen } from "./screens/PairScreen";
 import { UsageScreen } from "./screens/UsageScreen";
 import { PegasusProvider, usePegasus } from "./state/PegasusProvider";
 import { usePalette } from "./theme";
+import { OverlayProvider, Spinner } from "./ui";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -46,7 +48,7 @@ function Root() {
           backgroundColor: palette.background,
         }}
       >
-        <ActivityIndicator color={palette.textMuted} />
+        <Spinner size={18} color={palette.textMuted} />
       </View>
     );
   }
@@ -55,65 +57,34 @@ function Root() {
     <NavigationContainer theme={theme}>
       <Stack.Navigator
         screenOptions={{
-          // The system bar on the screen's background, no hairline, and a back chevron without the
-          // previous screen's (often long) title.
-          headerTransparent: false,
-          headerShadowVisible: false,
-          headerBackButtonDisplayMode: "minimal",
-          headerStyle: { backgroundColor: palette.background },
-          headerTintColor: palette.accentText,
-          headerTitleStyle: { color: palette.textStrong },
-          headerLargeTitleStyle: { color: palette.textStrong },
+          // Every screen draws the Pegasus TopBar itself; the stack keeps the push and the edge
+          // swipe back.
+          headerShown: false,
           contentStyle: { backgroundColor: palette.background },
         }}
       >
         {pairing ? (
           <>
-            <Stack.Screen
-              name="Chats"
-              component={ChatsScreen}
-              options={{
-                title: pairing.hostName,
-                headerLargeTitleEnabled: true,
-                headerLargeTitleShadowVisible: false,
-                headerLargeStyle: { backgroundColor: palette.background },
-              }}
-            />
-            <Stack.Screen name="Chat" component={ChatScreen} options={{ title: "" }} />
+            <Stack.Screen name="Chats" component={ChatsScreen} />
+            <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen
               name="NewChat"
               component={NewChatScreen}
-              options={{ title: "New chat", presentation: "modal" }}
+              options={{ presentation: "modal" }}
             />
-            <Stack.Screen name="Review" component={ReviewScreen} options={{ title: "Review" }} />
-            <Stack.Screen
-              name="Settings"
-              component={SettingsScreen}
-              options={{
-                title: "Settings",
-                headerLargeTitleEnabled: true,
-                headerLargeTitleShadowVisible: false,
-                headerLargeStyle: { backgroundColor: palette.background },
-              }}
-            />
+            <Stack.Screen name="Review" component={ReviewScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen
               name="Usage"
               component={UsageScreen}
-              options={{
-                title: "Usage",
-                presentation: "formSheet",
-                sheetAllowedDetents: [0.6, 1],
-                // The screen's SheetHeader draws the grabber with its title.
-                sheetGrabberVisible: false,
-                sheetCornerRadius: 18,
-                headerShown: false,
-              }}
+              options={{ presentation: "modal" }}
             />
           </>
         ) : (
-          <Stack.Screen name="Pair" component={PairScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Pair" component={PairScreen} />
         )}
       </Stack.Navigator>
+      <DemoDirector />
     </NavigationContainer>
   );
 }
@@ -124,8 +95,10 @@ export default function App() {
       <SafeAreaProvider>
         <KeyboardProvider>
           <PegasusProvider>
-            <Root />
-            <UpdatePrompt />
+            <OverlayProvider>
+              <Root />
+              <UpdatePrompt />
+            </OverlayProvider>
           </PegasusProvider>
         </KeyboardProvider>
       </SafeAreaProvider>

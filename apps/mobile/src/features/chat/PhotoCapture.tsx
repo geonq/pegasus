@@ -1,9 +1,9 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { useRef, useState } from "react";
-import { ActivityIndicator, Linking, Modal, StyleSheet, Text, View } from "react-native";
+import { Linking, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Button, PressableScale } from "../../ui";
+import { Button, Layer, PressableScale, Spinner } from "../../ui";
 import { hitSize, palettes, radius, spacing, text, usePalette } from "../../theme";
 
 // The viewfinder is dark in both schemes, like the system camera.
@@ -58,15 +58,12 @@ export function PhotoCapture({
   };
 
   return (
-    <Modal
-      animationType="slide"
-      onRequestClose={onClose}
-      presentationStyle="fullScreen"
-      visible={visible}
-    >
+    <Layer dark visible={visible}>
       <View style={[styles.screen, { backgroundColor: chrome.window, paddingTop: insets.top }]}>
         {!permission ? (
-          <ActivityIndicator color={chrome.textStrong} style={styles.flex} />
+          <View style={[styles.flex, styles.center]}>
+            <Spinner color={chrome.textStrong} size={16} />
+          </View>
         ) : !permission.granted ? (
           <View style={[styles.flex, styles.center, { backgroundColor: palette.background }]}>
             <Text style={[text.headline, styles.centerText, { color: palette.textStrong }]}>
@@ -127,7 +124,7 @@ export function PhotoCapture({
           </>
         )}
       </View>
-    </Modal>
+    </Layer>
   );
 }
 

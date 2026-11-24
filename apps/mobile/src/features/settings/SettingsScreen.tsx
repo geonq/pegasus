@@ -1,6 +1,8 @@
 import Constants from "expo-constants";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSharedValue } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PegasusClient } from "../../api/client";
 import { accountsByFullest } from "../../api/usage";
 import type { AccountLimits } from "../../api/types";
@@ -12,10 +14,12 @@ import {
   Icon,
   ListGroup,
   ListRow,
-  NativeMenu,
+  PageTitle,
   SectionHeader,
   Skeleton,
   Surface,
+  TopBar,
+  useOverlay,
   type Tone,
 } from "../../ui";
 import {
@@ -45,6 +49,9 @@ function message(reason: unknown): string {
 export default function SettingsScreen() {
   const palette = usePalette();
   const { pairing, status, state, forget } = usePegasus();
+  const overlay = useOverlay();
+  const insets = useSafeAreaInsets();
+  const scrollY = useSharedValue(0);
   const client = useMemo(() => (pairing ? new PegasusClient(pairing) : null), [pairing]);
   const workspaceId = settingsWorkspaceId(state);
   const [loadedRuntime, setLoadedRuntime] = useState<RuntimeSnapshot | undefined>(undefined);
@@ -154,14 +161,16 @@ export default function SettingsScreen() {
   ];
 
   const unpair = () =>
-    Alert.alert(
-      "Unpair this phone?",
-      `It stops following ${pairing?.hostName ?? "your PC"}. To use it again, scan the pairing code on the PC.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Unpair", style: "destructive", onPress: () => void forget() },
-      ],
-    );
+    void overlay
+      .confirm({
+        title: "Unpair this phone?",
+        message: `It stops following ${pairing?.hostName ?? "your PC"}. To use it again, scan the pairing code on the PC.`,
+        confirmLabel: "Unpair",
+        destructive: true,
+      })
+      .then((ok) => {
+        if (ok) void forget();
+      });
 
   const connection: { label: string; tone: Tone; detail?: string } =
     status.state === "live"
@@ -180,129 +189,148 @@ export default function SettingsScreen() {
   const appVersion = Constants.expoConfig?.version ?? "unknown";
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      style={{ backgroundColor: palette.background }}
-      contentContainerStyle={styles.content}
-    >
-      <ListGroup title="Your PC" {...(connection.detail ? { footer: connection.detail } : {})}>
-        <ListRow
-          label={pairing?.hostName ?? "Not paired"}
-          leading={<Icon name="desktopcomputer" color={palette.textMuted} />}
-          trailing={<Badge label={connection.label} tone={connection.tone} />}
-        />
-        <ListRow label="Address" detail={pairing?.url ?? "—"} />
-        {pcVersion ? <ListRow label="Pegasus on the PC" detail={pcVersion} /> : null}
-      </ListGroup>
-
-      <ListGroup
-        title="New chats"
-        footer={modelError ?? "What the PC starts new chats with. The PC's Settings change too."}
+    <View style={[styles.screen, { backgroundColor: palette.background }]}>
+      <TopBar back scrollY={scrollY} />
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+        onScroll={(event) => {
+          scrollY.value = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
       >
-        {runtime && available.length > 0 && !saving ? (
-          <NativeMenu sections={modelMenu} title="Default model">
+        <PageTitle title="Settings" />
+        <ListGroup title="Your PC" {...(connection.detail ? { footer: connection.detail } : {})}>
+          <ListRow
+            label={pairing?.hostName ?? "Not paired"}
+            leading={<Icon name="desktopcomputer" color={palette.textMuted} />}
+            trailing={<Badge label={connection.label} tone={connection.tone} />}
+          />
+          <ListRow
+            label="Address"
+            detail={pairing?.url ?? "—"}
+            leading={<Icon name="network" color={palette.textMuted} />}
+          />
+          {pcVersion ? (
+            <ListRow
+              label="Pegasus on the PC"
+              detail={pcVersion}
+              leading={<Icon name="shippingbox" color={palette.textMuted} />}
+            />
+          ) : null}
+        </ListGroup>
+
+        <ListGroup
+          title="New chats"
+          footer={modelError ?? "What the PC starts new chats with. The PC's Settings change too."}
+        >
+          {runtime && available.length > 0 && !saving ? (
             <ListRow
               label="Default model"
               detail={current?.label ?? "Not set"}
-              accessory="menu"
               leading={<Icon name="cpu" color={palette.textMuted} />}
-            />
-          </NativeMenu>
-        ) : (
-          <ListRow
-            label="Default model"
-            detail={saving ? "Saving…" : runtime ? "No models signed in" : "Loading…"}
-            disabled
-            leading={<Icon name="cpu" color={palette.textMuted} />}
-          />
-        )}
-        {levels.length > 0 ? (
-          saving ? (
-            <ListRow
-              label="Thinking level"
-              detail="Saving…"
-              disabled
-              leading={<Icon name="brain" color={palette.textMuted} />}
+              menu={modelMenu}
+              menuTitle="Default model"
             />
           ) : (
-            <NativeMenu sections={levelMenu} title="Thinking level">
+            <ListRow
+              label="Default model"
+              detail={saving ? "Saving…" : runtime ? "No models signed in" : "Loading…"}
+              disabled
+              leading={<Icon name="cpu" color={palette.textMuted} />}
+            />
+          )}
+          {levels.length > 0 ? (
+            saving ? (
+              <ListRow
+                label="Thinking level"
+                detail="Saving…"
+                disabled
+                leading={<Icon name="brain" color={palette.textMuted} />}
+              />
+            ) : (
               <ListRow
                 label="Thinking level"
                 detail={currentLevel ? thinkingLabel(currentLevel) : "Model default"}
-                accessory="menu"
                 leading={<Icon name="brain" color={palette.textMuted} />}
+                menu={levelMenu}
+                menuTitle="Thinking level"
               />
-            </NativeMenu>
-          )
+            )
+          ) : null}
+        </ListGroup>
+
+        <View style={styles.block}>
+          <SectionHeader title="Plan limits" />
+          {usageError ? (
+            <Text
+              accessibilityRole="alert"
+              style={[text.subheadline, styles.inset, { color: palette.dangerText }]}
+            >
+              {usageError}
+            </Text>
+          ) : accounts === null ? (
+            <Surface tone="float">
+              <View accessible accessibilityLabel="Loading plan limits" style={styles.skeleton}>
+                <Skeleton width="40%" height={17} />
+                <Skeleton height={6} />
+              </View>
+            </Surface>
+          ) : accounts.length === 0 ? (
+            <Text style={[text.subheadline, styles.inset, { color: palette.textMuted }]}>
+              No signed-in account reports plan limits.
+            </Text>
+          ) : (
+            accounts.map((account) => <AccountCard key={account.id} account={account} now={now} />)
+          )}
+        </View>
+
+        {report ? (
+          <ListGroup title="All chats on the PC">
+            <ListRow label="Tokens" detail={compactCount(totalTokens(report.totals))} />
+            <ListRow label="Chats" detail={String(report.sessions)} />
+            {report.totals.apiCost !== undefined ? (
+              <ListRow label="At API prices" detail={`$${report.totals.apiCost.toFixed(2)}`} />
+            ) : null}
+            {report.models[0] ? (
+              <ListRow label="Most used model" detail={report.models[0].label} />
+            ) : null}
+          </ListGroup>
         ) : null}
-      </ListGroup>
 
-      <View style={styles.block}>
-        <SectionHeader title="Plan limits" />
-        {usageError ? (
-          <Text
-            accessibilityRole="alert"
-            style={[text.subheadline, styles.inset, { color: palette.dangerText }]}
-          >
-            {usageError}
-          </Text>
-        ) : accounts === null ? (
-          <Surface>
-            <View accessible accessibilityLabel="Loading plan limits" style={styles.skeleton}>
-              <Skeleton width="40%" height={17} />
-              <Skeleton height={6} />
-            </View>
-          </Surface>
-        ) : accounts.length === 0 ? (
-          <Text style={[text.subheadline, styles.inset, { color: palette.textMuted }]}>
-            No signed-in account reports plan limits.
-          </Text>
-        ) : (
-          accounts.map((account) => <AccountCard key={account.id} account={account} now={now} />)
-        )}
-      </View>
+        {signedInSlots.length > 0 ? (
+          <ListGroup title="Claude sign-ins">
+            {signedInSlots.map((slot) => (
+              <ListRow
+                key={slot.slot}
+                label={slot.name ?? `Slot ${slot.slot}`}
+                {...(slot.plan ? { trailing: <Badge label={slot.plan} /> } : {})}
+              />
+            ))}
+          </ListGroup>
+        ) : null}
 
-      {report ? (
-        <ListGroup title="All chats on the PC">
-          <ListRow label="Tokens" detail={compactCount(totalTokens(report.totals))} />
-          <ListRow label="Chats" detail={String(report.sessions)} />
-          {report.totals.apiCost !== undefined ? (
-            <ListRow label="At API prices" detail={`$${report.totals.apiCost.toFixed(2)}`} />
-          ) : null}
-          {report.models[0] ? (
-            <ListRow label="Most used model" detail={report.models[0].label} />
-          ) : null}
+        <ListGroup title="About">
+          <ListRow
+            label="Pegasus for iPhone"
+            detail={appVersion}
+            leading={<Icon name="iphone" color={palette.textMuted} />}
+          />
         </ListGroup>
-      ) : null}
 
-      {signedInSlots.length > 0 ? (
-        <ListGroup title="Claude sign-ins">
-          {signedInSlots.map((slot) => (
-            <ListRow
-              key={slot.slot}
-              label={slot.name ?? `Slot ${slot.slot}`}
-              {...(slot.plan ? { trailing: <Badge label={slot.plan} /> } : {})}
-            />
-          ))}
-        </ListGroup>
-      ) : null}
-
-      <ListGroup title="About">
-        <ListRow label="Pegasus for iPhone" detail={appVersion} />
-      </ListGroup>
-
-      <Button
-        label="Unpair this phone"
-        variant="destructive"
-        onPress={unpair}
-        disabled={!pairing}
-      />
-    </ScrollView>
+        <Button
+          label="Unpair this phone"
+          variant="destructive"
+          onPress={unpair}
+          disabled={!pairing}
+        />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing.lg, gap: spacing.xl, paddingBottom: spacing.xxl },
+  screen: { flex: 1 },
+  content: { paddingHorizontal: spacing.md, gap: spacing.xl },
   block: { gap: spacing.sm },
   inset: { paddingHorizontal: spacing.lg },
   skeleton: { gap: spacing.sm },

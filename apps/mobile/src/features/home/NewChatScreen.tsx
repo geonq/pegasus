@@ -1,13 +1,22 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { projectsOf } from "../../api/chats";
 import type { RootStackParamList } from "../../navigation";
 import { usePegasus } from "../../state/PegasusProvider";
-import { radius, spacing, text, usePalette } from "../../theme";
-import { EmptyState, Icon, ListGroup, ListRow, NativeMenu, type MenuSection } from "../../ui";
+import { hitSize, maxFontScale, radius, spacing, text, usePalette, weight } from "../../theme";
+import {
+  EmptyState,
+  Icon,
+  ListGroup,
+  ListRow,
+  PressableScale,
+  Spinner,
+  TopBar,
+  type MenuSection,
+} from "../../ui";
 import { newChatRuntime, thinkingOptions, type NewChatModel } from "./new-chat";
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -25,8 +34,8 @@ const sameModel = (a: NewChatModel | undefined, b: NewChatModel | undefined) =>
 
 /**
  * Starts a chat on the PC: the message first (it has the focus), then project, model and effort
- * as native picker menus (the project's defaults otherwise). Start sits in the sheet's bar, like
- * Mail's Send. `startThread` opens the chat in this phone's view; the chat screen replaces this.
+ * from project chips and Pegasus picker menus (the project's defaults otherwise). Start sits in the
+ * top bar as the one ink button. `startThread` opens the chat in this phone's view; the chat screen replaces this.
  */
 export default function NewChatScreen({
   navigation,
@@ -78,43 +87,6 @@ export default function NewChatScreen({
       });
   };
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      unstable_headerLeftItems: () => [
-        {
-          type: "button",
-          label: "Cancel",
-          onPress: () => navigation.goBack(),
-        },
-      ],
-      unstable_headerRightItems: () => [
-        {
-          type: "button",
-          label: starting ? "Starting…" : "Start",
-          variant: "done",
-          disabled: !ready,
-          accessibilityLabel: "Start chat",
-          onPress: start,
-        },
-      ],
-    });
-  });
-
-  const projectMenu: MenuSection[] = [
-    {
-      items: projects.map((entry) => ({
-        id: `project:${entry.id}`,
-        label: entry.name,
-        icon: "folder",
-        selected: entry.id === project?.id,
-        onPress: () => {
-          setWorkspaceId(entry.id);
-          setModel(undefined);
-          setLevel(undefined);
-        },
-      })),
-    },
-  ];
   const providers = [...new Set(runtime.models.map((entry) => entry.provider))];
   const modelMenu: MenuSection[] = providers.map((provider) => ({
     title: provider,
@@ -138,103 +110,244 @@ export default function NewChatScreen({
     },
   ];
 
+  const bar = (
+    <TopBar
+      leading={
+        <PressableScale
+          accessibilityRole="button"
+          hitSlop={4}
+          onPress={() => navigation.goBack()}
+          style={styles.textButton}
+        >
+          <Text style={[text.body, { color: palette.textMuted }]}>Cancel</Text>
+        </PressableScale>
+      }
+      sheet
+      title="New chat"
+      trailing={
+        <PressableScale
+          accessibilityLabel="Start chat"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !ready, busy: starting }}
+          disabled={!ready}
+          onPress={start}
+          pressedStyle={{ opacity: 0.85 }}
+          style={[
+            styles.start,
+            { backgroundColor: ready ? palette.primaryFill : palette.primaryDisabledFill },
+          ]}
+        >
+          {starting ? <Spinner color={palette.onPrimary} size={11} /> : null}
+          <Text
+            maxFontSizeMultiplier={maxFontScale.chrome}
+            style={[
+              text.subheadline,
+              styles.semibold,
+              { color: ready ? palette.onPrimary : palette.onPrimaryDisabled },
+            ]}
+          >
+            {starting ? "Starting" : "Start"}
+          </Text>
+        </PressableScale>
+      }
+    />
+  );
+
   if (state && projects.length === 0) {
     return (
-      <View style={[styles.screen, styles.center, { backgroundColor: palette.background }]}>
-        <EmptyState
-          icon="folder.badge.plus"
-          title="No projects on this PC"
-          message="Add a project in Pegasus on the PC. It shows up here at once."
-        />
+      <View style={[styles.screen, { backgroundColor: palette.background }]}>
+        {bar}
+        <View style={[styles.flex, styles.center]}>
+          <EmptyState
+            icon="folder.badge.plus"
+            title="No projects on this PC"
+            message="Add a project in Pegasus on the PC. It shows up here at once."
+          />
+        </View>
       </View>
     );
   }
 
   return (
-    <KeyboardAwareScrollView
-      bottomOffset={spacing.xl}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      style={[styles.screen, { backgroundColor: palette.background }]}
-    >
-      <TextInput
-        accessibilityLabel="First message"
-        multiline
-        autoFocus
-        value={prompt}
-        onChangeText={setPrompt}
-        placeholder="What should Pegasus do?"
-        placeholderTextColor={palette.textSoft}
-        style={[text.body, styles.input, { color: palette.text, backgroundColor: palette.surface }]}
-      />
-      {error ? (
+    <View style={[styles.screen, { backgroundColor: palette.background }]}>
+      {bar}
+      <KeyboardAwareScrollView
+        bottomOffset={spacing.xl}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        style={styles.flex}
+      >
         <View
-          accessibilityRole="alert"
           style={[
-            styles.error,
-            { backgroundColor: palette.dangerTint, borderColor: palette.dangerTintBorder },
+            styles.prompt,
+            { backgroundColor: palette.surfaceElevated, borderColor: palette.borderDefault },
           ]}
         >
-          <Icon name="exclamationmark.triangle.fill" color={palette.dangerText} size={14} />
-          <Text style={[text.footnote, styles.flex, { color: palette.dangerText }]}>{error}</Text>
-        </View>
-      ) : null}
-
-      <ListGroup
-        footer={
-          runtime.loaded
-            ? "Model and effort apply to this chat only."
-            : "Loading models… The project's default is used if you start now."
-        }
-      >
-        <NativeMenu sections={projectMenu} title="Project">
-          <ListRow
-            accessory="menu"
-            detail={project?.name ?? "None"}
-            label="Project"
-            leading={<Icon name="folder" color={palette.textMuted} />}
+          <TextInput
+            accessibilityLabel="First message"
+            autoFocus
+            multiline
+            onChangeText={setPrompt}
+            placeholder="What should Pegasus do?"
+            placeholderTextColor={palette.textSoft}
+            style={[text.body, styles.input, { color: palette.textStrong }]}
+            value={prompt}
           />
-        </NativeMenu>
-        {runtime.loaded && runtime.models.length > 0 ? (
-          <NativeMenu sections={modelMenu} title="Model">
+          <View style={styles.promptFoot}>
+            <Icon color={palette.textSoft} name="folder" size={12} />
+            <Text
+              maxFontSizeMultiplier={maxFontScale.chrome}
+              numberOfLines={1}
+              style={[text.caption, styles.flex, { color: palette.textMuted }]}
+            >
+              {project?.name ?? "No project"} · {shownModel?.label ?? "Project default"}
+            </Text>
+          </View>
+        </View>
+
+        {error ? (
+          <View
+            accessibilityRole="alert"
+            style={[
+              styles.error,
+              { backgroundColor: palette.dangerTint, borderColor: palette.dangerTintBorder },
+            ]}
+          >
+            <Icon name="exclamationmark.triangle.fill" color={palette.dangerText} size={14} />
+            <Text style={[text.footnote, styles.flex, { color: palette.dangerText }]}>{error}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.block}>
+          <Text
+            accessibilityRole="header"
+            style={[text.footnote, styles.label, { color: palette.textMuted }]}
+          >
+            Project
+          </Text>
+          <ScrollView
+            contentContainerStyle={styles.chips}
+            horizontal
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+          >
+            {projects.map((entry) => {
+              const selected = entry.id === project?.id;
+              return (
+                <PressableScale
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  key={entry.id}
+                  onPress={() => {
+                    setWorkspaceId(entry.id);
+                    setModel(undefined);
+                    setLevel(undefined);
+                    Haptics.selectionAsync().catch(() => undefined);
+                  }}
+                  style={[
+                    styles.chip,
+                    selected
+                      ? { backgroundColor: palette.primaryFill, borderColor: palette.primaryFill }
+                      : {
+                          backgroundColor: palette.surfaceElevated,
+                          borderColor: palette.borderDefault,
+                        },
+                  ]}
+                >
+                  <Icon
+                    color={selected ? palette.onPrimary : palette.textMuted}
+                    name={selected ? "folder.fill" : "folder"}
+                    size={12}
+                  />
+                  <Text
+                    maxFontSizeMultiplier={maxFontScale.chrome}
+                    style={[
+                      text.subheadline,
+                      {
+                        color: selected ? palette.onPrimary : palette.text,
+                        fontWeight: selected ? weight.semibold : weight.medium,
+                      },
+                    ]}
+                  >
+                    {entry.name}
+                  </Text>
+                </PressableScale>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <ListGroup
+          footer={
+            runtime.loaded
+              ? "Model and effort apply to this chat only."
+              : "Loading models… The project's default is used if you start now."
+          }
+          title="Run with"
+        >
+          {runtime.loaded && runtime.models.length > 0 ? (
             <ListRow
-              accessory="menu"
               detail={shownModel?.label ?? "Project default"}
               label="Model"
               leading={<Icon name="cpu" color={palette.textMuted} />}
+              menu={modelMenu}
+              menuTitle="Model"
             />
-          </NativeMenu>
-        ) : (
+          ) : (
+            <ListRow
+              detail={runtime.loaded ? "Project default" : "Loading…"}
+              disabled
+              label="Model"
+              leading={<Icon name="cpu" color={palette.textMuted} />}
+            />
+          )}
           <ListRow
-            detail={runtime.loaded ? "Project default" : "Loading…"}
-            disabled
-            label="Model"
-            leading={<Icon name="cpu" color={palette.textMuted} />}
-          />
-        )}
-        <NativeMenu sections={levelMenu} title="Effort">
-          <ListRow
-            accessory="menu"
             detail={shownLevel ? (LEVEL_LABELS[shownLevel] ?? shownLevel) : "Model default"}
             label="Effort"
             leading={<Icon name="brain" color={palette.textMuted} />}
+            menu={levelMenu}
+            menuTitle="Effort"
           />
-        </NativeMenu>
-      </ListGroup>
-    </KeyboardAwareScrollView>
+        </ListGroup>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  flex: { flex: 1, minWidth: 0 },
   center: { justifyContent: "center" },
-  flex: { flex: 1 },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.xl },
-  input: {
-    minHeight: 132,
+  semibold: { fontWeight: weight.semibold },
+  content: { padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.xl },
+  textButton: { minHeight: hitSize.min, justifyContent: "center", paddingHorizontal: spacing.sm },
+  start: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm2,
+    minHeight: 34,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.pill,
+  },
+  prompt: {
+    borderRadius: radius.composer,
+    borderWidth: StyleSheet.hairlineWidth,
     padding: spacing.md,
-    borderRadius: radius.md,
-    textAlignVertical: "top",
+    gap: spacing.sm,
+  },
+  input: { minHeight: 140, textAlignVertical: "top", paddingTop: 0 },
+  promptFoot: { flexDirection: "row", alignItems: "center", gap: spacing.sm2 },
+  block: { gap: spacing.sm },
+  label: { fontWeight: weight.semibold, paddingHorizontal: spacing.lg },
+  chips: { gap: spacing.sm, paddingHorizontal: spacing.xxs },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm2,
+    minHeight: hitSize.compact + 4,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   error: {
     flexDirection: "row",

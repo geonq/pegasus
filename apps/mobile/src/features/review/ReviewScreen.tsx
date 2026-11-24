@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -9,10 +8,22 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { radius, spacing, type, usePalette } from "../../theme";
+import { hitSize, maxFontScale, radius, spacing, text, usePalette, weight } from "../../theme";
+import {
+  BarButton,
+  Button,
+  EmptyState,
+  GlassCard,
+  Icon,
+  PressableScale,
+  SegmentedControl,
+  Spinner,
+  TopBar,
+} from "../../ui";
 import { FileDiffSheet, type PendingComment } from "./FileDiffSheet";
-import { Button, GitActionsSheet } from "./GitActionsSheet";
+import { GitActionsSheet } from "./GitActionsSheet";
 import { errorMessage, useReviewApi } from "./review-api";
 import {
   formatCommentsPrompt,
@@ -62,6 +73,7 @@ export default function ReviewScreen({ route }: ReviewScreenProps) {
   const [comments, setComments] = useState<readonly PendingComment[]>([]);
   const [sending, setSending] = useState(false);
   const nonce = useRef(0);
+  const scrollY = useSharedValue(0);
 
   const options: TurnOption[] = useMemo(
     () => (turns?.state === "available" ? turnOptions(turns.turns) : []),
@@ -219,85 +231,88 @@ export default function ReviewScreen({ route }: ReviewScreenProps) {
 
   if (!api) {
     return (
-      <View style={[styles.center, { backgroundColor: palette.background }]}>
-        <Text style={[styles.body, { color: palette.textMuted }]}>Pair this phone first.</Text>
+      <View style={[styles.fill, { backgroundColor: palette.background }]}>
+        <TopBar back title="Review" />
+        <EmptyState icon="iphone.slash" title="Pair this phone first" />
       </View>
     );
   }
 
+  const failure = loadError ?? (result && result.state !== "available" ? result.message : null);
+
   const header = (
     <View style={styles.headerBlock}>
-      <View
-        style={[styles.segments, { backgroundColor: palette.surface, borderColor: palette.line }]}
-      >
-        {MODES.map((item) => {
-          const selected = item.id === mode;
-          return (
-            <Pressable
-              key={item.id}
-              accessibilityRole="tab"
-              accessibilityState={{ selected }}
-              onPress={() => setMode(item.id)}
-              style={[styles.segment, selected ? { backgroundColor: palette.surfaceRaised } : null]}
-            >
-              <Text
-                style={[styles.segmentText, { color: selected ? palette.text : palette.textMuted }]}
-              >
-                {item.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <SegmentedControl onChange={setMode} options={MODES} value={mode} />
       {mode === "turn" && options.length > 0 ? (
         <ScrollView
+          contentContainerStyle={styles.chips}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chips}
         >
           {options.map((option) => {
             const selected = option.checkpointId === turn?.checkpointId;
             return (
-              <Pressable
+              <PressableScale
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
                 key={option.checkpointId}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
                 onPress={() => setCheckpointId(option.checkpointId)}
                 style={[
                   styles.chip,
-                  {
-                    backgroundColor: selected ? palette.surfaceRaised : palette.surface,
-                    borderColor: selected ? palette.accent : palette.line,
-                  },
+                  selected
+                    ? { backgroundColor: palette.primaryFill, borderColor: palette.primaryFill }
+                    : {
+                        backgroundColor: palette.surfaceElevated,
+                        borderColor: palette.borderDefault,
+                      },
                 ]}
               >
-                <Text style={[styles.chipLabel, { color: palette.text }]}>{option.label}</Text>
-                <Counts added={option.totals.added} removed={option.totals.removed} />
-              </Pressable>
+                <Text
+                  maxFontSizeMultiplier={maxFontScale.chrome}
+                  style={[
+                    text.subheadline,
+                    styles.semibold,
+                    { color: selected ? palette.onPrimary : palette.text },
+                  ]}
+                >
+                  {option.label}
+                </Text>
+                <Counts
+                  added={option.totals.added}
+                  inverse={selected}
+                  removed={option.totals.removed}
+                />
+              </PressableScale>
             );
           })}
         </ScrollView>
       ) : null}
       {review ? (
         <View style={styles.summary}>
-          <Text style={[styles.caption, { color: palette.textMuted }]} numberOfLines={1}>
-            {sum.files} {sum.files === 1 ? "file" : "files"} · {sum.reviewed} reviewed
-            {review.branchName ? ` · ${review.branchName}` : ""}
-            {review.baseLabel ? ` vs ${review.baseLabel}` : ""}
-          </Text>
+          <View style={styles.flex}>
+            <Text style={[text.headline, { color: palette.textStrong }]}>
+              {sum.files} {sum.files === 1 ? "file" : "files"}
+              <Text style={{ color: palette.textMuted, fontWeight: weight.normal }}>
+                {` · ${sum.reviewed} reviewed`}
+              </Text>
+            </Text>
+            {review.branchName || review.baseLabel ? (
+              <Text numberOfLines={1} style={[text.caption, { color: palette.textMuted }]}>
+                {review.branchName ?? ""}
+                {review.baseLabel ? ` vs ${review.baseLabel}` : ""}
+              </Text>
+            ) : null}
+          </View>
           <Counts added={sum.added} removed={sum.removed} />
         </View>
       ) : null}
       {review?.coverage.state === "partial" && review.coverage.notes.length > 0 ? (
-        <Text style={[styles.caption, { color: palette.warning }]}>
+        <Text style={[text.footnote, { color: palette.warningText }]}>
           {review.coverage.notes.join(" ")}
         </Text>
       ) : null}
-      {review && review.scope.kind !== "turn" ? (
-        <Button label="Commit, push or open a PR" onPress={() => setGitOpen(true)} />
-      ) : null}
       {actionError ? (
-        <Text accessibilityRole="alert" style={[styles.body, { color: palette.danger }]}>
+        <Text accessibilityRole="alert" style={[text.footnote, { color: palette.dangerText }]}>
           {actionError}
         </Text>
       ) : null}
@@ -306,90 +321,110 @@ export default function ReviewScreen({ route }: ReviewScreenProps) {
 
   return (
     <View style={[styles.fill, { backgroundColor: palette.background }]}>
-      <FlatList
-        data={files}
-        keyExtractor={(file) => file.id}
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading && result !== null}
-            onRefresh={load}
-            tintColor={palette.accent}
-          />
+      <TopBar
+        back
+        scrollY={scrollY}
+        title="Review"
+        trailing={
+          review && review.scope.kind !== "turn" ? (
+            <BarButton
+              accessibilityLabel="Commit, push or open a pull request"
+              icon="arrow.triangle.branch"
+              onPress={() => setGitOpen(true)}
+              tone="filled"
+            />
+          ) : null
         }
-        ListHeaderComponent={header}
+      />
+      <FlatList
         ListEmptyComponent={
-          loadError ||
-          result?.state === "failed" ||
-          result?.state === "unavailable" ||
-          result?.state === "stale" ? (
-            <Text accessibilityRole="alert" style={[styles.body, { color: palette.danger }]}>
-              {loadError ?? (result && result.state !== "available" ? result.message : "")}
-            </Text>
+          failure ? (
+            <EmptyState
+              action={<Button label="Try again" onPress={load} variant="secondary" />}
+              icon="exclamationmark.triangle"
+              message={failure}
+              title="Could not load the changes"
+            />
           ) : empty ? (
-            <Text style={[styles.body, { color: palette.textMuted }]}>{empty}</Text>
+            <EmptyState icon="checkmark.seal" title={empty} />
           ) : (
-            <ActivityIndicator color={palette.accent} style={styles.start} />
+            <View accessibilityLabel="Loading changes" style={styles.loading}>
+              <Spinner color={palette.textMuted} size={16} />
+            </View>
           )
         }
-        ItemSeparatorComponent={() => (
-          <View style={[styles.separator, { backgroundColor: palette.line }]} />
-        )}
-        renderItem={({ item }) => (
+        ListHeaderComponent={header}
+        contentContainerStyle={[
+          styles.list,
+          { paddingBottom: insets.bottom + (comments.length > 0 ? 120 : spacing.xxl) },
+        ]}
+        data={files}
+        keyExtractor={(file) => file.id}
+        onScroll={(event) => {
+          scrollY.value = event.nativeEvent.contentOffset.y;
+        }}
+        refreshControl={
+          <RefreshControl
+            onRefresh={load}
+            refreshing={loading && result !== null}
+            tintColor={palette.textMuted}
+          />
+        }
+        renderItem={({ item, index }) => (
           <FileRow
-            file={item}
             busy={busyFiles.has(item.id)}
             canStage={review ? stageActionsFor(review.scope, item) : []}
             comments={comments.filter((comment) => comment.path === item.path).length}
+            file={item}
+            first={index === 0}
+            last={index === files.length - 1}
             onOpen={() => setOpenPath(item.path)}
             onToggleReviewed={() => toggleReviewed(item)}
           />
         )}
+        scrollEventThrottle={16}
       />
       {comments.length > 0 ? (
         <View
-          style={[
-            styles.commentBar,
-            {
-              backgroundColor: palette.surface,
-              borderColor: palette.line,
-              paddingBottom: insets.bottom + spacing.sm,
-            },
-          ]}
+          pointerEvents="box-none"
+          style={[styles.commentDock, { paddingBottom: insets.bottom + spacing.sm }]}
         >
-          <Button label="Discard" disabled={sending} onPress={() => setComments([])} />
-          <Button
-            primary
-            label={
-              sending
-                ? "Sending…"
-                : `Send ${comments.length} ${comments.length === 1 ? "comment" : "comments"} to the chat`
-            }
-            disabled={sending}
-            onPress={sendComments}
-          />
+          <GlassCard padded={false} style={styles.commentBar}>
+            <Text
+              maxFontSizeMultiplier={maxFontScale.chrome}
+              style={[text.footnote, styles.flex, { color: palette.textStrong }]}
+            >
+              {comments.length} {comments.length === 1 ? "comment" : "comments"} ready
+            </Text>
+            <Button
+              disabled={sending}
+              label="Discard"
+              onPress={() => setComments([])}
+              variant="secondary"
+            />
+            <Button busy={sending} label="Send to chat" onPress={sendComments} variant="primary" />
+          </GlassCard>
         </View>
       ) : null}
       {review ? (
         <>
           <FileDiffSheet
             api={api}
-            review={review}
-            file={openFile}
             busy={openFile ? busyFiles.has(openFile.id) : false}
             comments={comments}
-            onClose={() => setOpenPath(null)}
-            onToggleReviewed={toggleReviewed}
-            onStage={stage}
+            file={openFile}
             onAddComment={(comment) => setComments((current) => [...current, comment])}
+            onClose={() => setOpenPath(null)}
+            onStage={stage}
+            onToggleReviewed={toggleReviewed}
+            review={review}
           />
           <GitActionsSheet
             api={api}
+            onChanged={load}
+            onClose={() => setGitOpen(false)}
             reviewId={review.reviewId}
             visible={gitOpen}
-            onClose={() => setGitOpen(false)}
-            onChanged={load}
           />
         </>
       ) : null}
@@ -402,6 +437,8 @@ function FileRow({
   busy,
   canStage,
   comments,
+  first,
+  last,
   onOpen,
   onToggleReviewed,
 }: {
@@ -409,6 +446,8 @@ function FileRow({
   readonly busy: boolean;
   readonly canStage: readonly ("stage" | "unstage")[];
   readonly comments: number;
+  readonly first: boolean;
+  readonly last: boolean;
   readonly onOpen: () => void;
   readonly onToggleReviewed: () => void;
 }) {
@@ -423,148 +462,178 @@ function FileRow({
         : palette.warning;
   const staged = canStage.length > 0 && file.hasStagedChanges && !file.hasUnstagedChanges;
   return (
-    <View style={styles.fileRow}>
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityLabel={`Reviewed ${parts.name}`}
-        accessibilityState={{ checked: file.reviewed, disabled: busy }}
-        disabled={busy}
-        hitSlop={8}
-        onPress={onToggleReviewed}
-        style={[
-          styles.check,
-          { borderColor: file.reviewed ? palette.accent : palette.line },
-          file.reviewed ? { backgroundColor: palette.accent } : null,
-        ]}
-      >
-        {busy ? (
-          <ActivityIndicator
-            size="small"
-            color={file.reviewed ? palette.onAccent : palette.accent}
-          />
-        ) : file.reviewed ? (
-          <Text style={[styles.checkMark, { color: palette.onAccent }]}>✓</Text>
-        ) : null}
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${parts.name}, ${status.label}`}
-        accessibilityHint="Shows the diff"
-        onPress={onOpen}
-        style={({ pressed }) => [styles.fileMain, pressed ? { opacity: 0.6 } : null]}
-      >
-        <View style={styles.fileText}>
-          <Text
-            numberOfLines={1}
-            style={[styles.fileName, { color: file.reviewed ? palette.textMuted : palette.text }]}
-          >
-            {parts.name}
-          </Text>
-          <Text
-            numberOfLines={1}
-            ellipsizeMode="head"
-            style={[styles.caption, { color: palette.textMuted }]}
-          >
-            {file.previousPath ? `from ${file.previousPath}` : parts.folder || "/"}
-            {staged ? " · staged" : canStage.length === 2 ? " · partly staged" : ""}
-            {comments > 0 ? ` · ${comments} ${comments === 1 ? "comment" : "comments"}` : ""}
-          </Text>
-        </View>
-        {file.lines ? (
-          <Counts added={file.lines.added} removed={file.lines.removed} />
-        ) : (
-          <Text style={[styles.caption, { color: palette.textMuted }]}>binary</Text>
-        )}
-        <Text
-          accessibilityLabel={status.label}
-          style={[styles.status, { color: statusColor, borderColor: statusColor }]}
+    <View
+      style={[
+        styles.fileCard,
+        {
+          backgroundColor: palette.surfaceElevated,
+          borderColor: palette.borderDefault,
+          borderTopWidth: first ? StyleSheet.hairlineWidth : 0,
+          borderBottomWidth: last ? StyleSheet.hairlineWidth : 0,
+          borderTopLeftRadius: first ? radius.float : 0,
+          borderTopRightRadius: first ? radius.float : 0,
+          borderBottomLeftRadius: last ? radius.float : 0,
+          borderBottomRightRadius: last ? radius.float : 0,
+        },
+      ]}
+    >
+      <View style={styles.fileRow}>
+        <Pressable
+          accessibilityLabel={`Reviewed ${parts.name}`}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: file.reviewed, disabled: busy }}
+          disabled={busy}
+          hitSlop={10}
+          onPress={onToggleReviewed}
+          style={[
+            styles.check,
+            file.reviewed
+              ? { backgroundColor: palette.success, borderColor: palette.success }
+              : { borderColor: palette.lineStrong },
+          ]}
         >
-          {status.letter}
-        </Text>
-      </Pressable>
+          {busy ? (
+            <Spinner color={file.reviewed ? palette.onAccent : palette.textMuted} size={10} />
+          ) : file.reviewed ? (
+            <Icon color={palette.onAccent} name="checkmark" size={11} weight="bold" />
+          ) : null}
+        </Pressable>
+        <Pressable
+          accessibilityHint="Shows the diff"
+          accessibilityLabel={`${parts.name}, ${status.label}`}
+          accessibilityRole="button"
+          onPress={onOpen}
+          style={({ pressed }) => [styles.fileMain, pressed ? { opacity: 0.6 } : null]}
+        >
+          <View style={styles.flex}>
+            <Text
+              numberOfLines={1}
+              style={[
+                text.subheadline,
+                styles.medium,
+                { color: file.reviewed ? palette.textMuted : palette.textStrong },
+              ]}
+            >
+              {parts.name}
+            </Text>
+            <Text
+              ellipsizeMode="head"
+              numberOfLines={1}
+              style={[text.caption, { color: palette.textMuted }]}
+            >
+              {file.previousPath ? `from ${file.previousPath}` : parts.folder || "/"}
+              {staged ? " · staged" : canStage.length === 2 ? " · partly staged" : ""}
+              {comments > 0 ? ` · ${comments} ${comments === 1 ? "comment" : "comments"}` : ""}
+            </Text>
+          </View>
+          {file.lines ? (
+            <Counts added={file.lines.added} removed={file.lines.removed} />
+          ) : (
+            <Text style={[text.caption, { color: palette.textMuted }]}>binary</Text>
+          )}
+          <View style={[styles.status, { backgroundColor: palette.overlaySubtle }]}>
+            <Text
+              accessibilityLabel={status.label}
+              maxFontSizeMultiplier={maxFontScale.chrome}
+              style={[text.caption2, { color: statusColor }]}
+            >
+              {status.letter}
+            </Text>
+          </View>
+        </Pressable>
+      </View>
+      {!last ? (
+        <View style={[styles.separator, { backgroundColor: palette.borderDefault }]} />
+      ) : null}
     </View>
   );
 }
 
-function Counts({ added, removed }: { readonly added: number; readonly removed: number }) {
+function Counts({
+  added,
+  removed,
+  inverse,
+}: {
+  readonly added: number;
+  readonly removed: number;
+  /** On an ink chip: the counts take its ink, tinted by weight only. */
+  readonly inverse?: boolean;
+}) {
   const palette = usePalette();
   return (
-    <Text style={styles.counts} accessibilityLabel={`${added} added, ${removed} removed`}>
-      <Text style={{ color: palette.success }}>+{added}</Text>
-      <Text style={{ color: palette.danger }}> −{removed}</Text>
+    <Text
+      accessibilityLabel={`${added} added, ${removed} removed`}
+      maxFontSizeMultiplier={maxFontScale.chrome}
+      style={[text.caption, styles.counts]}
+    >
+      <Text style={{ color: inverse ? palette.onPrimary : palette.successText }}>+{added}</Text>
+      <Text style={{ color: inverse ? palette.onPrimary : palette.dangerText }}> −{removed}</Text>
     </Text>
   );
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg },
-  list: { padding: spacing.lg, paddingBottom: spacing.xl * 3 },
+  flex: { flex: 1, minWidth: 0 },
+  semibold: { fontWeight: weight.semibold },
+  medium: { fontWeight: weight.medium },
+  list: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
   headerBlock: { gap: spacing.md, marginBottom: spacing.md },
-  segments: {
+  chips: { gap: spacing.sm, paddingHorizontal: spacing.xxs },
+  chip: {
     flexDirection: "row",
-    padding: 2,
-    borderRadius: radius.sm,
+    alignItems: "center",
+    gap: spacing.sm,
+    minHeight: hitSize.compact + 4,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  segment: {
-    flex: 1,
-    minHeight: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.sm - 2,
-  },
-  segmentText: { fontSize: 14, fontWeight: "600" },
-  chips: { gap: spacing.sm },
-  chip: {
-    minHeight: 44,
-    paddingHorizontal: spacing.md,
-    justifyContent: "center",
-    borderRadius: radius.sm,
-    borderWidth: 1,
-  },
-  chipLabel: { fontSize: 14, fontWeight: "600" },
   summary: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    paddingTop: spacing.xs,
   },
-  caption: { fontSize: type.caption, lineHeight: 17, flexShrink: 1 },
-  body: { fontSize: 15, lineHeight: 21 },
-  start: { alignSelf: "flex-start" },
-  separator: { height: StyleSheet.hairlineWidth },
-  fileRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, minHeight: 56 },
+  loading: { alignItems: "center", paddingVertical: spacing.xxl },
+  fileCard: {
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+  },
+  fileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    minHeight: 60,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.md,
+  },
   check: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 22,
+    height: 22,
+    borderRadius: radius.pill,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
   },
-  checkMark: { fontSize: 15, fontWeight: "700" },
-  fileMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 56 },
-  fileText: { flex: 1, gap: 2 },
-  fileName: { fontSize: type.body, fontWeight: "500" },
-  counts: { fontSize: type.caption, fontVariant: ["tabular-nums"], fontWeight: "600" },
+  fileMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 60 },
+  counts: { fontVariant: ["tabular-nums"], fontWeight: weight.semibold },
   status: {
-    width: 20,
-    textAlign: "center",
-    fontSize: 11,
-    fontWeight: "700",
-    borderWidth: 1,
-    borderRadius: 4,
-    overflow: "hidden",
+    width: 22,
+    height: 22,
+    borderRadius: radius.sm2,
+    alignItems: "center",
+    justifyContent: "center",
   },
+  separator: { height: StyleSheet.hairlineWidth, marginLeft: spacing.lg + 22 + spacing.md },
+  commentDock: { position: "absolute", left: spacing.gutter, right: spacing.gutter, bottom: 0 },
   commentBar: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
     flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
     padding: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingLeft: spacing.lg,
+    borderRadius: radius.composer,
   },
 });

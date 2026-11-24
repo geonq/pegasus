@@ -1,8 +1,8 @@
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { StreamStatus } from "../../api/client";
 import { usePegasus } from "../../state/PegasusProvider";
 import { hitSize, radius, spacing, text, usePalette } from "../../theme";
-import { Icon } from "../../ui";
+import { Icon, Spinner, useOverlay } from "../../ui";
 
 /** What the banner says for a stream status, or null when the phone is live. */
 export function connectionLine(
@@ -29,6 +29,7 @@ export function connectionLine(
 export function ConnectionBanner() {
   const palette = usePalette();
   const { status, pairing, state, refresh, forget } = usePegasus();
+  const { toast } = useOverlay();
   const line = connectionLine(status, pairing?.hostName ?? "your PC", state !== null);
   if (!line) return null;
   const offline = status.state === "retrying" || status.state === "revoked";
@@ -37,7 +38,9 @@ export function ConnectionBanner() {
       ? {
           label: "Pair again",
           run: () =>
-            forget().catch((reason: unknown) => Alert.alert("Could not unpair", String(reason))),
+            forget().catch((reason: unknown) =>
+              toast({ message: `Could not unpair: ${String(reason)}`, tone: "danger" }),
+            ),
         }
       : status.state === "retrying"
         ? { label: "Retry", run: () => refresh().catch(() => undefined) }
@@ -55,7 +58,7 @@ export function ConnectionBanner() {
           size={15}
         />
       ) : (
-        <ActivityIndicator size="small" color={palette.textMuted} />
+        <Spinner color={palette.textMuted} size={12} />
       )}
       <Text
         style={[
@@ -88,7 +91,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    marginHorizontal: spacing.lg,
+    marginHorizontal: spacing.md,
     marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

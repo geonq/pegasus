@@ -7,7 +7,7 @@ import type { QueuedComposerMessage } from "../../api/types";
 import {
   GlassCard,
   Icon,
-  NativeMenu,
+  MenuButton,
   PressableScale,
   type IconName,
   type MenuSection,
@@ -162,7 +162,8 @@ export function Composer({
       title: "What the agent may do without asking",
       items: PERMISSION_OPTIONS.map((option) => ({
         id: `permission:${option.value}`,
-        label: `${option.label} — ${option.description}`,
+        label: option.label,
+        description: option.description,
         icon: PERMISSION_ICONS[option.value],
         selected: option.value === permission,
         onPress: choice(option.value === permission, () =>
@@ -446,13 +447,29 @@ function PillFace({
   if (round) {
     return (
       <View style={[styles.round, { opacity: disabled ? 0.45 : 1 }]}>
-        <Icon name={icon} color={palette.textMuted} size={19} />
+        <View
+          style={[
+            styles.roundFill,
+            { borderWidth: StyleSheet.hairlineWidth, borderColor: palette.borderHeavy },
+          ]}
+        >
+          <Icon name={icon} color={palette.textMuted} size={15} weight="semibold" />
+        </View>
       </View>
     );
   }
   return (
-    <View style={[styles.pill, { opacity: disabled ? 0.45 : 1 }]}>
-      <Icon name={icon} color={palette.textMuted} size={13} />
+    <View
+      style={[
+        styles.pill,
+        {
+          opacity: disabled ? 0.45 : 1,
+          backgroundColor: palette.overlaySubtle,
+          borderColor: palette.borderDefault,
+        },
+      ]}
+    >
+      <Icon name={icon} color={palette.textMuted} size={12} />
       <Text
         maxFontSizeMultiplier={maxFontScale.chrome}
         numberOfLines={1}
@@ -460,7 +477,7 @@ function PillFace({
       >
         {label}
       </Text>
-      <Icon name="chevron.up.chevron.down" color={palette.textSoft} size={9} />
+      <Icon name="chevron.down" color={palette.textSoft} size={8} weight="bold" />
     </View>
   );
 }
@@ -483,20 +500,18 @@ function MenuPill({
   readonly accessibilityLabel?: string;
   readonly accessibilityHint?: string;
 }) {
-  const face = (
-    <View
-      accessible
-      accessibilityHint={accessibilityHint}
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled) }}
+  return (
+    <MenuButton
+      accessibilityLabel={accessibilityLabel ?? label ?? ""}
+      disabled={disabled}
+      hitSlop={4}
+      pressedStyle={styles.pressed}
+      sections={sections}
+      {...(accessibilityHint ? { accessibilityHint } : {})}
     >
       <PillFace disabled={disabled} icon={icon} round={round} {...(label ? { label } : {})} />
-    </View>
+    </MenuButton>
   );
-  // A disabled control shows its face only; an empty menu would open nothing.
-  if (disabled) return face;
-  return <NativeMenu sections={sections}>{face}</NativeMenu>;
 }
 
 /** A toolbar pill that runs an action instead of opening a menu. */
@@ -675,15 +690,17 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   toolbar: { flexDirection: "row", alignItems: "center", gap: spacing.xxs },
-  pills: { alignItems: "center", gap: spacing.xxs },
+  pills: { alignItems: "center", gap: spacing.sm2, paddingHorizontal: spacing.xxs },
+  pressed: { opacity: 0.7 },
   pill: {
-    minHeight: hitSize.compact,
+    minHeight: 30,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    gap: spacing.xs + 1,
+    paddingHorizontal: spacing.md2,
     borderRadius: radius.pill,
-    maxWidth: 220,
+    borderWidth: StyleSheet.hairlineWidth,
+    maxWidth: 200,
   },
   pillText: { fontWeight: "500", flexShrink: 1 },
   textAction: { minHeight: hitSize.min, justifyContent: "center", paddingHorizontal: spacing.sm },
@@ -695,8 +712,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   roundFill: {
-    width: 34,
-    height: 34,
+    width: 32,
+    height: 32,
     borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",

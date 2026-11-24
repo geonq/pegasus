@@ -3,18 +3,8 @@ import { KeyboardAwareLegendList, useKeyboardChatComposerInset } from "@legendap
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import {
-  ActivityIndicator,
-  Alert,
   StyleSheet,
   Text,
   View,
@@ -31,7 +21,7 @@ import { LIMIT_WARNING_PERCENT, planStatus, resetsIn } from "../api/usage";
 import { groupTranscript } from "../api/worklog";
 import { ApprovalCard } from "../components/ApprovalCard";
 import { messageOf, useChatActions } from "../features/chat/actions";
-import { chatMenuItem, ChatTitle, type ChatStatus } from "../features/chat/ChatHeader";
+import { ChatTitle, type ChatStatus } from "../features/chat/ChatHeader";
 import { Composer } from "../features/chat/Composer";
 import { FloatingStatus } from "../features/chat/FloatingStatus";
 import { SubagentRows } from "../features/chat/SubagentRows";
@@ -39,7 +29,18 @@ import { selectionHaptic, TranscriptRow } from "../features/chat/TranscriptRow";
 import { hasRuntime, modelsOf, permissionOf, sessionConfigOf } from "../features/chat/wire";
 import type { RootStackParamList } from "../navigation";
 import { usePegasus } from "../state/PegasusProvider";
-import { Button, EmptyState, Icon, PressableScale, Skeleton, type MenuSection } from "../ui";
+import {
+  BarButton,
+  Button,
+  EmptyState,
+  Icon,
+  PressableScale,
+  Skeleton,
+  Spinner,
+  TopBar,
+  useOverlay,
+  type MenuSection,
+} from "../ui";
 import { maxFontScale, radius, spacing, text, usePalette } from "../theme";
 
 /** Past this many points from the end, the person is reading back: stop following, offer a jump. */
@@ -72,6 +73,7 @@ export function ChatScreen({
     steerQueued,
   } = usePegasus();
   const actions = useChatActions(workspaceId, sessionId);
+  const overlay = useOverlay();
   const [openError, setOpenError] = useState<string | null>(null);
   const [opening, setOpening] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
@@ -195,7 +197,8 @@ export function ChatScreen({
           : "idle";
 
   const menu = useMemo<MenuSection[]>(() => {
-    const fail = (label: string) => (reason: unknown) => Alert.alert(label, messageOf(reason));
+    const fail = (label: string) => (reason: unknown) =>
+      overlay.toast({ message: `${label}: ${messageOf(reason)}`, tone: "danger" });
     const sections: MenuSection[] = [
       {
         items: [
@@ -249,35 +252,26 @@ export function ChatScreen({
                 icon: "archivebox",
                 destructive: true,
                 onPress: () =>
-                  Alert.alert(
-                    "Archive this chat?",
-                    "It leaves the list. You can find it on the PC.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Archive",
-                        style: "destructive",
-                        onPress: () =>
-                          actions
-                            .archive()
-                            .then(() => navigation.goBack())
-                            .catch(fail("Could not archive the chat")),
-                      },
-                    ],
-                  ),
+                  void overlay
+                    .confirm({
+                      title: "Archive this chat?",
+                      message: "It leaves the list. You can find it on the PC.",
+                      confirmLabel: "Archive",
+                      destructive: true,
+                    })
+                    .then((ok) => {
+                      if (!ok) return;
+                      actions
+                        .archive()
+                        .then(() => navigation.goBack())
+                        .catch(fail("Could not archive the chat"));
+                    }),
               },
         ],
       });
     }
     return sections;
-  }, [actions, navigation, session, sessionId, workspace, workspaceId]);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerTitle: () => <ChatTitle status={headerStatus} subtitle={subtitle} title={title} />,
-      unstable_headerRightItems: () => [chatMenuItem(menu)],
-    });
-  }, [headerStatus, menu, navigation, subtitle, title]);
+  }, [actions, navigation, overlay, session, sessionId, workspace, workspaceId]);
 
   const banner =
     status.state === "retrying"
@@ -388,7 +382,8 @@ export function ChatScreen({
         }
         alignItemsAtEnd
         contentContainerStyle={styles.content}
-        contentInsetAdjustmentBehavior="automatic"
+        // The TopBar already clears the status bar; an automatic inset here would add it twice.
+        contentInsetAdjustmentBehavior="never"
         contentInsetEndAdjustment={contentInsetEndAdjustment}
         data={rows}
         estimatedItemSize={88}
@@ -423,6 +418,11 @@ export function ChatScreen({
 
   return (
     <View style={[styles.screen, { backgroundColor: palette.background }]}>
+      <TopBar
+        back
+        center={<ChatTitle status={headerStatus} subtitle={subtitle} title={title} />}
+        trailing={<BarButton accessibilityLabel="Chat actions" icon="ellipsis" menu={menu} />}
+      />
       {banner ? (
         <View
           accessibilityLiveRegion="polite"
@@ -434,7 +434,7 @@ export function ChatScreen({
           {banner.tone === "warning" ? (
             <Icon name="wifi.exclamationmark" color={palette.warningText} size={14} />
           ) : (
-            <ActivityIndicator size="small" color={palette.textMuted} />
+            <Spinner color={palette.textMuted} size={12} />
           )}
           <Text
             style={[
@@ -524,7 +524,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   flex: { flex: 1 },
   banner: {
-    paddingHorizontal: spacing.lg,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    borderRadius: radius.md2,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     flexDirection: "row",
     alignItems: "center",
