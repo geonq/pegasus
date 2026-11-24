@@ -126,7 +126,7 @@ export function projectsOf(state: Pick<DesktopAppState, "workspaces" | "workspac
 /**
  * The home list, laid out like the desktop sidebar: Needs you, Working, Pinned, then one section per
  * project (also when it has no other chats) with its other chats, newest first. Subagent chats stay under the chat that started them
- * (only counted here). A search shows one flat "Results" section over titles, previews and projects.
+ * (only counted here; the parent row takes the most urgent section of its subagents). A search shows one flat "Results" section over titles, previews and projects.
  */
 export function buildHome(
   state: Pick<
@@ -144,21 +144,39 @@ export function buildHome(
       workspace.sessions.map((session) => sessionKey(workspace.id, session.id)),
     ),
   );
-  const childKeys = new Set<string>();
+  const childParent = new Map<string, string>();
   const childCounts = new Map<string, number>();
+  const childRunning = new Set<string>();
   for (const child of state.orchestrationChildren ?? []) {
     const childKey = sessionKey(child.childWorkspaceId, child.childSessionId);
     const parentKey = sessionKey(child.parentWorkspaceId, child.parentSessionId);
     if (childKey === parentKey || !listed.has(childKey) || !listed.has(parentKey)) continue;
-    childKeys.add(childKey);
+    childParent.set(childKey, parentKey);
     childCounts.set(parentKey, (childCounts.get(parentKey) ?? 0) + 1);
+    if (child.status === "running" || child.status === "queued" || child.status === "waiting") {
+      childRunning.add(childKey);
+    }
   }
-  const all = rowsOf(state.workspaces, state.sessionExtensionUiBySession ?? {}, childCounts)
-    .filter(
-      (row) =>
-        // A child that needs the owner or works still shows; otherwise its parent stands for it.
-        row.section !== "recent" || !childKeys.has(sessionKey(row.workspace.id, row.session.id)),
-    )
+  // Subagent chats never list on their own, as in the desktop sidebar (thread-groups.ts): the chat
+  // that started them stands for them, in the most urgent section any of them is in.
+  const rows = rowsOf(state.workspaces, state.sessionExtensionUiBySession ?? {}, childCounts);
+  const childSection = new Map<string, ChatSection>();
+  for (const row of rows) {
+    const key = sessionKey(row.workspace.id, row.session.id);
+    const parentKey = childParent.get(key);
+    if (!parentKey || row.session.archivedAt) continue;
+    const section = row.section === "recent" && childRunning.has(key) ? "working" : row.section;
+    const current = childSection.get(parentKey) ?? "recent";
+    if (SECTION_ORDER[section] < SECTION_ORDER[current]) childSection.set(parentKey, section);
+  }
+  const all = rows
+    .filter((row) => !childParent.has(sessionKey(row.workspace.id, row.session.id)))
+    .map((row) => {
+      const inherited = childSection.get(sessionKey(row.workspace.id, row.session.id));
+      return inherited && SECTION_ORDER[inherited] < SECTION_ORDER[row.section]
+        ? { ...row, section: inherited, unread: false }
+        : row;
+    })
     .sort(byRecency);
 
   const needle = query.trim().toLowerCase();

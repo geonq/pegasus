@@ -160,6 +160,90 @@ test("home lists Needs you, Working, Pinned, then projects in sidebar order; sea
   );
 });
 
+test("subagent chats never list on their own; their parent carries their state, as on the desktop", () => {
+  const s = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    title: id,
+    updatedAt: "2026-11-10T10:00:00.000Z",
+    preview: "",
+    status: "idle" as const,
+    hasUnseenUpdate: false,
+    ...extra,
+  });
+  const edge = (parent: string, child: string, status: "running" | "complete" = "running") => ({
+    id: `${parent}-${child}`,
+    title: child,
+    status,
+    latestTranscript: "",
+    parentWorkspaceId: "t",
+    parentSessionId: parent,
+    childWorkspaceId: "t",
+    childSessionId: child,
+    updatedAt: "2026-11-10T10:00:00.000Z",
+  });
+  const sections = buildHome({
+    workspaces: [
+      {
+        id: "t",
+        name: "talosv2",
+        path: "D:/Pi/projects/talosv2",
+        kind: "primary",
+        sessions: [
+          // The parent's own turn ended; its subagents still run (the owner's screenshot).
+          s("parent"),
+          s("c1", { status: "running" }),
+          s("c2", { status: "running" }),
+          s("c3", { status: "failed", hasUnseenUpdate: true }),
+          s("other"),
+          s("asker"),
+          s("c4"),
+        ],
+      },
+    ],
+    sessionExtensionUiBySession: {
+      "t:c4": {
+        pendingDialogs: [{ kind: "confirm", requestId: "r", title: "Run it?", message: "" }],
+      },
+    },
+    orchestrationChildren: [
+      edge("parent", "c1"),
+      edge("parent", "c2", "complete"),
+      edge("parent", "c3", "complete"),
+      edge("asker", "c4", "complete"),
+    ],
+  });
+  assert.deepEqual(
+    sections.map((section) => [section.title, section.rows.map((row) => row.session.id)]),
+    [
+      ["Needs you", ["asker", "parent"]],
+      ["talosv2", ["other"]],
+    ],
+  );
+  assert.deepEqual(
+    sections[0]?.rows.map((row) => row.childCount),
+    [1, 3],
+  );
+  const working = buildHome({
+    workspaces: [
+      {
+        id: "t",
+        name: "talosv2",
+        path: "/t",
+        kind: "primary",
+        sessions: [s("parent"), s("c1", { status: "running" })],
+      },
+    ],
+    orchestrationChildren: [edge("parent", "c1", "complete")],
+  });
+  assert.deepEqual(
+    working.map((section) => [section.title, section.rows.map((row) => row.session.id)]),
+    [
+      ["Working", ["parent"]],
+      ["talosv2", []],
+    ],
+  );
+});
+
 test("relative time is short", () => {
   const now = Date.parse("2026-11-23T12:00:00.000Z");
   assert.equal(relativeTime("2026-11-23T11:59:40.000Z", now), "now");
