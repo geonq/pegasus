@@ -9,7 +9,14 @@ import {
   type ReactNode,
 } from "react";
 import { AppState, Linking, Platform, Settings } from "react-native";
-import { PegasusClient, PegasusError, type EventStream, type StreamStatus } from "../api/client";
+import {
+  newSendId,
+  PegasusClient,
+  PegasusError,
+  type EventStream,
+  type StreamStatus,
+} from "../api/client";
+import { gateStatus } from "../api/stream-status";
 import { initialLiveState, reduceLive, type LiveInput, type LiveState } from "../api/live-state";
 import { parsePairingLink } from "../api/pairing";
 import { TranscriptCache } from "../api/transcript-cache";
@@ -158,12 +165,17 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
       }
     };
     feedRef.current = feed;
+    // A reconnect that is live again within a few seconds is not shown (stream-status.ts).
+    const gate = gateStatus((next) => {
+      if (active) setStatus(next);
+    });
     const stream = client.follow(
       (event) => feed({ kind: "event", event }),
       (next) => {
-        // `ready` comes before the stream's first state: that state is a new baseline.
-        if (next.state === "live") feed({ kind: "streamOpened" });
-        if (active) setStatus(next);
+        // `ready` comes before a new stream's first state: that state is a new baseline. A resumed
+        // stream continues from the last event, so what the phone holds stays current.
+        if (next.state === "live" && !next.resumed) feed({ kind: "streamOpened" });
+        gate.push(next);
       },
     );
     streamRef.current = stream;
@@ -177,6 +189,7 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
     return () => {
       active = false;
       subscription.remove();
+      gate.stop();
       stream.stop();
       streamRef.current = null;
       feedRef.current = () => undefined;
@@ -231,7 +244,8 @@ export function PegasusProvider({ children }: { readonly children: ReactNode }) 
         await client().invoke("selectSession", target);
       },
       send: async (text, mode) => {
-        await client().invoke(
+        await client().invokeOnce(
+          newSendId(),
           "sendText",
           text,
           ...(mode === "steer" ? [{ deliverAs: "steer" }] : []),

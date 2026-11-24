@@ -10,6 +10,20 @@ none), `Authorization: Bearer <token>`, no query string. Replies are
 `{"version":1,"result":...}` or `{"version":1,"error":{"code","message"}}`, Brotli with
 `Accept-Encoding: br` above 2 KB. TS types: `apps/mobile/src/api/phone.ts`.
 
+## Resuming `/v1/events` and sending once
+
+Every event frame carries `id: <host run>-<n>`. A reconnect sends the last one as `Last-Event-ID`;
+when the host still logs every frame after it (the newest state plus up to 48 frames / 8 MB, kept
+60 s after the client's last stream closed), `ready` says `{"version":1,"resumed":true}` and only the
+missed frames follow. Otherwise `resumed` is false and the stream starts with the whole state and
+transcript, as before. A new `remote.serve` (Pegasus restarted) drops the logs.
+
+`POST /v1/invoke` takes an optional `Idempotency-Key` (8 to 128 of `A-Za-z0-9._~-`). The first call
+with a key reaches the desktop; a repeat within 10 min gets that call's answer without a second call
+(the phone sends one key per message, so a double tap or a resent POST cannot send it twice). A failed
+call is forgotten, so a retry with its key runs again. The same key with another method or args is
+`422 idempotency_key_reused`; a malformed key is `400 invalid_idempotency_key`.
+
 ## `GET /v1/phone/chats`
 
 No body. Answers the chat list: `{ etag, revision, projects: [{id,name}], pinnedSessionOrder,

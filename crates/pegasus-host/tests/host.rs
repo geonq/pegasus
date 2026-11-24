@@ -529,3 +529,129 @@ async fn phone_updates_are_served_without_a_token_but_only_to_known_hosts() {
     assert_eq!(http(port, &head, "").await.0, 401);
     let _ = std::fs::remove_dir_all(&root);
 }
+
+/// Reads an SSE stream until `until` matches the text so far (or 10 s pass); returns the body text.
+async fn sse_until(s: &mut tokio::net::TcpStream, until: impl Fn(&str) -> bool) -> String {
+    use tokio::io::AsyncReadExt;
+    let mut out = String::new();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut buf = [0u8; 8192];
+    while !until(&out) {
+        let left = deadline.saturating_duration_since(Instant::now());
+        match tokio::time::timeout(left, s.read(&mut buf)).await {
+            Ok(Ok(n)) if n > 0 => out.push_str(&String::from_utf8_lossy(&buf[..n])),
+            _ => panic!("stream ended or timed out; so far:\n{out}"),
+        }
+    }
+    out
+}
+
+async fn open_events(port: u16, token: &str, last_event_id: Option<&str>) -> tokio::net::TcpStream {
+    use tokio::io::AsyncWriteExt;
+    let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+    let resume = last_event_id.map(|id| format!("Last-Event-ID: {id}\r\n")).unwrap_or_default();
+    let req = format!("GET /v1/events HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {token}\r\nAccept: text/event-stream\r\n{resume}\r\n");
+    s.write_all(req.as_bytes()).await.unwrap();
+    s
+}
+
+/// The ids of the frames in an SSE body, in order.
+fn sse_ids(body: &str) -> Vec<String> {
+    body.lines().filter_map(|l| l.strip_prefix("id: ")).map(str::to_string).collect()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn event_stream_resumes_after_last_event_id_and_invoke_runs_once_per_idempotency_key() {
+    let root = std::env::temp_dir().join(format!("pegasus-host-resume-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let ep = endpoint("resume");
+    let _host = spawn(&ep, &root, 600);
+    let mut c = connect(&ep).await;
+    let port = { let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap(); l.local_addr().unwrap().port() };
+    let token = "r".repeat(40);
+    let ok = call(&mut c, 1, "remote.serve", json!({"port": port, "allowedOrigins": ["file://"],
+        "clients": [{"id": "phone", "tokenSha256": sha256_hex(&token)}]})).await;
+    assert!(ok.get("result").is_some(), "{ok}");
+    // The fake desktop: counts calls per method, answers getState with revision 1, publishes on demand.
+    let (publish_tx, mut publish_rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
+    let calls = std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::<String, usize>::new()));
+    let calls2 = calls.clone();
+    tokio::spawn(async move {
+        let mut id = 100;
+        loop {
+            tokio::select! {
+                v = recv(&mut c) => {
+                    if v["event"] != "remoteInvoke" { continue; }
+                    let method = v["data"]["method"].as_str().unwrap().to_string();
+                    *calls2.lock().unwrap().entry(method.clone()).or_default() += 1;
+                    if method == "sendText" { tokio::time::sleep(Duration::from_millis(300)).await; }
+                    let value = match method.as_str() {
+                        "getState" => json!({"revision": 1, "workspaces": []}),
+                        "sendText" => json!({"accepted": true}),
+                        _ => Value::Null,
+                    };
+                    id += 1;
+                    send(&mut c, json!({"v":2,"id":id,"method":"remote.reply","params":{"requestId": v["data"]["requestId"], "ok": true, "value": value}})).await;
+                }
+                Some(event) = publish_rx.recv() => {
+                    id += 1;
+                    send(&mut c, json!({"v":2,"id":id,"method":"remote.publish","params":{"clientId": "phone", "event": event}})).await;
+                }
+            }
+        }
+    });
+    let state = |r: u64| json!({"type": "stateChanged", "state": {"revision": r, "workspaces": []}});
+
+    // A new stream: ready, then the baseline (state and transcript), each with an id.
+    let mut s = open_events(port, &token, None).await;
+    let first = sse_until(&mut s, |b| b.contains("selectedTranscriptChanged")).await;
+    assert!(first.contains(r#""resumed":false"#), "{first}");
+    publish_tx.send(state(2)).unwrap();
+    let body = first + &sse_until(&mut s, |b| b.contains(r#""revision":2"#)).await;
+    let seen = sse_ids(&body);
+    assert_eq!(seen.len(), 3, "baseline state, transcript, revision 2: {body}");
+    drop(s);
+
+    // While the phone is away two more events happen; they are kept for its return.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    publish_tx.send(state(3)).unwrap();
+    publish_tx.send(json!({"type": "sessionTranscriptDelta", "delta": {"version": 1, "sequence": 1, "workspaceId": "w", "sessionId": "s", "patches": []}})).unwrap();
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    // Resuming after the last id it saw: exactly the missed events, no new baseline.
+    let mut s = open_events(port, &token, seen.last().map(String::as_str)).await;
+    let body = sse_until(&mut s, |b| b.contains("sessionTranscriptDelta")).await;
+    assert!(body.contains(r#""resumed":true"#), "{body}");
+    assert!(body.contains(r#""revision":3"#) && !body.contains("selectedTranscriptChanged"), "{body}");
+    let resumed_ids = sse_ids(&body);
+    assert_eq!(resumed_ids.len(), 2, "{body}");
+    drop(s);
+    assert_eq!(calls.lock().unwrap().get("getState"), Some(&1), "a resume pulls no state");
+
+    // An id the host cannot resume (another host run, or too old) gets a whole baseline.
+    let mut s = open_events(port, &token, Some("otherepoch-5")).await;
+    let body = sse_until(&mut s, |b| b.contains("selectedTranscriptChanged")).await;
+    assert!(body.contains(r#""resumed":false"#), "{body}");
+    drop(s);
+
+    // The same message sent twice with one Idempotency-Key (a double tap, a resent POST) reaches the
+    // desktop once; both requests get its answer. Another key is another message.
+    let send_text = |key: &str| {
+        let head = format!("POST /v1/invoke HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nIdempotency-Key: {key}\r\n");
+        async move { http(port, &head, r#"{"method":"sendText","args":["hello"]}"#).await }
+    };
+    let (a, b) = tokio::join!(send_text("send-0001-aaaa"), send_text("send-0001-aaaa"));
+    assert_eq!(a, b);
+    assert_eq!(a.0, 200, "{}", a.1);
+    assert_eq!(send_text("send-0001-aaaa").await.0, 200);
+    assert_eq!(calls.lock().unwrap().get("sendText"), Some(&1), "one key, one send");
+    assert_eq!(send_text("send-0002-bbbb").await.0, 200);
+    assert_eq!(calls.lock().unwrap().get("sendText"), Some(&2));
+    // The same key for a different call is refused, not answered with the first call's result.
+    let head = format!("POST /v1/invoke HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nIdempotency-Key: send-0002-bbbb\r\n");
+    assert_eq!(http(port, &head, r#"{"method":"sendText","args":["other"]}"#).await.0, 422);
+    let head = format!("POST /v1/invoke HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nIdempotency-Key: bad key\r\n");
+    assert_eq!(http(port, &head, r#"{"method":"sendText","args":["x"]}"#).await.0, 400);
+    assert_eq!(calls.lock().unwrap().get("sendText"), Some(&2));
+    let _ = std::fs::remove_dir_all(&root);
+}

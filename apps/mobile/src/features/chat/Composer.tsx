@@ -1,7 +1,8 @@
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Image, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { newSendId } from "../../api/client";
 import type { QueuedComposerMessage } from "../../api/types";
 import {
   GlassCard,
@@ -85,20 +86,32 @@ export function Composer({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
   };
 
+  // A second tap before React re-renders still sees canSend true; the ref stops it at once.
+  const inFlight = useRef(false);
+  // One id per draft: a failed send retried unchanged reuses it, so the PC sends it at most once.
+  const pendingSend = useRef<{ key: string; id: string } | null>(null);
   const submit = (mode: "followUp" | "steer") => {
-    if (!canSend) return;
+    if (!canSend || inFlight.current) return;
+    inFlight.current = true;
     setSending(true);
     setError(null);
+    const text = draft.trim();
+    const key = JSON.stringify([text, mode, images.map((image) => image.id)]);
+    if (pendingSend.current?.key !== key) pendingSend.current = { key, id: newSendId() };
     actions
-      .send(draft.trim(), mode, images)
+      .send(text, mode, images, pendingSend.current.id)
       .then(() => {
+        pendingSend.current = null;
         setDraft("");
         setImages([]);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
         onSent();
       })
       .catch(fail)
-      .finally(() => setSending(false));
+      .finally(() => {
+        inFlight.current = false;
+        setSending(false);
+      });
   };
 
   const stop = () => {

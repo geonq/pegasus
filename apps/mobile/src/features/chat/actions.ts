@@ -11,12 +11,14 @@ import type { ImageAttachment, SessionPermission, UiAnswer } from "./wire";
 export interface ChatActions {
   /**
    * Sends to the chat open in this phone's view: `followUp` waits for a running turn to end (the PC
-   * queues it), `steer` reaches the running turn now. Photos travel as base64 bytes.
+   * queues it), `steer` reaches the running turn now. Photos travel as base64 bytes. `sendId`
+   * (newSendId) names this message: the PC sends it once however often it is retried.
    */
   readonly send: (
     text: string,
     mode: "followUp" | "steer",
     images: readonly ImageAttachment[],
+    sendId: string,
   ) => Promise<void>;
   readonly setModel: (provider: string, modelId: string) => Promise<void>;
   readonly setThinking: (level: string) => Promise<void>;
@@ -38,14 +40,16 @@ export function useChatActions(workspaceId: string, sessionId: string): ChatActi
     };
     const target = { workspaceId, sessionId };
     return {
-      send: (text, mode, images) => {
+      send: async (text, mode, images, sendId) => {
+        if (!pairing) throw new PegasusError("This phone is not paired.", "unpaired");
         const options = {
           ...(mode === "steer" ? { deliverAs: "steer" } : {}),
           ...(images.length > 0 ? { attachments: images } : {}),
         };
-        return Object.keys(options).length > 0
-          ? call("sendText", text, options)
-          : call("sendText", text);
+        const client = new PegasusClient(pairing);
+        await (Object.keys(options).length > 0
+          ? client.invokeOnce(sendId, "sendText", text, options)
+          : client.invokeOnce(sendId, "sendText", text));
       },
       setModel: (provider, modelId) =>
         call("setSessionModel", workspaceId, sessionId, provider, modelId),

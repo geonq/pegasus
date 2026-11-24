@@ -28,6 +28,15 @@ const MAX_SSE_QUEUED_FRAMES: usize = 64 + 2;
 const HEARTBEAT: Duration = Duration::from_secs(15);
 const MIN_COMPRESSED_BYTES: usize = 2048;
 const INVOKE_TIMEOUT: Duration = Duration::from_secs(70);
+/// A client's recent frames are kept this long after its last stream, so a reconnect resumes with
+/// `Last-Event-ID` instead of a whole new state and transcript.
+const RESUME_WINDOW: Duration = Duration::from_secs(60);
+/// The resume log's caps; well under the per-stream caps, so a replay always fits one stream.
+const LOG_MAX_BYTES: usize = 8 * 1024 * 1024;
+const LOG_MAX_FRAMES: usize = 48;
+/// A repeated `Idempotency-Key` within this time gets the first call's answer instead of a second call.
+const IDEMPOTENCY_TTL: Duration = Duration::from_secs(600);
+const IDEMPOTENCY_MAX: usize = 512;
 
 type Body = BoxBody<Bytes, Infallible>;
 
@@ -40,6 +49,67 @@ struct SseFrame {
     is_state: bool,
     text: Arc<String>,
     revision: Option<f64>,
+    /// The SSE `id` within this host run (sent as `<epoch>-<id>`); set when the frame is logged.
+    id: u64,
+}
+
+/// One client's frames since its last baseline: the newest state plus everything after it.
+struct ClientLog {
+    frames: VecDeque<SseFrame>,
+    bytes: usize,
+    /// A client that has seen this id (or later) can resume from here.
+    base: u64,
+    last: u64,
+    /// When a stream of this client was last open.
+    seen: std::time::Instant,
+}
+
+impl ClientLog {
+    fn new(base: u64) -> Self {
+        ClientLog { frames: VecDeque::new(), bytes: 0, base, last: base, seen: std::time::Instant::now() }
+    }
+    fn push(&mut self, f: SseFrame) {
+        // A state is a whole snapshot: an older one in the log is never needed again.
+        if f.is_state {
+            self.frames.retain(|x| !x.is_state);
+            self.bytes = self.frames.iter().map(|x| x.text.len()).sum();
+        }
+        self.last = f.id;
+        self.bytes += f.text.len();
+        self.frames.push_back(f);
+        while self.bytes > LOG_MAX_BYTES || self.frames.len() > LOG_MAX_FRAMES {
+            let Some(old) = self.frames.pop_front() else { break };
+            self.bytes -= old.text.len();
+            self.base = old.id;
+        }
+    }
+    /// The frames after `after`, or None when some of them are gone.
+    fn replay(&self, after: u64) -> Option<Vec<SseFrame>> {
+        (self.base <= after && after <= self.last).then(|| self.frames.iter().filter(|f| f.id > after).cloned().collect())
+    }
+}
+
+type Reply = Result<Option<Box<serde_json::value::RawValue>>, (u16, String, String)>;
+
+/// Calls made with an `Idempotency-Key`: a repeat waits for or returns the first call's answer.
+#[derive(Default)]
+struct Idempotency {
+    /// (client, key) -> (first seen, method and args of the first call, its answer)
+    entries: HashMap<(String, String), (std::time::Instant, String, tokio::sync::watch::Receiver<Option<Reply>>)>,
+}
+
+impl Idempotency {
+    fn prune(&mut self) {
+        self.entries.retain(|_, (at, _, _)| at.elapsed() < IDEMPOTENCY_TTL);
+        while self.entries.len() >= IDEMPOTENCY_MAX {
+            let Some(oldest) = self.entries.iter().min_by_key(|(_, (at, _, _))| *at).map(|(k, _)| k.clone()) else { break };
+            self.entries.remove(&oldest);
+        }
+    }
+}
+
+fn valid_idempotency_key(k: &str) -> bool {
+    (8..=128).contains(&k.len()) && k.bytes().all(|b| b.is_ascii_alphanumeric() || b"._~-".contains(&b))
 }
 
 struct StreamState {
@@ -100,10 +170,16 @@ pub struct Remote {
     next_request: AtomicU64,
     streams: Mutex<Vec<Arc<SseStream>>>,
     event_sequence: AtomicU64,
+    /// Lock order: logs, then streams, then a stream's state.
+    logs: Mutex<HashMap<String, ClientLog>>,
+    /// Tells this host run's event ids from another's: a restarted host must not resume old ids.
+    epoch: String,
+    idempotency: Mutex<Idempotency>,
 }
 
 impl Default for Remote {
     fn default() -> Self {
+        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
         Remote {
             server: Mutex::new(None),
             provider: Mutex::new(None),
@@ -111,6 +187,9 @@ impl Default for Remote {
             next_request: AtomicU64::new(1),
             streams: Mutex::new(Vec::new()),
             event_sequence: AtomicU64::new(1),
+            logs: Mutex::new(HashMap::new()),
+            epoch: format!("{:x}{:x}", nanos, std::process::id()),
+            idempotency: Mutex::new(Idempotency::default()),
         }
     }
 }
@@ -247,6 +326,9 @@ impl Remote {
             s.stop.notify_waiters();
             s.stop.notify_one();
         }
+        // A new provider is a new desktop run (revisions and transcript sequences restart).
+        lock(&self.logs).clear();
+        lock(&self.idempotency).entries.clear();
         for s in lock(&self.streams).drain(..) {
             s.close();
         }
@@ -307,21 +389,78 @@ impl Remote {
 
     // ---------- events ----------
 
-    /// Queues the event on the client's open streams; false when it has none (nobody listens).
+    /// Queues the event on the client's open streams and its resume log; false when nobody listens
+    /// and no stream closed within RESUME_WINDOW (the desktop then stops relaying).
     pub fn publish(&self, client_id: &str, event: &serde_json::value::RawValue) -> bool {
+        let mut logs = lock(&self.logs);
         let recipients: Vec<Arc<SseStream>> = lock(&self.streams)
             .iter()
             .filter(|s| s.client_id == client_id && !lock(&s.state).closed)
             .cloned()
             .collect();
-        if recipients.is_empty() {
+        let warm = logs.get(client_id).is_some_and(|l| l.seen.elapsed() < RESUME_WINDOW);
+        if recipients.is_empty() && !warm {
+            logs.remove(client_id);
             return false;
         }
         match frame_of(event) {
-            Some(f) => recipients.iter().for_each(|s| enqueue(s, f.clone())),
-            None => recipients.iter().for_each(|s| s.abort()),
+            Some(mut f) => {
+                f.id = self.event_sequence.fetch_add(1, Ordering::Relaxed);
+                if let Some(log) = logs.get_mut(client_id) {
+                    if !recipients.is_empty() {
+                        log.seen = std::time::Instant::now();
+                    }
+                    log.push(f.clone());
+                }
+                recipients.iter().for_each(|s| enqueue(s, f.clone()));
+            }
+            None => {
+                // Nothing can resume past a broken frame.
+                logs.remove(client_id);
+                recipients.iter().for_each(|s| s.abort());
+            }
         }
         true
+    }
+
+    /// A stream of this client just ended: its log stays resumable for RESUME_WINDOW from now.
+    fn touch(&self, client_id: &str) {
+        if let Some(log) = lock(&self.logs).get_mut(client_id) {
+            log.seen = std::time::Instant::now();
+        }
+    }
+
+    /// The baseline frames go out first, then what was queued meanwhile; the client's log restarts
+    /// from them with fresh ids in that order.
+    fn bootstrap(&self, s: &SseStream, frames: Vec<SseFrame>) {
+        let mut logs = lock(&self.logs);
+        let mut st = lock(&s.state);
+        if st.closed {
+            return;
+        }
+        let added: usize = frames.iter().map(|f| f.text.len()).sum();
+        if s.pending_bytes(&st) + added > MAX_SSE_BUFFER_BYTES || st.queue.len() + frames.len() > MAX_SSE_QUEUED_FRAMES {
+            drop(st);
+            s.abort();
+            return;
+        }
+        if let Some(rev) = frames.iter().find(|f| f.is_state).and_then(|f| f.revision) {
+            st.highest_rev = Some(st.highest_rev.map_or(rev, |h| h.max(rev)));
+        }
+        let mut all = frames;
+        all.extend(st.queue.drain(..));
+        let first = self.event_sequence.fetch_add(all.len() as u64, Ordering::Relaxed);
+        let mut log = ClientLog::new(first.saturating_sub(1));
+        for (i, f) in all.iter_mut().enumerate() {
+            f.id = first + i as u64;
+            log.push(f.clone());
+        }
+        logs.insert(s.client_id.clone(), log);
+        st.queued_bytes = all.iter().map(|f| f.text.len()).sum();
+        st.queue = all.into();
+        st.initializing = false;
+        drop(st);
+        s.wake.notify_one();
     }
 
     // ---------- http ----------
@@ -377,7 +516,12 @@ impl Remote {
         let method = req.method().clone();
         if method == Method::POST && path == "/v1/invoke" {
             let brotli = accepts_brotli(&headers);
-            return match self.handle_invoke(host, &client_id, &headers, body).await {
+            let key = match header(&headers, "idempotency-key") {
+                None => None,
+                Some(k) if valid_idempotency_key(k) => Some(k.to_string()),
+                Some(_) => return early!(error(400, "invalid_idempotency_key", "Idempotency-Key must be 8 to 128 URL-safe characters.", Some(&origin))),
+            };
+            return match self.handle_invoke(host, &client_id, &headers, body, key).await {
                 Ok(value) => {
                     let raw = value.as_ref().map_or("null", |v| v.get());
                     let mut body = Vec::with_capacity(raw.len() + 24);
@@ -405,7 +549,7 @@ impl Remote {
         early!(error(404, "not_found", "The remote desktop route was not found.", Some(&origin)))
     }
 
-    async fn handle_invoke(&self, host: &Host, client_id: &str, headers: &HeaderMap, body: Incoming) -> Result<Option<Box<serde_json::value::RawValue>>, (u16, String, String, Option<Incoming>)> {
+    async fn handle_invoke(self: &Arc<Self>, host: &Arc<Host>, client_id: &str, headers: &HeaderMap, body: Incoming, key: Option<String>) -> Result<Option<Box<serde_json::value::RawValue>>, (u16, String, String, Option<Incoming>)> {
         let fail = |s: u16, c: &str, m: &str| Err((s, c.to_string(), m.to_string(), None));
         let value = read_json_object(headers, body).await?;
         let obj = value.as_object().expect("checked object");
@@ -415,7 +559,51 @@ impl Remote {
         let (Some(method), Some(args)) = (obj.get("method").and_then(|m| m.as_str()), obj.get("args").filter(|a| a.is_array())) else {
             return fail(400, "invalid_request", "The remote method request is invalid.");
         };
-        self.relay(host, client_id, method, args.clone()).await.map_err(|(s, c, m)| (s, c, m, None))
+        let reply = match key {
+            Some(key) => self.relay_once(host, client_id, key, method, args.clone()).await,
+            None => self.relay(host, client_id, method, args.clone()).await,
+        };
+        reply.map_err(|(s, c, m)| (s, c, m, None))
+    }
+
+    /// One call per (client, key): a repeat (a double tap, or iOS resending a POST whose connection
+    /// dropped) waits for the first call and gets its answer. The call runs in its own task, so a
+    /// dropped first request cannot cancel it and let the repeat call the desktop a second time. A
+    /// failed call is forgotten, so retrying it with the same key tries again.
+    async fn relay_once(self: &Arc<Self>, host: &Arc<Host>, client_id: &str, key: String, method: &str, args: serde_json::Value) -> Reply {
+        let mut rx = {
+            let mut idem = lock(&self.idempotency);
+            idem.prune();
+            let id = (client_id.to_string(), key);
+            let request = format!("{method}\n{args}");
+            match idem.entries.get(&id) {
+                // The same key for another call is a client bug; answering the first would hide it.
+                Some((_, first, _)) if *first != request => {
+                    return Err((422, "idempotency_key_reused".into(), "This Idempotency-Key was used for a different call.".into()));
+                }
+                Some((_, _, rx)) => {
+                    crate::info!("remote call repeated with the same idempotency key; answering the first");
+                    rx.clone()
+                }
+                None => {
+                    let (tx, rx) = tokio::sync::watch::channel(None);
+                    idem.entries.insert(id.clone(), (std::time::Instant::now(), request, rx.clone()));
+                    let (me, host, cid, method) = (self.clone(), host.clone(), client_id.to_string(), method.to_string());
+                    tokio::spawn(async move {
+                        let r = me.relay(&host, &cid, &method, args).await;
+                        if r.is_err() {
+                            lock(&me.idempotency).entries.remove(&id);
+                        }
+                        let _ = tx.send(Some(r));
+                    });
+                    rx
+                }
+            }
+        };
+        match rx.wait_for(Option::is_some).await {
+            Ok(r) => r.clone().unwrap_or_else(|| Err((500, "operation_failed".into(), "The remote native operation failed.".into()))),
+            Err(_) => Err((503, "host_stopped".into(), "The remote desktop host stopped.".into())),
+        }
     }
 
     async fn relay(&self, host: &Host, client_id: &str, method: &str, args: serde_json::Value) -> Result<Option<Box<serde_json::value::RawValue>>, (u16, String, String)> {
@@ -560,6 +748,14 @@ impl Remote {
         if !header(headers, "accept").is_some_and(|a| a.split(',').any(|v| v.trim().starts_with("text/event-stream"))) {
             return error(406, "event_stream_required", "Accept: text/event-stream is required.", Some(origin));
         }
+        // Last-Event-ID `<epoch>-<id>` from this host run, with every frame after it still logged:
+        // the stream resumes from there instead of starting with the whole state and transcript.
+        let after = header(headers, "last-event-id")
+            .and_then(|v| v.split_once('-'))
+            .filter(|(epoch, _)| *epoch == self.epoch)
+            .and_then(|(_, id)| id.parse::<u64>().ok());
+        let mut logs = lock(&self.logs);
+        let replay = after.and_then(|a| logs.get(client_id).and_then(|l| l.replay(a)));
         let stream = {
             let mut streams = lock(&self.streams);
             streams.retain(|s| !lock(&s.state).closed);
@@ -567,14 +763,15 @@ impl Remote {
             if streams.len() >= MAX_SSE_STREAMS || mine >= MAX_SSE_PER_CLIENT {
                 return error(429, "too_many_event_streams", "The event-stream limit was reached.", Some(origin));
             }
+            let queue: VecDeque<SseFrame> = replay.clone().unwrap_or_default().into();
             let s = Arc::new(SseStream {
                 client_id: client_id.to_string(),
                 state: Mutex::new(StreamState {
-                    initializing: true,
-                    queue: VecDeque::new(),
-                    queued_bytes: 0,
+                    initializing: replay.is_none(),
+                    queued_bytes: queue.iter().map(|f| f.text.len()).sum(),
+                    highest_rev: queue.iter().filter_map(|f| f.revision).reduce(f64::max),
+                    queue,
                     in_flight: 0,
-                    highest_rev: None,
                     last_sent_rev: None,
                     closed: false,
                 }),
@@ -585,11 +782,21 @@ impl Remote {
             streams.push(s.clone());
             s
         };
-        crate::info!("sse stream opened for {client_id}");
+        let resumed = replay.is_some();
+        if let Some(log) = logs.get_mut(client_id) {
+            log.seen = std::time::Instant::now();
+        }
+        drop(logs);
+        crate::info!("sse stream opened for {client_id} ({})", if resumed { "resumed" } else { "baseline" });
         let brotli = accepts_brotli(headers);
         let (tx, rx) = mpsc::channel::<(Bytes, usize)>(1);
-        let ready = format!("id: {}\nevent: ready\ndata: {{\"version\":1}}\n\n", self.event_sequence.fetch_add(1, Ordering::Relaxed));
+        // `resumed`: the frames after the client's Last-Event-ID follow, and no baseline.
+        let ready = format!("event: ready\ndata: {{\"version\":1,\"resumed\":{resumed}}}\n\n");
         tokio::spawn(write_loop(self.clone(), stream.clone(), tx, brotli, ready));
+        if resumed {
+            stream.wake.notify_one();
+            return self.event_response(stream, rx, brotli, origin);
+        }
         // Bootstrap: the current state and transcript go out before anything queued meanwhile.
         let (me, host2, cid, s2) = (self.clone(), host.clone(), client_id.to_string(), stream.clone());
         tokio::spawn(async move {
@@ -619,8 +826,12 @@ impl Remote {
                 Some(f) => frames.push(f),
                 None => return s2.abort(),
             }
-            bootstrap(&s2, frames);
+            me.bootstrap(&s2, frames);
         });
+        self.event_response(stream, rx, brotli, origin)
+    }
+
+    fn event_response(&self, stream: Arc<SseStream>, rx: mpsc::Receiver<(Bytes, usize)>, brotli: bool, origin: &str) -> Response<Body> {
         let mut resp = Response::new(BoxBody::new(StreamBody::new(Counted { rx, in_body: stream.in_body.clone() })));
         let h = resp.headers_mut();
         h.insert("cache-control", HeaderValue::from_static("no-cache, no-transform"));
@@ -671,7 +882,7 @@ fn frame_of(event: &serde_json::value::RawValue) -> Option<SseFrame> {
     }
     let is_state = ty == "stateChanged";
     let revision = if is_state { head.state.and_then(|s| s.revision) } else { None };
-    Some(SseFrame { is_state, text: Arc::new(text), revision })
+    Some(SseFrame { is_state, text: Arc::new(text), revision, id: 0 })
 }
 
 /// `{"type":..,"<key>":<raw>}` without re-encoding the raw part.
@@ -712,30 +923,6 @@ fn enqueue(s: &SseStream, f: SseFrame) {
         st.queue.push_back(f);
     }
     st.queued_bytes = next_bytes;
-    drop(st);
-    s.wake.notify_one();
-}
-
-fn bootstrap(s: &SseStream, frames: Vec<SseFrame>) {
-    let mut st = lock(&s.state);
-    if st.closed {
-        return;
-    }
-    let added: usize = frames.iter().map(|f| f.text.len()).sum();
-    if s.pending_bytes(&st) + added > MAX_SSE_BUFFER_BYTES || st.queue.len() + frames.len() > MAX_SSE_QUEUED_FRAMES {
-        drop(st);
-        s.abort();
-        return;
-    } else {
-        if let Some(rev) = frames.iter().find(|f| f.is_state).and_then(|f| f.revision) {
-            st.highest_rev = Some(st.highest_rev.map_or(rev, |h| h.max(rev)));
-        }
-        for f in frames.into_iter().rev() {
-            st.queue.push_front(f);
-        }
-        st.queued_bytes += added;
-        st.initializing = false;
-    }
     drop(st);
     s.wake.notify_one();
 }
@@ -814,7 +1001,7 @@ async fn write_loop(remote: Arc<Remote>, s: Arc<SseStream>, tx: mpsc::Sender<(By
         };
         match next {
             Some(f) => {
-                let bytes = enc.encode(&f.text);
+                let bytes = enc.encode(&format!("id: {}-{}\n{}", remote.epoch, f.id, f.text));
                 // A paused client blocks here; closing it (byte cap) or its disconnect ends the wait.
                 // The frame counts as pending (in_flight) until the body channel has taken it.
                 tokio::select! {
@@ -842,6 +1029,7 @@ async fn write_loop(remote: Arc<Remote>, s: Arc<SseStream>, tx: mpsc::Sender<(By
     }
     s.close();
     lock(&remote.streams).retain(|x| !Arc::ptr_eq(x, &s));
+    remote.touch(&s.client_id);
 }
 
 /// The SSE body: frames from the writer task; each one taken by hyper stops counting as pending.
