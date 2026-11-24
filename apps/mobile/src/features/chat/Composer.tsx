@@ -337,7 +337,7 @@ export function Composer({
             contentContainerStyle={styles.pills}
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={styles.flex}
+            style={styles.pillsScroll}
           >
             {modelsLoaded ? (
               <MenuPill
@@ -689,8 +689,16 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     textAlignVertical: "top",
   },
-  toolbar: { flexDirection: "row", alignItems: "center", gap: spacing.xxs },
-  pills: { alignItems: "center", gap: spacing.sm2, paddingHorizontal: spacing.xxs },
+  // The chip row scrolls inside its own slot and is clipped there, so a long model name or a third
+  // chip never runs under Queue / Stop / Send (it did in a running chat: "Ac…" under Stop).
+  toolbar: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  pillsScroll: { flex: 1, minWidth: 0, overflow: "hidden" },
+  pills: {
+    alignItems: "center",
+    gap: spacing.sm2,
+    paddingHorizontal: spacing.xxs,
+    paddingRight: spacing.sm,
+  },
   pressed: { opacity: 0.7 },
   pill: {
     minHeight: 30,
