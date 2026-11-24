@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   },
   camera: {
     width: "100%",
-    aspectRatio: 1,
+    aspectRatio: 1.15,
     borderRadius: radius.composer + 6,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",

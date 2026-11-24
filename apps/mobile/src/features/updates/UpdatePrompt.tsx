@@ -1,9 +1,10 @@
+import * as Haptics from "expo-haptics";
 import * as Updates from "expo-updates";
 import { useEffect, useRef, useState } from "react";
 import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { hitSize, radius, spacing, text, usePalette } from "../../theme";
-import { GlassCard } from "../../ui";
+import { GlassCard, Icon } from "../../ui";
 import { shouldCheck } from "./update-check";
 
 /**
@@ -37,7 +38,15 @@ export function UpdatePrompt() {
     <View pointerEvents="box-none" style={[styles.wrap, { bottom: insets.bottom + spacing.md }]}>
       <GlassCard style={styles.card}>
         <View accessibilityRole="summary" accessibilityLiveRegion="polite" style={styles.row}>
-          <Text style={[text.subheadline, styles.line, { color: palette.text }]}>Update ready</Text>
+          <Icon color={palette.accentText} name="arrow.down.circle.fill" size={18} />
+          <View style={styles.line}>
+            <Text style={[text.subheadline, styles.strong, { color: palette.textStrong }]}>
+              Update ready
+            </Text>
+            <Text style={[text.caption, { color: palette.textMuted }]}>
+              Restart to use the new version
+            </Text>
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Later"
@@ -51,7 +60,10 @@ export function UpdatePrompt() {
             accessibilityRole="button"
             accessibilityLabel="Restart to update"
             hitSlop={8}
-            onPress={() => Updates.reloadAsync().catch(() => setDismissed(true))}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+              Updates.reloadAsync().catch(() => setDismissed(true));
+            }}
             style={styles.action}
           >
             <Text style={[text.subheadline, styles.strong, { color: palette.accentText }]}>
@@ -66,9 +78,9 @@ export function UpdatePrompt() {
 
 const styles = StyleSheet.create({
   wrap: { position: "absolute", left: spacing.lg, right: spacing.lg },
-  card: { borderRadius: radius.md2, paddingVertical: spacing.xs },
+  card: { borderRadius: radius.md2, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   line: { flex: 1 },
-  action: { minHeight: hitSize.min, justifyContent: "center" },
+  action: { minHeight: hitSize.min, justifyContent: "center", paddingHorizontal: spacing.xs },
   strong: { fontWeight: "600" },
 });

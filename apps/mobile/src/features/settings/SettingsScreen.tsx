@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { shortAddress } from "../home/home-text";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
@@ -207,7 +208,7 @@ export default function SettingsScreen() {
           />
           <ListRow
             label="Address"
-            detail={pairing?.url ?? "—"}
+            detail={pairing ? shortAddress(pairing.url) : "—"}
             leading={<Icon name="network" color={palette.textMuted} />}
           />
           {pcVersion ? (

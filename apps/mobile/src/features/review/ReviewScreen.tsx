@@ -299,7 +299,9 @@ export default function ReviewScreen({ route }: ReviewScreenProps) {
             {review.branchName || review.baseLabel ? (
               <Text numberOfLines={1} style={[text.caption, { color: palette.textMuted }]}>
                 {review.branchName ?? ""}
-                {review.baseLabel ? ` vs ${review.baseLabel}` : ""}
+                {review.baseLabel && review.baseLabel !== review.branchName
+                  ? ` vs ${review.baseLabel}`
+                  : ""}
               </Text>
             ) : null}
           </View>
