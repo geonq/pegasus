@@ -22,13 +22,13 @@ const config: ExpoConfig = {
   // the config differs, and the fingerprint runtime version the PC publishes for never matches the app.
   platforms: ["ios", "android"],
   orientation: "portrait",
-  // The Mac app's icon (apps/desktop/resources/icon.icns, 1024 px), flattened on black.
+  // The Mac app's tile, full-bleed (scripts/make-ios-icon.py); iOS masks the corners itself.
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
-  // fingerprint: a hash of everything native (Expo config, native modules and their versions), so a
-  // JS update only reaches builds with the exact same native code. appVersion would trust us to bump
-  // "version" on every native change; forgetting it once loads JS into a binary that lacks a module.
-  runtimeVersion: { policy: "fingerprint" },
+  // A fixed string, bumped by hand on every native change (new native module, icon, plugin, Expo SDK).
+  // The fingerprint policy hashed differently on the PC (10968cd…, publish) and the Mac (4998995…,
+  // the built app), so no update ever matched. Bump this and rebuild on the Mac whenever native changes.
+  runtimeVersion: "native-2",
   updates: {
     url: updateUrl,
     enabled: true,
