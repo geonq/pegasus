@@ -6,7 +6,7 @@ import {
   sessionPermissionStatusKey,
   type SessionPermission,
 } from "../../../contracts/session-permission";
-import { ChatIcon, PencilIcon, SearchIcon, TerminalIcon } from "../../ui/icons";
+import { ChatIcon, CheckIcon, PencilIcon, SearchIcon, TerminalIcon } from "../../ui/icons";
 
 const PERMISSION_OPTIONS: readonly {
   readonly value: SessionPermission;
@@ -129,14 +129,14 @@ export function PermissionSelector({
           <span>{active?.label ?? "Permissions"}</span>
         </button>
         {open ? (
-          <div className="model-selector__dropdown" onWheel={(event) => event.stopPropagation()}>
+          <div className="model-selector__dropdown permission-menu" onWheel={(event) => event.stopPropagation()}>
             <div className="model-selector__group-title">Permissions</div>
             {PERMISSION_OPTIONS.map((option) => {
               const isActive = option.value === permission;
               return (
                 <button
                   aria-pressed={isActive}
-                  className={`model-selector__item${isActive ? " model-selector__item--active" : ""}`}
+                  className={`model-selector__item permission-menu__item${isActive ? " model-selector__item--active" : ""}`}
                   key={option.value}
                   type="button"
                   onClick={() => {
@@ -144,8 +144,12 @@ export function PermissionSelector({
                     setOpen(false);
                   }}
                 >
-                  <span className="model-selector__item-label">{option.label}</span>
-                  <span className="model-selector__item-meta">{option.description}</span>
+                  <span className="permission-menu__icon">{option.icon}</span>
+                  <span className="permission-menu__text">
+                    <span className="model-selector__item-label">{option.label}</span>
+                    <span className="model-selector__item-meta">{option.description}</span>
+                  </span>
+                  {isActive ? <CheckIcon /> : null}
                 </button>
               );
             })}

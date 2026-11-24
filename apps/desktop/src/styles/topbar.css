@@ -258,19 +258,21 @@ button.window-controls__button:not(:disabled):active {
   background: var(--surface-overlay-muted);
 }
 
-/* The toggle sits near the window's left edge, so its tooltip opens rightwards. */
+/* The toggle sits at the window's left edge with the sidebar's rows right below it, so its tooltip
+   opens to its right, centred on it, instead of dropping over "New chat". */
 .sidebar-toggle__tooltip {
-  left: 0;
-  transform: translateY(-2px);
+  top: 50%;
+  left: calc(100% + 8px);
+  transform: translate(-2px, -50%);
 }
 
 .sidebar-toggle:has(:focus-visible) .sidebar-toggle__tooltip {
-  transform: none;
+  transform: translateY(-50%);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .sidebar-toggle:hover .sidebar-toggle__tooltip {
-    transform: none;
+    transform: translateY(-50%);
   }
 }
 

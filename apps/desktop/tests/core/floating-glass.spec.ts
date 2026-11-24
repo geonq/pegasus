@@ -10,7 +10,7 @@ import {
 } from "../helpers/electron-app";
 import { captureProof, HT, rect, spreadContrast, windowsHitTest } from "../helpers/ui-chrome";
 
-const GLASS = /blur\(12px\) saturate\(1\.8\)/;
+const GLASS = /blur\(32px\) saturate\(1\.8\)/;
 
 /** The surface's own fill and blur, and every ancestor that would cut its blur off. */
 async function glassOf(surface: Locator) {
@@ -36,10 +36,10 @@ async function expectGlass(surface: Locator) {
   await expect(surface).toBeVisible();
   const glass = await glassOf(surface);
   expect(glass.backdrop).toMatch(GLASS);
-  // About 78% of the surface colour: translucent, not solid and not see-through.
+  // About 86% of the surface colour: acrylic, not solid and not see-through.
   const alpha = Number(/rgba\([^)]*,\s*([\d.]+)\)/.exec(glass.background)?.[1] ?? 1);
-  expect(alpha).toBeGreaterThanOrEqual(0.72);
-  expect(alpha).toBeLessThanOrEqual(0.8);
+  expect(alpha).toBeGreaterThanOrEqual(0.8);
+  expect(alpha).toBeLessThanOrEqual(0.9);
   expect(glass.roots).toEqual([]);
 }
 

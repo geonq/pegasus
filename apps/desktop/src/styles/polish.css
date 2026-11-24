@@ -324,8 +324,12 @@ option:disabled {
   .chart-tooltip-panel
 ),
 ::picker(select) {
-  background: var(--surface-float);
-  backdrop-filter: var(--glass-blur) var(--glass-saturation);
+  border-color: var(--float-rim);
+  background: var(--float-grain), var(--surface-float);
+  backdrop-filter: var(--float-blur) var(--glass-saturation);
+  box-shadow:
+    inset 0 1px 0 var(--float-highlight),
+    var(--elevation-menu);
 }
 
 /* Shared activity canvases crossfade in fixed bounds, never remount the surrounding status row. */
