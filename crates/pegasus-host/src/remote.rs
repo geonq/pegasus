@@ -31,6 +31,18 @@ const INVOKE_TIMEOUT: Duration = Duration::from_secs(70);
 /// A client's recent frames are kept this long after its last stream, so a reconnect resumes with
 /// `Last-Event-ID` instead of a whole new state and transcript.
 const RESUME_WINDOW: Duration = Duration::from_secs(60);
+
+/// RESUME_WINDOW, or PEGASUS_REMOTE_RESUME_MS for tests that need the relay to stop quickly.
+fn resume_window() -> Duration {
+    static WINDOW: std::sync::OnceLock<Duration> = std::sync::OnceLock::new();
+    *WINDOW.get_or_init(|| {
+        std::env::var("PEGASUS_REMOTE_RESUME_MS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .map(Duration::from_millis)
+            .unwrap_or(RESUME_WINDOW)
+    })
+}
 /// The resume log's caps; well under the per-stream caps, so a replay always fits one stream.
 const LOG_MAX_BYTES: usize = 8 * 1024 * 1024;
 const LOG_MAX_FRAMES: usize = 48;
@@ -398,7 +410,7 @@ impl Remote {
             .filter(|s| s.client_id == client_id && !lock(&s.state).closed)
             .cloned()
             .collect();
-        let warm = logs.get(client_id).is_some_and(|l| l.seen.elapsed() < RESUME_WINDOW);
+        let warm = logs.get(client_id).is_some_and(|l| l.seen.elapsed() < resume_window());
         if recipients.is_empty() && !warm {
             logs.remove(client_id);
             return false;

@@ -17,10 +17,13 @@ export function useIsolatedHost(): void {
       PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR,
       PEGASUS_HOST: process.env.PEGASUS_HOST,
       PEGASUS_HOST_IDLE_SECS: process.env.PEGASUS_HOST_IDLE_SECS,
+      PEGASUS_REMOTE_RESUME_MS: process.env.PEGASUS_REMOTE_RESUME_MS,
     };
     agentDir = await mkdtemp(join(tmpdir(), "pi-gui-unit-host-"));
     process.env.PI_CODING_AGENT_DIR = agentDir;
     process.env.PEGASUS_HOST_IDLE_SECS = "5";
+    // A closed phone stream stays resumable for 60 s; specs that check the relay stops can't wait that long.
+    process.env.PEGASUS_REMOTE_RESUME_MS = "300";
     delete process.env.PEGASUS_HOST;
   });
   test.afterAll(async () => {
