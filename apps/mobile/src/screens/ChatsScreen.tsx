@@ -9,6 +9,7 @@ import { buildHome, type ChatRow } from "../api/chats";
 import { ChatListRow, type ChatRowActions } from "../features/home/ChatListRow";
 import { ConnectionBanner } from "../features/home/ConnectionBanner";
 import { homeItems, type HomeItem } from "../features/home/home-items";
+import { homeSummary } from "../features/home/home-text";
 import type { RootStackParamList } from "../navigation";
 import { usePegasus } from "../state/PegasusProvider";
 import {
@@ -123,7 +124,9 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
                 styles.liveDot,
                 {
                   backgroundColor: live
-                    ? palette.success
+                    ? countOf(items, "needs-you") > 0
+                      ? palette.warning
+                      : palette.success
                     : status.state === "connecting"
                       ? palette.statusNeutral
                       : palette.warning,
@@ -134,8 +137,10 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
               maxFontSizeMultiplier={maxFontScale.chrome}
               style={[text.footnote, { color: palette.textMuted }]}
             >
-              {connection}
-              {state ? ` · ${projectCount(items)} projects` : ""}
+              {live && state
+                ? (homeSummary(countOf(items, "needs-you"), countOf(items, "working")) ??
+                  "All quiet")
+                : connection}
             </Text>
           </View>
         }
@@ -242,7 +247,9 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
           if (item.kind === "header") {
             return (
               <View style={styles.header}>
-                {item.icon ? (
+                {item.workspaceId ? (
+                  <Icon color={palette.textSoft} name="folder" size={12} />
+                ) : item.icon ? (
                   <Icon
                     color={item.tint ? palette[item.tint] : palette.textSoft}
                     name={item.icon}
@@ -324,8 +331,9 @@ export function ChatsScreen({ navigation }: NativeStackScreenProps<RootStackPara
   );
 }
 
-function projectCount(items: readonly HomeItem[]): number {
-  return items.filter((item) => item.kind === "header" && item.workspaceId).length;
+function countOf(items: readonly HomeItem[], section: "needs-you" | "working"): number {
+  const header = items.find((item) => item.kind === "header" && item.key === `h:${section}`);
+  return header?.kind === "header" ? header.count : 0;
 }
 
 const styles = StyleSheet.create({

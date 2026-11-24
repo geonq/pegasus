@@ -10,6 +10,7 @@ import {
   type MenuSection,
   type SwipeAction,
 } from "../../ui";
+import { cleanPreview, cleanTitle } from "./home-text";
 import { hitSize, maxFontScale, radius, spacing, text, usePalette, weight } from "../../theme";
 
 export interface ChatRowActions {
@@ -20,15 +21,27 @@ export interface ChatRowActions {
   readonly newChatIn: (row: ChatRow) => void;
 }
 
-/** The second line: what the chat waits for, what it is doing, or its last message. */
-function detailOf(row: ChatRow, showProject: boolean): string {
+/**
+ * The lines under the title: what the chat waits for, is doing or ended with (coloured by state),
+ * then, when that is a state and not news, the last thing it said, with its project where chats of
+ * several projects mix.
+ */
+function detailOf(
+  row: ChatRow,
+  showProject: boolean,
+): { readonly main: string; readonly tone: "warning" | "danger" | "muted"; readonly sub: string } {
+  const preview = cleanPreview(row.session.preview);
+  const project = showProject ? row.workspace.name : "";
+  const joined = [project, preview].filter(Boolean).join(" · ");
   const waiting = waitingLabel(row.pendingDialogs);
-  if (waiting) return waiting;
-  if (row.session.status === "failed") return "Stopped with an error";
-  if (row.session.status === "running") return row.session.currentStep || "Working…";
-  const preview = row.session.preview.replace(/\s+/gu, " ").trim();
-  if (showProject) return preview ? `${row.workspace.name} · ${preview}` : row.workspace.name;
-  return preview || "No messages yet";
+  if (waiting) return { main: waiting, tone: "warning", sub: joined };
+  if (row.session.status === "failed") {
+    return { main: "Stopped with an error", tone: "danger", sub: joined };
+  }
+  if (row.session.status === "running") {
+    return { main: row.session.currentStep || "Working…", tone: "muted", sub: project };
+  }
+  return { main: joined || "No messages yet", tone: "muted", sub: "" };
 }
 
 /**
@@ -62,7 +75,7 @@ export const ChatListRow = memo(function ChatListRow({
   const running = session.status === "running";
   const waiting = row.pendingDialogs.length > 0;
   const failed = session.status === "failed";
-  const title = session.title || "Untitled chat";
+  const title = cleanTitle(session.title);
   const when = relativeTime(session.lastInteractedAt ?? session.updatedAt, nowMs);
   const detail = detailOf(row, showProject);
   const status: DotStatus = running
@@ -185,7 +198,8 @@ export const ChatListRow = memo(function ChatListRow({
             row.unread ? "unread" : null,
             running ? "working" : null,
             pinned ? "pinned" : null,
-            detail,
+            detail.main,
+            detail.sub,
             when,
           ]
             .filter(Boolean)
@@ -244,15 +258,17 @@ export const ChatListRow = memo(function ChatListRow({
                   text.footnote,
                   styles.flex,
                   {
-                    color: waiting
-                      ? palette.warningText
-                      : failed
-                        ? palette.dangerText
-                        : palette.textMuted,
+                    color:
+                      detail.tone === "warning"
+                        ? palette.warningText
+                        : detail.tone === "danger"
+                          ? palette.dangerText
+                          : palette.textMuted,
+                    fontWeight: detail.tone === "muted" ? weight.normal : weight.medium,
                   },
                 ]}
               >
-                {detail}
+                {detail.main}
               </Text>
               {row.childCount > 0 ? (
                 <View
@@ -279,6 +295,11 @@ export const ChatListRow = memo(function ChatListRow({
                 </View>
               ) : null}
             </View>
+            {detail.sub ? (
+              <Text numberOfLines={1} style={[text.footnote, { color: palette.textSoft }]}>
+                {detail.sub}
+              </Text>
+            ) : null}
           </View>
         </Pressable>
       </SwipeRow>
@@ -302,7 +323,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md2,
     paddingRight: spacing.lg,
   },
-  lead: { width: 36, alignItems: "center", justifyContent: "center" },
+  lead: { width: 32, alignItems: "center", justifyContent: "center" },
   body: { flex: 1, minWidth: 0, gap: 3 },
   line: { flexDirection: "row", alignItems: "center", gap: spacing.sm2 },
   flex: { flex: 1, minWidth: 0 },
@@ -317,5 +338,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     justifyContent: "center",
   },
-  separator: { height: StyleSheet.hairlineWidth, marginLeft: 36 },
+  separator: { height: StyleSheet.hairlineWidth, marginLeft: 32 },
 });
