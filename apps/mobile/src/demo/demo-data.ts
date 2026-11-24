@@ -6,6 +6,7 @@ import type {
   TranscriptItem,
   WorkspaceRecord,
 } from "../api/types.ts";
+import { demoAgentSessions, demoAgents, demoHistory } from "./demo-agents.ts";
 
 export const DEMO_URL = "http://demo.pegasus:47219";
 export const DEMO_PAIRING_LINK = `pegasus://pair?v=1&url=${encodeURIComponent(DEMO_URL)}&token=demo-token-0123456789abcdefghijklmnopqrstuv&name=Studio%20PC`;
@@ -34,8 +35,8 @@ const config = (provider: string, modelId: string, thinkingLevel = "high") => ({
   config: { provider, modelId, thinkingLevel },
 });
 
-export function demoWorkspaces(now: number): WorkspaceRecord[] {
-  return [
+export function demoWorkspaces(now: number, busy = false): WorkspaceRecord[] {
+  const workspaces: WorkspaceRecord[] = [
     {
       id: "pegasus",
       name: "pegasus",
@@ -132,6 +133,9 @@ export function demoWorkspaces(now: number): WorkspaceRecord[] {
       sessions: [],
     },
   ];
+  if (!busy) return workspaces;
+  const [pegasus, ...rest] = workspaces as [WorkspaceRecord, ...WorkspaceRecord[]];
+  return [{ ...pegasus, sessions: [...pegasus.sessions, ...demoAgentSessions(now)] }, ...rest];
 }
 
 const models = [
@@ -189,6 +193,7 @@ export function demoState(
   workspaces: readonly WorkspaceRecord[],
   revision: number,
   selected: { workspaceId: string; sessionId: string },
+  busy = false,
 ): DesktopAppState {
   const runtime = demoRuntime();
   return {
@@ -235,20 +240,22 @@ export function demoState(
         },
       },
     },
-    orchestrationChildren: [
-      {
-        id: "child-1",
-        title: "Check VoiceOver labels",
-        role: "reviewer",
-        status: "running",
-        latestTranscript: "Reading ChatListRow.tsx",
-        parentWorkspaceId: "pegasus",
-        parentSessionId: "phone-design",
-        childWorkspaceId: "pegasus",
-        childSessionId: "agent-review",
-        updatedAt: ago(now, 1),
-      },
-    ],
+    orchestrationChildren: busy
+      ? demoAgents(now)
+      : [
+          {
+            id: "child-1",
+            title: "Check VoiceOver labels",
+            role: "reviewer",
+            status: "running",
+            latestTranscript: "Reading ChatListRow.tsx",
+            parentWorkspaceId: "pegasus",
+            parentSessionId: "phone-design",
+            childWorkspaceId: "pegasus",
+            childSessionId: "agent-review",
+            updatedAt: ago(now, 1),
+          },
+        ],
     runtimeByWorkspace: { pegasus: runtime, seher: runtime, uni: runtime },
   } as DesktopAppState;
 }
@@ -275,6 +282,7 @@ export function demoTranscript(
   now: number,
   workspaceId: string,
   sessionId: string,
+  busy = false,
 ): SelectedTranscript {
   const t = (minutes: number) => ago(now, minutes);
   const items: TranscriptItem[] =
@@ -356,7 +364,8 @@ export function demoTranscript(
               createdAt: t(39),
             } as TranscriptItem,
           ];
-  return { workspaceId, sessionId, transcript: items };
+  const history = busy && sessionId === "phone-design" ? demoHistory(now) : [];
+  return { workspaceId, sessionId, transcript: [...history, ...items] };
 }
 
 export function demoAccountLimits(now: number) {

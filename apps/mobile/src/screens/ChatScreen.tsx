@@ -21,10 +21,11 @@ import { LIMIT_WARNING_PERCENT, planStatus, resetsIn } from "../api/usage";
 import { groupTranscript } from "../api/worklog";
 import { ApprovalCard } from "../components/ApprovalCard";
 import { messageOf, useChatActions } from "../features/chat/actions";
+import { countAgents } from "../features/chat/agent-summary";
+import { AgentsPill, AgentsSheet, useChatAgents } from "../features/chat/Agents";
 import { ChatTitle, type ChatStatus } from "../features/chat/ChatHeader";
 import { Composer } from "../features/chat/Composer";
 import { FloatingStatus } from "../features/chat/FloatingStatus";
-import { SubagentRows } from "../features/chat/SubagentRows";
 import { selectionHaptic, TranscriptRow } from "../features/chat/TranscriptRow";
 import { hasRuntime, modelsOf, permissionOf, sessionConfigOf } from "../features/chat/wire";
 import type { RootStackParamList } from "../navigation";
@@ -94,13 +95,7 @@ export function ChatScreen({
   const pending = pendingDialogsOf(state?.sessionExtensionUiBySession, workspaceId, sessionId);
   const asked = pending[0];
   const queued = state?.queuedComposerMessages ?? [];
-  const agents = useMemo(
-    () =>
-      (state?.orchestrationChildren ?? []).filter(
-        (child) => child.parentWorkspaceId === workspaceId && child.parentSessionId === sessionId,
-      ),
-    [state?.orchestrationChildren, workspaceId, sessionId],
-  );
+  const agentCounts = countAgents(useChatAgents(workspaceId, sessionId));
   const plan = planStatus(state?.sessionUsageBySession?.[key]);
 
   // Opening a chat also tells the PC which chat this phone is looking at, so the transcript, the
@@ -175,6 +170,28 @@ export function ChatScreen({
     });
     selectionHaptic();
   }, []);
+
+  // Subagents never take transcript space: one pill above the composer, the list in a sheet.
+  const openAgents = useCallback(() => {
+    selectionHaptic();
+    overlay.openSheet(
+      (close) => (
+        <AgentsSheet
+          onOpen={(agent) => {
+            close();
+            navigation.push("Chat", {
+              workspaceId: agent.childWorkspaceId,
+              sessionId: agent.childSessionId,
+              title: agent.title,
+            });
+          }}
+          sessionId={sessionId}
+          workspaceId={workspaceId}
+        />
+      ),
+      "Agents",
+    );
+  }, [navigation, overlay, sessionId, workspaceId]);
 
   const submitAnswer = useCallback(
     (next: PendingDialogAnswer) => answer({ workspaceId, sessionId }, next),
@@ -357,28 +374,16 @@ export function ChatScreen({
           )
         }
         ListFooterComponent={
-          <View style={styles.footer}>
-            {agents.length > 0 ? (
-              <SubagentRows
-                agents={agents}
-                onOpen={(agent) =>
-                  navigation.push("Chat", {
-                    workspaceId: agent.childWorkspaceId,
-                    sessionId: agent.childSessionId,
-                    title: agent.title,
-                  })
-                }
-              />
-            ) : null}
-            {asked ? (
+          asked ? (
+            <View style={styles.footer}>
               <ApprovalCard
                 dialog={asked}
                 key={asked.requestId}
                 onAnswer={submitAnswer}
                 waiting={pending.length}
               />
-            ) : null}
-          </View>
+            </View>
+          ) : null
         }
         alignItemsAtEnd
         contentContainerStyle={styles.content}
@@ -456,6 +461,9 @@ export function ChatScreen({
           style={styles.dock}
         >
           <View onLayout={onComposerLayout} pointerEvents="box-none" ref={dock}>
+            {agentCounts.total > 0 && items !== null ? (
+              <AgentsPill counts={agentCounts} onPress={openAgents} />
+            ) : null}
             <FloatingStatus
               onJump={jumpToLatest}
               showJump={awayFromEnd && items !== null && rows.length > 0}

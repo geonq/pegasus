@@ -5,6 +5,7 @@ import type { RootStackParamList } from "../navigation";
 import { usePegasus } from "../state/PegasusProvider";
 import { text } from "../theme";
 import { useOverlay } from "../ui";
+import { AgentsSheet } from "../features/chat/Agents";
 import { demoLaunch } from "./install";
 
 /**
@@ -83,6 +84,9 @@ export function DemoDirector() {
             message: "Chat archived",
             action: { label: "Undo", onPress: () => undefined },
           });
+        }
+        if (launch.overlay === "agents") {
+          overlay.openSheet(() => <AgentsSheet onOpen={() => undefined} {...target} />, "Agents");
         }
         if (launch.overlay === "sheet") {
           overlay.openSheet(() => <Text style={text.body}>Sheet</Text>, "Sheet");

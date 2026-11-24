@@ -22,6 +22,7 @@ import {
  * updates never set it, so there it is off. Pair with the launch argument
  * `-PegasusPairingLink <DEMO_PAIRING_LINK>`; `-PegasusDemoScreen Chat|Review|Settings|NewChat|Usage`
  * opens a screen and `-PegasusDemoOverlay menu|sheet|confirm` shows a floating layer on it.
+ * `-PegasusDemoAgents 1` gives the main chat 16 subagents and an hour of history.
  */
 export const DEMO_ENABLED = process.env.EXPO_PUBLIC_PEGASUS_DEMO === "1";
 
@@ -40,12 +41,13 @@ type Listener = (frame: string) => void;
 
 function installDemo() {
   const now = Date.now();
-  let workspaces: WorkspaceRecord[] = demoWorkspaces(now);
+  const busy = Platform.OS === "ios" && String(Settings.get("PegasusDemoAgents")) === "1";
+  let workspaces: WorkspaceRecord[] = demoWorkspaces(now, busy);
   let revision = 1;
   let selected = { workspaceId: "pegasus", sessionId: "phone-design" };
   let announced = false;
   const streams = new Set<Listener>();
-  const state = () => demoState(now, workspaces, revision, selected);
+  const state = () => demoState(now, workspaces, revision, selected, busy);
   const frame = (event: unknown) => `data: ${JSON.stringify(event)}\n\n`;
   const publish = () => {
     revision += 1;
@@ -88,13 +90,13 @@ function installDemo() {
           send(
             frame({
               type: "selectedTranscriptChanged",
-              transcript: demoTranscript(now, target.workspaceId, target.sessionId),
+              transcript: demoTranscript(now, target.workspaceId, target.sessionId, busy),
             }),
           );
         }
         return null;
       case "getSelectedTranscript":
-        return demoTranscript(now, selected.workspaceId, selected.sessionId);
+        return demoTranscript(now, selected.workspaceId, selected.sessionId, busy);
       case "setSessionPinned":
         return editSession(target, { pinnedAt: args[1] ? new Date().toISOString() : undefined });
       case "archiveSession":
@@ -173,7 +175,7 @@ function installDemo() {
         push(
           frame({
             type: "selectedTranscriptChanged",
-            transcript: demoTranscript(now, selected.workspaceId, selected.sessionId),
+            transcript: demoTranscript(now, selected.workspaceId, selected.sessionId, busy),
           }),
         );
       }, 120);
